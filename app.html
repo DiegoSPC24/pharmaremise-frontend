@@ -962,40 +962,6 @@ async function uploadFactureAuto(file) {
   }
 }
 
-async function uploadFacture() {
-  if (!selected_file) return
-  const fd = new FormData()
-  fd.append('file', selected_file)
-
-  toast('Analyse en cours...')
-  try {
-    let result
-    if (depot_tab === 'grossiste') {
-      const params = new URLSearchParams({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
-      result = await apiPostForm(`/grossiste/factures/analyser?${params}`, fd)
-    } else {
-      toast('Dépôt direct labo — disponible prochainement', 'red')
-      return
-    }
-
-    const el = document.getElementById('depot-result')
-    el.style.display = 'block'
-    el.innerHTML = `
-      <div class="alert alert-green">
-        <span>✓</span>
-        <div>
-          <strong>Analyse réussie !</strong> ${result.nb_lignes} lignes analysées —
-          CA éligible : ${eur(result.ca_eligible)} —
-          Remise estimée : <strong>${eur(result.remise_calculee)}</strong>
-        </div>
-      </div>
-    `
-    toast('Facture analysée !', 'green')
-  } catch(e) {
-    toast('Erreur d\'analyse', 'red')
-  }
-}
-
 // ── COMPARATEUR ───────────────────────────────────────────────────────────
 async function calculerComparateur() {
   const pond_a = parseFloat(document.getElementById('cmp-pond-a').value)||0
