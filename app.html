@@ -295,24 +295,19 @@
         <div class="card-title">Déposer une facture</div>
         <div class="three-col" style="margin-bottom:16px">
           <button class="btn btn-outline" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
-          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct labo</button>
-          <button class="btn btn-outline" id="depot-tab-rfa" onclick="setDepotTab('rfa')" style="justify-content:center">📋 RFA</button>
-        </div>
-        <div id="depot-form">
-          <div class="upload-zone" onclick="document.getElementById('file-input').click()">
-            <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="onFileSelected()" />
-            <div class="upload-icon">📄</div>
-            <div class="upload-title">Glissez votre facture PDF ici</div>
-            <div class="upload-sub">ou cliquez pour parcourir</div>
-          </div>
-          <div id="file-selected" style="display:none;margin-top:12px" class="alert alert-green">
-            <span>✓</span><span id="file-name"></span>
-            <button class="btn btn-green btn-sm" style="margin-left:auto" onclick="uploadFacture()">Analyser</button>
-          </div>
-        </div>
-        <div id="depot-result" style="display:none;margin-top:16px"></div>
-      </div>
-    </div>
+          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct <div id="depot-form">
+  <div class="upload-zone" 
+       onclick="document.getElementById('file-input').click()"
+       ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+       ondragleave="this.style.borderColor='var(--border)'"
+       ondrop="onFileDrop(event)">
+    <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
+    <div class="upload-icon">📄</div>
+    <div class="upload-title">Glissez vos factures PDF ici</div>
+    <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
+  </div>
+  <div id="upload-queue" style="margin-top:12px"></div>
+</div>
 
     <!-- ── COMPARATEUR ── -->
     <div id="screen-comparateur" class="screen">
@@ -923,14 +918,48 @@ function setDepotTab(tab) {
   ;['grossiste','labo','rfa'].forEach(t => {
     document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
   })
+function onFileDrop(event) {
+  event.preventDefault();
+  event.currentTarget.style.borderColor = 'var(--border)';
+  onFilesSelected(event.dataTransfer.files);
 }
 
-function onFileSelected() {
-  const f = document.getElementById('file-input').files[0]
-  if (!f) return
-  selected_file = f
-  document.getElementById('file-name').textContent = f.name
-  document.getElementById('file-selected').style.display = 'flex'
+function onFilesSelected(files) {
+  if (!files || files.length === 0) return;
+  Array.from(files).forEach(f => {
+    if (f.type === 'application/pdf') {
+      uploadFactureAuto(f);
+    }
+  });
+}
+
+async function uploadFactureAuto(file) {
+  const queue = document.getElementById('upload-queue');
+  const id = 'file-' + Date.now() + Math.random();
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'alert alert-green';
+  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px';
+  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`;
+  queue.appendChild(div);
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch(`${API}/grossiste/factures/analyser`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: fd
+    });
+    const data = await res.json();
+    if (res.ok) {
+      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--primary)">${data.total_ht}€ HT — ${data.remise_calculee}€ remise</span>`;
+    } else {
+      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail || 'Erreur'}</span>`;
+    }
+  } catch(e) {
+    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`;
+  }
 }
 
 async function uploadFacture() {
