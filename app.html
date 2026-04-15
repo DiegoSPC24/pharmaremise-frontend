@@ -918,6 +918,8 @@ function setDepotTab(tab) {
   ;['grossiste','labo','rfa'].forEach(t => {
     document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
   })
+}
+
 function onFileDrop(event) {
   event.preventDefault();
   event.currentTarget.style.borderColor = 'var(--border)';
@@ -948,7 +950,7 @@ async function uploadFactureAuto(file) {
   try {
     const res = await fetch(`${API}/grossiste/factures/analyser`, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
+      headers: { 'Authorization': 'Bearer ' + TOKEN },
       body: fd
     });
     const data = await res.json();
