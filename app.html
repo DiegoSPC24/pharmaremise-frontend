@@ -961,7 +961,7 @@ async function uploadFactureAuto(file) {
     });
     const data = await res.json();
     if (res.ok) {
-      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--primary)">${data.total_ht}€ HT — ${data.remise_calculee}€ remise</span>`;
+      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`;
     } else {
       div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail || 'Erreur'}</span>`;
     }
