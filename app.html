@@ -294,20 +294,26 @@
       <div class="card">
         <div class="card-title">Déposer une facture</div>
         <div class="three-col" style="margin-bottom:16px">
-          <button class="btn btn-outline" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
-          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct <div id="depot-form">
-  <div class="upload-zone" 
-       onclick="document.getElementById('file-input').click()"
-       ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
-       ondragleave="this.style.borderColor='var(--border)'"
-       ondrop="onFileDrop(event)">
-    <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
-    <div class="upload-icon">📄</div>
-    <div class="upload-title">Glissez vos factures PDF ici</div>
-    <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
-  </div>
-  <div id="upload-queue" style="margin-top:12px"></div>
-</div>
+          <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
+          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct labo</button>
+          <button class="btn btn-outline" id="depot-tab-rfa" onclick="setDepotTab('rfa')" style="justify-content:center">📋 RFA</button>
+        </div>
+        <div id="depot-form">
+          <div class="upload-zone"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+               ondragleave="this.style.borderColor='var(--border)'"
+               ondrop="onFileDrop(event)">
+            <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
+            <div class="upload-icon">📄</div>
+            <div class="upload-title">Glissez vos factures PDF ici</div>
+            <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
+          </div>
+          <div id="upload-queue" style="margin-top:12px"></div>
+        </div>
+        <div id="depot-result" style="display:none;margin-top:16px"></div>
+      </div>
+    </div>
 
     <!-- ── COMPARATEUR ── -->
     <div id="screen-comparateur" class="screen">
