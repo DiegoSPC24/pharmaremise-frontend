@@ -20,105 +20,49 @@
       --sidebar: #1A1A18;
     }
     body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
-
-    /* ── SIDEBAR ── */
-    .sidebar {
-      width: 220px; flex-shrink: 0;
-      background: var(--sidebar); display:flex; flex-direction:column;
-      padding: 0; overflow: hidden;
-    }
-    .sidebar-logo {
-      padding: 20px 20px 16px;
-      font-family:'DM Serif Display',serif; font-size:18px; color:var(--green);
-      border-bottom: 0.5px solid rgba(255,255,255,0.07);
-      flex-shrink: 0;
-    }
+    .sidebar { width:220px; flex-shrink:0; background:var(--sidebar); display:flex; flex-direction:column; padding:0; overflow:hidden; }
+    .sidebar-logo { padding:20px 20px 16px; font-family:'DM Serif Display',serif; font-size:18px; color:var(--green); border-bottom:0.5px solid rgba(255,255,255,0.07); flex-shrink:0; }
     .sidebar-logo span { color:rgba(255,255,255,0.7); }
-    .sidebar-plan {
-      padding: 10px 20px 14px;
-      font-size: 11px; color: rgba(255,255,255,0.35);
-      text-transform: uppercase; letter-spacing: 1px;
-      border-bottom: 0.5px solid rgba(255,255,255,0.07);
-    }
-    .sidebar-plan strong { color: var(--green); font-weight:600; }
-    nav.sidebar-nav { flex:1; padding: 12px 10px; overflow-y:auto; }
-    .nav-item {
-      display:flex; align-items:center; gap:10px;
-      padding: 10px 12px; border-radius:8px;
-      font-size:13px; font-weight:500; color:rgba(255,255,255,0.55);
-      cursor:pointer; transition:all .15s; margin-bottom:2px;
-      border: none; background:none; width:100%; text-align:left;
-    }
+    .sidebar-plan { padding:10px 20px 14px; font-size:11px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:1px; border-bottom:0.5px solid rgba(255,255,255,0.07); }
+    .sidebar-plan strong { color:var(--green); font-weight:600; }
+    nav.sidebar-nav { flex:1; padding:12px 10px; overflow-y:auto; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:500; color:rgba(255,255,255,0.55); cursor:pointer; transition:all .15s; margin-bottom:2px; border:none; background:none; width:100%; text-align:left; }
     .nav-item:hover { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.85); }
     .nav-item.active { background:var(--green); color:#fff; }
     .nav-item .icon { font-size:15px; flex-shrink:0; width:18px; }
     .nav-item .lock { margin-left:auto; font-size:10px; opacity:.4; }
-    .sidebar-bottom {
-      padding:12px 10px; border-top:0.5px solid rgba(255,255,255,0.07);
-    }
-    .sidebar-user {
-      display:flex; align-items:center; gap:10px;
-      padding: 8px 12px; border-radius:8px;
-      cursor:pointer; transition:background .15s;
-    }
+    .sidebar-bottom { padding:12px 10px; border-top:0.5px solid rgba(255,255,255,0.07); }
+    .sidebar-user { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; transition:background .15s; }
     .sidebar-user:hover { background:rgba(255,255,255,0.06); }
-    .user-avatar {
-      width:30px; height:30px; border-radius:8px;
-      background:var(--green); display:flex; align-items:center;
-      justify-content:center; font-size:12px; font-weight:600; color:#fff;
-      flex-shrink:0;
-    }
+    .user-avatar { width:30px; height:30px; border-radius:8px; background:var(--green); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:#fff; flex-shrink:0; }
     .user-info { flex:1; min-width:0; }
     .user-name { font-size:12px; color:rgba(255,255,255,0.8); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .user-plan { font-size:10px; color:rgba(255,255,255,0.35); }
     .btn-logout { font-size:11px; color:rgba(255,255,255,0.3); background:none; border:none; cursor:pointer; padding:2px 0; }
     .btn-logout:hover { color:var(--red); }
-
-    /* ── MAIN ── */
     .main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
-    .topbar {
-      height:52px; flex-shrink:0;
-      background:var(--white); border-bottom:0.5px solid var(--border);
-      display:flex; align-items:center; padding:0 24px; gap:16px;
-    }
+    .topbar { height:52px; flex-shrink:0; background:var(--white); border-bottom:0.5px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:16px; }
     .topbar-title { font-size:15px; font-weight:600; flex:1; }
-    .topbar-mois {
-      display:flex; align-items:center; gap:8px;
-      background:var(--bg); border:0.5px solid var(--border);
-      border-radius:8px; padding:6px 12px; font-size:13px;
-    }
+    .topbar-mois { display:flex; align-items:center; gap:8px; background:var(--bg); border:0.5px solid var(--border); border-radius:8px; padding:6px 12px; font-size:13px; }
     .topbar-mois select { background:none; border:none; font-size:13px; font-family:'DM Sans',sans-serif; color:var(--text); cursor:pointer; }
     .content { flex:1; overflow-y:auto; padding:24px; }
-
-    /* ── CARDS / KPI ── */
     .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
-    .kpi-card {
-      background:var(--white); border:0.5px solid var(--border);
-      border-radius:12px; padding:16px 18px;
-    }
+    .kpi-card { background:var(--white); border:0.5px solid var(--border); border-radius:12px; padding:16px 18px; }
     .kpi-lbl { font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
     .kpi-val { font-size:24px; font-weight:600; font-family:'DM Mono',monospace; }
     .kpi-val.green { color:var(--green); }
     .kpi-val.blue  { color:var(--blue); }
     .kpi-val.amber { color:var(--amber); }
     .kpi-sub { font-size:11px; color:var(--sub); margin-top:4px; }
-
-    .card {
-      background:var(--white); border:0.5px solid var(--border);
-      border-radius:12px; padding:18px; margin-bottom:16px;
-    }
+    .card { background:var(--white); border:0.5px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
     .card-title { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--sub); margin-bottom:14px; font-weight:600; }
     .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
     .card-header-title { font-size:13px; font-weight:600; }
-
-    /* Tables */
     table { width:100%; border-collapse:collapse; font-size:12px; }
     th { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--sub); padding:7px 10px; text-align:left; border-bottom:0.5px solid var(--border); background:var(--bg); font-weight:600; }
     td { padding:8px 10px; border-bottom:0.5px solid var(--border); }
     tr:last-child td { border-bottom:none; }
     tr:hover td { background:var(--bg); }
-
-    /* Badges statut */
     .badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:6px; font-weight:500; }
     .badge-green  { background:var(--green-l); color:var(--green-d); }
     .badge-blue   { background:var(--blue-l);  color:var(--blue); }
@@ -126,8 +70,6 @@
     .badge-red    { background:var(--red-l);   color:var(--red); }
     .badge-purple { background:var(--purple-l);color:var(--purple); }
     .badge-gray   { background:var(--bg2);     color:var(--sub); }
-
-    /* Boutons */
     .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:none; font-family:'DM Sans',sans-serif; transition:all .15s; }
     .btn-green  { background:var(--green); color:#fff; }
     .btn-green:hover { background:var(--green-d); }
@@ -135,101 +77,56 @@
     .btn-outline:hover { border-color:var(--green); color:var(--green); }
     .btn-blue { background:var(--blue); color:#fff; }
     .btn-sm { padding:5px 12px; font-size:12px; }
-
-    /* Upload zone */
-    .upload-zone {
-      border:1.5px dashed var(--border); border-radius:12px;
-      padding:40px; text-align:center; cursor:pointer;
-      transition:border-color .2s, background .2s;
-    }
+    .upload-zone { border:1.5px dashed var(--border); border-radius:12px; padding:40px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
     .upload-zone:hover { border-color:var(--green); background:var(--green-l); }
     .upload-icon { font-size:32px; margin-bottom:10px; }
     .upload-title { font-size:14px; font-weight:500; margin-bottom:4px; }
     .upload-sub { font-size:12px; color:var(--sub); }
-
-    /* Progress / jauge */
     .jauge-wrap { background:var(--bg2); border-radius:100px; height:8px; overflow:hidden; }
     .jauge-fill { height:100%; border-radius:100px; transition:width .5s; }
     .jauge-green { background:var(--green); }
-    .jauge-amber { background:var(--amber); }
-    .jauge-red   { background:var(--red); }
-
-    /* Alert */
     .alert { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:10px; font-size:13px; margin-bottom:10px; }
     .alert-green { background:var(--green-l); color:var(--green-d); border-left:3px solid var(--green); }
     .alert-amber { background:var(--amber-l); color:var(--amber); border-left:3px solid var(--amber); }
     .alert-red   { background:var(--red-l);   color:var(--red);   border-left:3px solid var(--red); }
-
-    /* Loading */
     .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .6s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
     .loading-center { display:flex; align-items:center; justify-content:center; padding:60px; gap:12px; color:var(--sub); font-size:14px; }
-
-    /* Locked module */
-    .locked-module {
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      padding:80px 40px; text-align:center;
-    }
+    .locked-module { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 40px; text-align:center; }
     .locked-icon { font-size:48px; margin-bottom:20px; }
     .locked-title { font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:10px; }
     .locked-sub { font-size:15px; color:var(--sub); max-width:380px; margin-bottom:28px; }
-
-    /* Sections */
-    .section-bar {
-      display:flex; align-items:center; gap:8px; padding:10px 14px;
-      border-radius:8px; font-size:12px; font-weight:600;
-      color:#fff; margin-bottom:14px;
-    }
     .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .three-col { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-
-    /* Screen transitions */
     .screen { display:none; }
     .screen.active { display:block; animation:fadeIn .2s ease; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-
-    /* Toast */
-    #toast {
-      position:fixed; bottom:24px; right:24px; z-index:9999;
-      background:var(--text); color:#fff; padding:12px 20px;
-      border-radius:10px; font-size:13px; font-weight:500;
-      transform:translateY(80px); opacity:0;
-      transition:all .25s; pointer-events:none;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
+    #toast { position:fixed; bottom:24px; right:24px; z-index:9999; background:var(--text); color:#fff; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:500; transform:translateY(80px); opacity:0; transition:all .25s; pointer-events:none; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
     #toast.show { transform:translateY(0); opacity:1; }
     #toast.green { background:var(--green); }
     #toast.red   { background:var(--red); }
+    /* Couleurs lignes facture */
+    tr.row-eligible td { background:#f0fdf7; }
+    tr.row-eligible:hover td { background:#dcf5eb; }
+    tr.row-cher td { background:#fef9ec; }
+    tr.row-cher:hover td { background:#fdf0cc; }
+    tr.row-remise td { background:#eef4fd; }
+    tr.row-remise:hover td { background:#dce9fb; }
   </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
   <div class="sidebar-logo">Pharma<span>Remise</span></div>
   <div class="sidebar-plan">Plan : <strong id="plan-label">Chargement...</strong></div>
   <nav class="sidebar-nav">
-    <button class="nav-item active" onclick="goTo('accueil',this)">
-      <span class="icon">🏠</span> Accueil
-    </button>
-    <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)">
-      <span class="icon">🏭</span> Grossiste
-    </button>
-    <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)">
-      <span class="icon">💊</span> Génériqueur
-    </button>
-    <button class="nav-item" id="nav-rfa" onclick="goTo('rfa',this)">
-      <span class="icon">📋</span> RFA
-    </button>
-    <button class="nav-item" onclick="goTo('depot',this)">
-      <span class="icon">📁</span> Dépôt factures
-    </button>
-    <button class="nav-item" onclick="goTo('comparateur',this)">
-      <span class="icon">⚖️</span> Comparateur
-    </button>
-    <button class="nav-item" onclick="goTo('parametres',this)">
-      <span class="icon">⚙️</span> Paramètres
-    </button>
+    <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon">🏠</span> Accueil</button>
+    <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon">🏭</span> Grossiste</button>
+    <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon">💊</span> Génériqueur</button>
+    <button class="nav-item" id="nav-rfa" onclick="goTo('rfa',this)"><span class="icon">📋</span> RFA</button>
+    <button class="nav-item" onclick="goTo('depot',this)"><span class="icon">📁</span> Dépôt factures</button>
+    <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon">⚖️</span> Comparateur</button>
+    <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon">⚙️</span> Paramètres</button>
   </nav>
   <div class="sidebar-bottom">
     <div class="sidebar-user">
@@ -243,7 +140,6 @@
   </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
   <div class="topbar">
     <div class="topbar-title" id="topbar-title">Accueil</div>
@@ -260,36 +156,11 @@
   </div>
 
   <div class="content">
+    <div id="screen-accueil" class="screen active"><div id="accueil-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-grossiste" class="screen"><div id="grossiste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-generiqueur" class="screen"><div id="generiqueur-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-rfa" class="screen"><div id="rfa-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
 
-    <!-- ── ACCUEIL ── -->
-    <div id="screen-accueil" class="screen active">
-      <div id="accueil-content">
-        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-      </div>
-    </div>
-
-    <!-- ── GROSSISTE ── -->
-    <div id="screen-grossiste" class="screen">
-      <div id="grossiste-content">
-        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-      </div>
-    </div>
-
-    <!-- ── GENERIQUEUR ── -->
-    <div id="screen-generiqueur" class="screen">
-      <div id="generiqueur-content">
-        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-      </div>
-    </div>
-
-    <!-- ── RFA ── -->
-    <div id="screen-rfa" class="screen">
-      <div id="rfa-content">
-        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-      </div>
-    </div>
-
-    <!-- ── DÉPÔT ── -->
     <div id="screen-depot" class="screen">
       <div class="card">
         <div class="card-title">Déposer une facture</div>
@@ -299,11 +170,7 @@
           <button class="btn btn-outline" id="depot-tab-rfa" onclick="setDepotTab('rfa')" style="justify-content:center">📋 RFA</button>
         </div>
         <div id="depot-form">
-          <div class="upload-zone"
-               onclick="document.getElementById('file-input').click()"
-               ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
-               ondragleave="this.style.borderColor='var(--border)'"
-               ondrop="onFileDrop(event)">
+          <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
             <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
             <div class="upload-icon">📄</div>
             <div class="upload-title">Glissez vos factures PDF ici</div>
@@ -311,36 +178,22 @@
           </div>
           <div id="upload-queue" style="margin-top:12px"></div>
         </div>
-        <div id="depot-result" style="display:none;margin-top:16px"></div>
       </div>
     </div>
 
-    <!-- ── COMPARATEUR ── -->
     <div id="screen-comparateur" class="screen">
       <div class="card">
         <div class="card-title">Comparateur d'offres</div>
         <div class="two-col">
           <div>
             <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--green)">Offre actuelle</div>
-            <div class="form-field" style="margin-bottom:10px">
-              <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label>
-              <input type="number" id="cmp-pond-a" value="6.97" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-            </div>
-            <div class="form-field">
-              <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label>
-              <input type="number" id="cmp-ctr-a" value="9.0" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-            </div>
+            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-a" value="6.97" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-a" value="9.0" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
           </div>
           <div>
             <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--amber)">Offre challenger</div>
-            <div class="form-field" style="margin-bottom:10px">
-              <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label>
-              <input type="number" id="cmp-pond-b" placeholder="ex: 20" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-            </div>
-            <div class="form-field">
-              <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label>
-              <input type="number" id="cmp-ctr-b" placeholder="ex: 8" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-            </div>
+            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-b" placeholder="ex: 20" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-b" placeholder="ex: 8" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
           </div>
         </div>
         <button class="btn btn-green" style="margin-top:16px" onclick="calculerComparateur()">Calculer →</button>
@@ -348,32 +201,18 @@
       </div>
     </div>
 
-    <!-- ── PARAMÈTRES ── -->
-    <div id="screen-parametres" class="screen">
-      <div id="parametres-content">
-        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-      </div>
-    </div>
-
-  </div><!-- /content -->
-</div><!-- /main -->
+    <div id="screen-parametres" class="screen"><div id="parametres-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
 <script>
 const API = 'https://web-production-2202b.up.railway.app'
 let TOKEN = localStorage.getItem('pharmaremise_token')
-let MODULES = []
-let CURRENT_SCREEN = 'accueil'
-let CURRENT_MOIS = 3
-let CURRENT_ANNEE = 2026
-let PHARMACIE = null
-let CONFIG_GROSSISTE = null
-let GENERIQUEURS = []
-let depot_tab = 'grossiste'
-let selected_file = null
+let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = 3, CURRENT_ANNEE = 2026
+let PHARMACIE = null, CONFIG_GROSSISTE = null, GENERIQUEURS = [], depot_tab = 'grossiste'
 
-// ── Auth guard ──────────────────────────────────────────────────────────────
 if (!TOKEN) window.location.href = '/index.html'
 
 async function apiGet(path) {
@@ -382,31 +221,16 @@ async function apiGet(path) {
   return r.json()
 }
 async function apiPost(path, body) {
-  const r = await fetch(`${API}${path}`, {
-    method:'POST', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
-  })
+  const r = await fetch(`${API}${path}`, { method:'POST', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
   return r.json()
 }
 async function apiPut(path, body) {
-  const r = await fetch(`${API}${path}`, {
-    method:'PUT', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
-  })
+  const r = await fetch(`${API}${path}`, { method:'PUT', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
   return r.json()
 }
 async function apiPostForm(path, fd) {
-  const r = await fetch(`${API}${path}`, {
-    method:'POST', headers:{ Authorization:`Bearer ${TOKEN}` }, body: fd
-  })
+  const r = await fetch(`${API}${path}`, { method:'POST', headers:{ Authorization:`Bearer ${TOKEN}` }, body:fd })
   return r.json()
-}
-async function apiPostPDF(path, body) {
-  const r = await fetch(`${API}${path}`, {
-    method:'POST', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
-  })
-  return r.blob()
 }
 
 function toast(msg, type='') {
@@ -414,130 +238,68 @@ function toast(msg, type='') {
   t.textContent = msg; t.className = 'show ' + type
   setTimeout(() => t.className = '', 3000)
 }
-
 function eur(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €' }
 function pct(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%' }
 
-// ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   try {
     PHARMACIE = await apiGet('/auth/me')
     const abo = await apiGet('/abonnement/current')
     MODULES = abo.modules || []
-
-    // Sidebar user
     document.getElementById('user-name').textContent = PHARMACIE.nom
     document.getElementById('user-plan').textContent = abo.plan
     document.getElementById('user-avatar').textContent = PHARMACIE.nom[0].toUpperCase()
     document.getElementById('plan-label').textContent = abo.plan.replace('_',' ')
-
-    // Lock modules
-    if (!MODULES.includes('grossiste')) {
-      document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
-    }
-    if (!MODULES.includes('generiqueur')) {
-      document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
-    }
-    if (!MODULES.includes('rfa')) {
-      document.getElementById('nav-rfa').innerHTML += '<span class="lock">🔒</span>'
-    }
-
-    // Charger config
-    if (MODULES.includes('grossiste')) {
-      CONFIG_GROSSISTE = await apiGet('/grossiste/config')
-    }
-    if (MODULES.includes('generiqueur')) {
-      const r = await apiGet('/generiqueur/config')
-      GENERIQUEURS = r
-    }
-
+    if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
+    if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
+    if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock">🔒</span>'
+    if (MODULES.includes('grossiste')) CONFIG_GROSSISTE = await apiGet('/grossiste/config')
+    if (MODULES.includes('generiqueur')) GENERIQUEURS = await apiGet('/generiqueur/config')
     loadAccueil()
-  } catch(e) {
-    console.error(e)
-    toast('Erreur de chargement', 'red')
-  }
+  } catch(e) { console.error(e); toast('Erreur de chargement', 'red') }
 }
 
-function logout() {
-  localStorage.clear()
-  window.location.href = '/index.html'
-}
+function logout() { localStorage.clear(); window.location.href = '/index.html' }
 
-// ── Navigation ─────────────────────────────────────────────────────────────
 function goTo(screen, btn) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('screen-'+screen).classList.add('active')
   CURRENT_SCREEN = screen
-
-  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur',
-                   rfa:'Contrôle RFA', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', rfa:'Contrôle RFA', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
   document.getElementById('topbar-title').textContent = titles[screen] || screen
-
-  if (screen === 'grossiste')    loadGrossiste()
-  if (screen === 'generiqueur')  loadGeneriqueur()
-  if (screen === 'rfa')          loadRFA()
-  if (screen === 'parametres')   loadParametres()
+  if (screen === 'grossiste')   loadGrossiste()
+  if (screen === 'generiqueur') loadGeneriqueur()
+  if (screen === 'rfa')         loadRFA()
+  if (screen === 'parametres')  loadParametres()
 }
 
 function onMoisChange() {
-  const v = document.getElementById('sel-mois').value.split('-')
   CURRENT_MOIS = parseInt(document.getElementById('sel-mois').value)
   if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
   else loadAccueil()
 }
+function refreshData() { goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active')); toast('Données actualisées', 'green') }
 
-function refreshData() {
-  goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
-  toast('Données actualisées', 'green')
-}
-
-// ── ACCUEIL ───────────────────────────────────────────────────────────────
+// ── ACCUEIL ────────────────────────────────────────────────────────────────
 async function loadAccueil() {
   const el = document.getElementById('accueil-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-
   try {
     let synthGr = null, synthGe = null
-    if (MODULES.includes('grossiste')) {
-      synthGr = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    }
-    if (MODULES.includes('generiqueur')) {
-      synthGe = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    }
-
-    const ca_gr = synthGr ? synthGr.ca_total : 0
-    const rem_gr = synthGr ? synthGr.remise_totale : 0
-    const ca_ge = synthGe ? synthGe.totaux.ca_total : 0
-    const rem_ge = synthGe ? synthGe.totaux.contrat_total : 0
-
+    if (MODULES.includes('grossiste')) synthGr = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    if (MODULES.includes('generiqueur')) synthGe = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    const ca_gr = synthGr ? synthGr.ca_total : 0, rem_gr = synthGr ? synthGr.remise_totale : 0
+    const ca_ge = synthGe ? synthGe.totaux.ca_total : 0, rem_ge = synthGe ? synthGe.totaux.contrat_total : 0
     el.innerHTML = `
       <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-lbl">CA Grossiste</div>
-          <div class="kpi-val">${eur(ca_gr)}</div>
-          <div class="kpi-sub">Ce mois</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">Remise Grossiste</div>
-          <div class="kpi-val green">${eur(rem_gr)}</div>
-          <div class="kpi-sub">Estimée</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">CA Génériqueurs</div>
-          <div class="kpi-val">${eur(ca_ge)}</div>
-          <div class="kpi-sub">Ce mois</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">Contrats attendus</div>
-          <div class="kpi-val blue">${eur(rem_ge)}</div>
-          <div class="kpi-sub">Génériqueurs</div>
-        </div>
+        <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise Grossiste</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Estimée</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val blue">${eur(rem_ge)}</div><div class="kpi-sub">Génériqueurs</div></div>
       </div>
-
       ${synthGr ? renderGrossisteStats(synthGr) : ''}
-
       <div class="card">
         <div class="card-title">Accès rapides</div>
         <div class="three-col">
@@ -545,46 +307,29 @@ async function loadAccueil() {
           ${MODULES.includes('generiqueur') ? `<button class="btn btn-outline" onclick="goTo('generiqueur',document.getElementById('nav-generiqueur'))" style="justify-content:center">💊 Voir génériqueurs</button>` : ''}
           ${MODULES.includes('rfa') ? `<button class="btn btn-outline" onclick="goTo('rfa',document.getElementById('nav-rfa'))" style="justify-content:center">📋 Contrôle RFA</button>` : ''}
         </div>
-      </div>
-    `
-  } catch(e) {
-    el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'
-  }
+      </div>`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
 }
 
 function renderGrossisteStats(s) {
   if (!s || !s.stats_statut) return ''
-  const statuts = s.stats_statut
   const total = s.ca_total || 1
-  const rows = Object.entries(statuts).map(([k,v]) =>
+  const rows = Object.entries(s.stats_statut).map(([k,v]) =>
     `<tr><td>${k}</td><td>${eur(v.ca)}</td><td>${((v.ca/total)*100).toFixed(1)}%</td><td>${v.nb}</td></tr>`
   ).join('')
-  return `
-    <div class="card">
-      <div class="card-title">Répartition grossiste — ce mois</div>
-      <table>
-        <thead><tr><th>Statut</th><th>CA HT</th><th>%</th><th>Lignes</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `
+  return `<div class="card"><div class="card-title">Répartition grossiste — ce mois</div><table><thead><tr><th>Statut</th><th>CA HT</th><th>%</th><th>Lignes</th></tr></thead><tbody>${rows}</tbody></table></div>`
 }
 
-// ── GROSSISTE ─────────────────────────────────────────────────────────────
+// ── GROSSISTE ──────────────────────────────────────────────────────────────
 async function loadGrossiste() {
-  if (!MODULES.includes('grossiste')) {
-    document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste')
-    return
-  }
+  if (!MODULES.includes('grossiste')) { document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste'); return }
   const el = document.getElementById('grossiste-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-
   try {
     const [synth, factures] = await Promise.all([
       apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
       apiGet(`/grossiste/factures?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
     ])
-
     const fRows = factures.length ? factures.map(f => `
       <tr>
         <td>${f.filename}</td>
@@ -594,35 +339,21 @@ async function loadGrossiste() {
         <td>${f.nb_lignes}</td>
         <td><span class="badge badge-green">Analysée</span></td>
         <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
-      </tr>
-    `).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucune facture ce mois — déposez des factures</td></tr>'
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucune facture ce mois — déposez des factures</td></tr>'
 
     el.innerHTML = `
       <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-lbl">CA total HT</div>
-          <div class="kpi-val">${eur(synth.ca_total)}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">CA éligible</div>
-          <div class="kpi-val green">${eur(synth.ca_eligible)}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">Remise estimée</div>
-          <div class="kpi-val green">${eur(synth.remise_totale)}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-lbl">Factures analysées</div>
-          <div class="kpi-val">${synth.nb_factures}</div>
-        </div>
+        <div class="kpi-card"><div class="kpi-lbl">CA total HT</div><div class="kpi-val">${eur(synth.ca_total)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(synth.ca_eligible)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>
-
       <div class="card">
         <div class="card-header">
           <div class="card-header-title">Factures du mois</div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter</button>
-            <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF</button>
+            <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
           </div>
         </div>
         <table>
@@ -630,7 +361,6 @@ async function loadGrossiste() {
           <tbody>${fRows}</tbody>
         </table>
       </div>
-
       ${CONFIG_GROSSISTE ? `
       <div class="card">
         <div class="card-title">Paramètres du contrat</div>
@@ -639,107 +369,153 @@ async function loadGrossiste() {
           <div><div style="font-size:11px;color:var(--sub)">Seuil produit cher</div><div style="font-size:20px;font-weight:600">${eur(CONFIG_GROSSISTE.seuil_cher)}</div></div>
           <div><div style="font-size:11px;color:var(--sub)">Forfait cher</div><div style="font-size:20px;font-weight:600">${eur(CONFIG_GROSSISTE.forfait_cher)}/boîte</div></div>
         </div>
-      </div>` : ''}
-    `
-  } catch(e) {
-    el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'
-    console.error(e)
-  }
+      </div>` : ''}`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
 }
 
+// ── VOIR FACTURE (corrigé) ─────────────────────────────────────────────────
 async function voirFacture(id) {
+  const el = document.getElementById('grossiste-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   const f = await apiGet(`/grossiste/factures/${id}`)
   const lignes = f.lignes || []
-  const rows = lignes.map(l => `
-    <tr>
-      <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
-      <td>${l.nom}</td>
-      <td>${l.fournisseur||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.pfht)}</td>
-      <td style="text-align:center">${l.qte}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.total_ht)}</td>
-      <td><span class="badge ${badgeClass(l.statut)}">${l.statut}</span></td>
-    </tr>
-  `).join('')
 
-  document.getElementById('grossiste-content').innerHTML = `
+  // Résumé par statut
+  const statsMap = {}
+  for (const l of lignes) {
+    const s = l.statut || 'autre'
+    if (!statsMap[s]) statsMap[s] = { nb:0, ca:0 }
+    statsMap[s].nb++
+    statsMap[s].ca += parseFloat(l.total_ht || 0)
+  }
+
+  const statutInfo = {
+    eligible:       { label:'Éligible remise',   badge:'badge-green',  icon:'✅' },
+    produit_cher:   { label:'Produit cher',       badge:'badge-amber',  icon:'💰' },
+    remise_facture: { label:'Remisé facture',     badge:'badge-blue',   icon:'🔵' },
+    generique:      { label:'Générique',          badge:'badge-gray',   icon:'⚪' },
+    biosimilaire:   { label:'Biosimilaire',       badge:'badge-purple', icon:'🟣' },
+    tva_20:         { label:'TVA 20% exclu',      badge:'badge-red',    icon:'🔴' },
+    tva_5_5:        { label:'TVA 5,5% exclu',     badge:'badge-red',    icon:'🔴' },
+    tva_10:         { label:'TVA 10% exclu',      badge:'badge-red',    icon:'🔴' },
+    frigo:          { label:'Frigo exclu',        badge:'badge-blue',   icon:'❄️' },
+    stupefiants:    { label:'Stupéfiant exclu',   badge:'badge-red',    icon:'⛔' },
+  }
+
+  const resumeCards = Object.entries(statsMap).map(([s,v]) => {
+    const info = statutInfo[s] || { label:s, badge:'badge-gray', icon:'•' }
+    return `<div class="kpi-card" style="border-left:3px solid var(--border)">
+      <div class="kpi-lbl">${info.icon} ${info.label}</div>
+      <div class="kpi-val" style="font-size:18px">${eur(v.ca)}</div>
+      <div class="kpi-sub">${v.nb} ligne(s)</div>
+    </div>`
+  }).join('')
+
+  // Tri : éligibles d'abord
+  const ordre = ['eligible','produit_cher','remise_facture','generique','biosimilaire','tva_20','tva_5_5','tva_10','frigo','stupefiants']
+  lignes.sort((a,b) => {
+    const ia = ordre.indexOf(a.statut), ib = ordre.indexOf(b.statut)
+    return (ia===-1?99:ia) - (ib===-1?99:ib)
+  })
+
+  const rows = lignes.map(l => {
+    const info = statutInfo[l.statut] || { label:l.statut, badge:'badge-gray' }
+    const rowCls = l.statut==='eligible' ? 'row-eligible' : l.statut==='produit_cher' ? 'row-cher' : l.statut==='remise_facture' ? 'row-remise' : ''
+    const remiseCell = l.remise_pct > 0
+      ? `<td style="text-align:center;color:var(--blue);font-weight:600">${l.remise_pct}%</td>`
+      : `<td style="text-align:center;color:var(--sub)">—</td>`
+    return `<tr class="${rowCls}">
+      <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
+      <td style="font-weight:500">${l.nom||'—'}</td>
+      <td>${l.fournisseur||'—'}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ppht||l.pfht)}</td>
+      <td style="text-align:center">${l.qte}</td>
+      ${remiseCell}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:600">${eur(l.total_ht)}</td>
+      <td style="text-align:center;color:var(--sub)">${l.tva_pct ? l.tva_pct+'%' : '—'}</td>
+      <td><span class="badge ${info.badge}">${info.label}</span></td>
+    </tr>`
+  }).join('')
+
+  el.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="loadGrossiste()">← Retour</button>
-      <div style="font-weight:600">${f.filename}</div>
+      <div style="font-weight:600;font-size:15px">${f.filename}</div>
+      <span class="badge badge-gray">${f.source||'—'}</span>
     </div>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-lbl">Total HT</div><div class="kpi-val">${eur(f.total_ht)}</div></div>
-      <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(f.ca_eligible)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(f.ca_eligible)}</div><div class="kpi-sub">${f.total_ht>0?((f.ca_eligible/f.total_ht)*100).toFixed(1)+'% du total':''}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise calculée</div><div class="kpi-val green">${eur(f.remise_calculee)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Nb lignes</div><div class="kpi-val">${f.nb_lignes}</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Détail des lignes</div>
-      <table>
-        <thead><tr><th>CIP</th><th>Produit</th><th>Fournisseur</th><th>PFHT</th><th>Qté</th><th>Total</th><th>Statut</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="card-title">Répartition par statut</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">${resumeCards}</div>
     </div>
-  `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:12px">
+      <span style="background:var(--green-l);padding:3px 10px;border-radius:6px;color:var(--green-d)">✅ Éligible à la remise</span>
+      <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)">💰 Produit cher → forfait</span>
+      <span style="background:var(--blue-l);padding:3px 10px;border-radius:6px;color:var(--blue)">🔵 Déjà remisé sur facture</span>
+      <span style="background:var(--bg2);padding:3px 10px;border-radius:6px;color:var(--sub)">⚪ Exclu (générique/TVA/frigo…)</span>
+    </div>
+    <div class="card">
+      <div class="card-title">Détail des lignes</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>CIP</th><th>Produit</th><th>Fournisseur</th><th style="text-align:right">PFHT</th><th style="text-align:center">Qté</th><th style="text-align:center">Remise</th><th style="text-align:right">Total HT</th><th style="text-align:center">TVA</th><th>Statut</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`
 }
 
-function badgeClass(statut) {
-  const map = { eligible:'badge-green', produit_cher:'badge-amber', remise_facture:'badge-blue',
-                generique:'badge-gray', biosimilaire:'badge-purple', tva_20:'badge-red', frigo:'badge-blue' }
-  return map[statut] || 'badge-gray'
-}
-
+// ── EXPORT PDF BILAN (corrigé) ─────────────────────────────────────────────
 async function exportPDFGrossiste() {
-  toast('Génération du PDF...')
+  toast('Génération du bilan PDF...')
   try {
-    const blob = await apiPostPDF('/grossiste/export/pdf', { mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
+    const r = await fetch(`${API}/grossiste/export/pdf`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mois: CURRENT_MOIS, annee: CURRENT_ANNEE })
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      toast('Erreur : ' + (err.detail || r.status), 'red')
+      return
+    }
+    const blob = await r.blob()
+    if (blob.size < 100) { toast('PDF vide — vérifiez les données du mois', 'red'); return }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `synthese_grossiste_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`
-    a.click(); URL.revokeObjectURL(url)
-    toast('PDF téléchargé !', 'green')
-  } catch(e) { toast('Erreur PDF', 'red') }
+    a.href = url
+    a.download = `bilan_grossiste_${String(CURRENT_MOIS).padStart(2,'0')}_${CURRENT_ANNEE}.pdf`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast('Bilan PDF téléchargé !', 'green')
+  } catch(e) { console.error(e); toast('Erreur réseau', 'red') }
 }
 
-// ── GÉNÉRIQUEUR ───────────────────────────────────────────────────────────
+// ── GÉNÉRIQUEUR ────────────────────────────────────────────────────────────
 async function loadGeneriqueur() {
-  if (!MODULES.includes('generiqueur')) {
-    document.getElementById('generiqueur-content').innerHTML = lockedHTML('generiqueur')
-    return
-  }
+  if (!MODULES.includes('generiqueur')) { document.getElementById('generiqueur-content').innerHTML = lockedHTML('generiqueur'); return }
   const el = document.getElementById('generiqueur-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-
   try {
     const synth = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
     const ges = synth.generiqueurs || []
-
     const geCards = ges.map(g => `
       <div class="card" style="border-left:3px solid var(--green)">
         <div class="card-header">
-          <div>
-            <div style="font-size:13px;font-weight:600">Gé${g.rank} — ${g.name}</div>
-            <div style="font-size:11px;color:var(--sub);margin-top:2px">${g.nb_exclus} exclusion(s)</div>
-          </div>
+          <div><div style="font-size:13px;font-weight:600">Gé${g.rank} — ${g.name}</div><div style="font-size:11px;color:var(--sub);margin-top:2px">${g.nb_exclus} exclusion(s)</div></div>
           <button class="btn btn-outline btn-sm" onclick="voirGeneriqueur('${g.gid}')">Détail →</button>
         </div>
         <div class="three-col" style="margin-top:8px">
-          <div>
-            <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total</div>
-            <div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise pond.</div>
-            <div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_pond)}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${g.rdp ? 'RDP calculée' : 'Contrat attendu'}</div>
-            <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${g.rdp ? eur(g.rdp_calc) : eur(g.ctr_calc)}</div>
-          </div>
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total</div><div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div></div>
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise pond.</div><div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_pond)}</div></div>
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${g.rdp?'RDP calculée':'Contrat attendu'}</div><div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${g.rdp?eur(g.rdp_calc):eur(g.ctr_calc)}</div></div>
         </div>
-      </div>
-    `).join('') || '<div class="loading-center" style="color:var(--sub)">Aucun génériqueur configuré — allez dans Paramètres</div>'
-
+      </div>`).join('') || '<div class="loading-center" style="color:var(--sub)">Aucun génériqueur configuré — allez dans Paramètres</div>'
     el.innerHTML = `
       <div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">CA total génériqueurs</div><div class="kpi-val">${eur(synth.totaux.ca_total)}</div></div>
@@ -750,11 +526,8 @@ async function loadGeneriqueur() {
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
         <button class="btn btn-green btn-sm" onclick="exportPDFGeneriqueur()">📄 Export PDF</button>
       </div>
-      ${geCards}
-    `
-  } catch(e) {
-    el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'
-  }
+      ${geCards}`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
 }
 
 async function voirGeneriqueur(gid) {
@@ -767,9 +540,7 @@ async function voirGeneriqueur(gid) {
       <td style="text-align:center">${l.qte}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.total_ht)}</td>
       ${l.rdp_taux ? `<td style="color:var(--blue);font-weight:500">${(l.rdp_taux*100).toFixed(1)}%</td>` : '<td>—</td>'}
-    </tr>
-  `).join('')
-
+    </tr>`).join('')
   document.getElementById('generiqueur-content').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="loadGeneriqueur()">← Retour</button>
@@ -784,35 +555,33 @@ async function voirGeneriqueur(gid) {
     </div>
     <div class="card">
       <div class="card-title">Lignes incluses</div>
-      <table>
-        <thead><tr><th>CIP</th><th>Produit</th><th>PFHT</th><th>Qté</th><th>Total</th><th>RDP</th></tr></thead>
-        <tbody>${elig}</tbody>
-      </table>
-    </div>
-  `
+      <table><thead><tr><th>CIP</th><th>Produit</th><th>PFHT</th><th>Qté</th><th>Total</th><th>RDP</th></tr></thead><tbody>${elig}</tbody></table>
+    </div>`
 }
 
 async function exportPDFGeneriqueur() {
   toast('Génération du PDF...')
   try {
-    const blob = await apiPostPDF('/generiqueur/export/pdf', { mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
+    const r = await fetch(`${API}/generiqueur/export/pdf`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
+    })
+    if (!r.ok) { toast('Erreur export', 'red'); return }
+    const blob = await r.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url
     a.download=`synthese_generiqueur_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`
-    a.click(); URL.revokeObjectURL(url)
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
     toast('PDF téléchargé !', 'green')
-  } catch(e) { toast('Erreur PDF', 'red') }
+  } catch(e) { toast('Erreur réseau', 'red') }
 }
 
-// ── RFA ───────────────────────────────────────────────────────────────────
+// ── RFA ────────────────────────────────────────────────────────────────────
 async function loadRFA() {
-  if (!MODULES.includes('rfa')) {
-    document.getElementById('rfa-content').innerHTML = lockedHTML('rfa')
-    return
-  }
+  if (!MODULES.includes('rfa')) { document.getElementById('rfa-content').innerHTML = lockedHTML('rfa'); return }
   const el = document.getElementById('rfa-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-
   try {
     const synth = await apiGet(`/rfa/synthese?annee=${CURRENT_ANNEE}`)
     const rows = (synth.labos||[]).map(l => `
@@ -821,12 +590,10 @@ async function loadRFA() {
         <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ca_annuel)}</td>
         <td style="text-align:center">${pct(l.taux_pct)}</td>
         <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(l.rfa_attendue)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${l.avoir_recu !== null ? eur(l.avoir_recu) : '—'}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:${l.ecart>=0?'var(--green)':'var(--red)'}">${l.ecart !== null ? eur(l.ecart) : '—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${l.avoir_recu!==null?eur(l.avoir_recu):'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${l.ecart>=0?'var(--green)':'var(--red)'}">${l.ecart!==null?eur(l.ecart):'—'}</td>
         <td><span class="badge ${l.statut==='recu'?'badge-green':'badge-amber'}">${l.statut==='recu'?'Reçu':'En attente'}</span></td>
-      </tr>
-    `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucun labo RFA configuré</td></tr>'
-
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucun labo RFA configuré</td></tr>'
     el.innerHTML = `
       <div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">RFA attendue</div><div class="kpi-val green">${eur(synth.total_attendu)}</div></div>
@@ -835,45 +602,24 @@ async function loadRFA() {
         <div class="kpi-card"><div class="kpi-lbl">Labos suivis</div><div class="kpi-val">${(synth.labos||[]).length}</div></div>
       </div>
       <div class="card">
-        <div class="card-header">
-          <div class="card-header-title">Suivi RFA ${CURRENT_ANNEE}</div>
-        </div>
-        <table>
-          <thead><tr><th>Laboratoire</th><th>CA annuel</th><th>Taux</th><th>RFA attendue</th><th>Avoir reçu</th><th>Écart</th><th>Statut</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `
-  } catch(e) {
-    el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'
-  }
+        <div class="card-header"><div class="card-header-title">Suivi RFA ${CURRENT_ANNEE}</div></div>
+        <table><thead><tr><th>Laboratoire</th><th>CA annuel</th><th>Taux</th><th>RFA attendue</th><th>Avoir reçu</th><th>Écart</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
 }
 
-// ── PARAMÈTRES ────────────────────────────────────────────────────────────
+// ── PARAMÈTRES ─────────────────────────────────────────────────────────────
 async function loadParametres() {
   const el = document.getElementById('parametres-content')
-
   let configHTML = ''
   if (MODULES.includes('grossiste') && CONFIG_GROSSISTE) {
     configHTML = `
       <div class="card">
         <div class="card-title">Contrat grossiste</div>
         <div class="three-col">
-          <div class="form-field">
-            <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
-            <input type="number" id="p-taux" value="${CONFIG_GROSSISTE.taux_remise_pct}" step="0.1"
-              style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-          </div>
-          <div class="form-field">
-            <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
-            <input type="number" id="p-seuil" value="${CONFIG_GROSSISTE.seuil_cher}" step="1"
-              style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-          </div>
-          <div class="form-field">
-            <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label>
-            <input type="number" id="p-forfait" value="${CONFIG_GROSSISTE.forfait_cher}" step="0.5"
-              style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/>
-          </div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label><input type="number" id="p-taux" value="${CONFIG_GROSSISTE.taux_remise_pct}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label><input type="number" id="p-seuil" value="${CONFIG_GROSSISTE.seuil_cher}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label><input type="number" id="p-forfait" value="${CONFIG_GROSSISTE.forfait_cher}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
         </div>
         <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
           ${checkBox('p-tva20','Exclure TVA 20%',CONFIG_GROSSISTE.exclure_tva20)}
@@ -882,35 +628,23 @@ async function loadParametres() {
           ${checkBox('p-stup','Exclure stupéfiants',CONFIG_GROSSISTE.exclure_stupefiants)}
         </div>
         <button class="btn btn-green" style="margin-top:16px" onclick="saveConfig()">Sauvegarder</button>
-      </div>
-    `
+      </div>`
   }
-
-  el.innerHTML = `
-    ${configHTML}
-    <div class="card">
-      <div class="card-title">Mon compte</div>
-      <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
-      <div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div>
-    </div>
-  `
+  el.innerHTML = `${configHTML}<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
 }
 
 function checkBox(id, label, checked) {
-  return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-    <input type="checkbox" id="${id}" ${checked?'checked':''} style="width:14px;height:14px;accent-color:var(--green)"/>
-    ${label}
-  </label>`
+  return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="${id}" ${checked?'checked':''} style="width:14px;height:14px;accent-color:var(--green)"/>${label}</label>`
 }
 
 async function saveConfig() {
   const body = {
-    taux_remise_pct:     parseFloat(document.getElementById('p-taux').value),
-    seuil_cher:          parseFloat(document.getElementById('p-seuil').value),
-    forfait_cher:        parseFloat(document.getElementById('p-forfait').value),
-    exclure_tva20:       document.getElementById('p-tva20').checked,
-    exclure_biosim:      document.getElementById('p-biosim').checked,
-    exclure_frigo:       document.getElementById('p-frigo').checked,
+    taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
+    seuil_cher: parseFloat(document.getElementById('p-seuil').value),
+    forfait_cher: parseFloat(document.getElementById('p-forfait').value),
+    exclure_tva20: document.getElementById('p-tva20').checked,
+    exclure_biosim: document.getElementById('p-biosim').checked,
+    exclure_frigo: document.getElementById('p-frigo').checked,
     exclure_stupefiants: document.getElementById('p-stup').checked,
     exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
   }
@@ -918,105 +652,70 @@ async function saveConfig() {
   toast('Configuration sauvegardée !', 'green')
 }
 
-// ── DÉPÔT ─────────────────────────────────────────────────────────────────
+// ── DÉPÔT ──────────────────────────────────────────────────────────────────
 function setDepotTab(tab) {
   depot_tab = tab
   ;['grossiste','labo','rfa'].forEach(t => {
     document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
   })
 }
-
 function onFileDrop(event) {
-  event.preventDefault();
-  event.currentTarget.style.borderColor = 'var(--border)';
-  onFilesSelected(event.dataTransfer.files);
+  event.preventDefault(); event.currentTarget.style.borderColor = 'var(--border)'; onFilesSelected(event.dataTransfer.files)
 }
-
 function onFilesSelected(files) {
-  if (!files || files.length === 0) return;
-  Array.from(files).forEach(f => {
-    if (f.type === 'application/pdf') {
-      uploadFactureAuto(f);
-    }
-  });
+  if (!files || files.length === 0) return
+  Array.from(files).forEach(f => { if (f.type === 'application/pdf') uploadFactureAuto(f) })
 }
-
 async function uploadFactureAuto(file) {
-  const queue = document.getElementById('upload-queue');
-  const id = 'file-' + Date.now() + Math.random();
-  const div = document.createElement('div');
-  div.id = id;
-  div.className = 'alert alert-green';
-  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px';
-  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`;
-  queue.appendChild(div);
-
-  const fd = new FormData();
-  fd.append('file', file);
+  const queue = document.getElementById('upload-queue')
+  const div = document.createElement('div')
+  div.className = 'alert alert-green'
+  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
+  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
+  queue.appendChild(div)
+  const fd = new FormData(); fd.append('file', file)
   try {
     const res = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + TOKEN },
-      body: fd
-    });
-    const data = await res.json();
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
+    })
+    const data = await res.json()
     if (res.ok) {
-      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`;
+      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
     } else {
-      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail || 'Erreur'}</span>`;
+      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail || 'Erreur d\'analyse'}</span>`
     }
   } catch(e) {
-    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`;
+    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
   }
 }
 
-// ── COMPARATEUR ───────────────────────────────────────────────────────────
+// ── COMPARATEUR ────────────────────────────────────────────────────────────
 async function calculerComparateur() {
   const pond_a = parseFloat(document.getElementById('cmp-pond-a').value)||0
   const ctr_a  = parseFloat(document.getElementById('cmp-ctr-a').value)||0
   const pond_b = parseFloat(document.getElementById('cmp-pond-b').value)||0
   const ctr_b  = parseFloat(document.getElementById('cmp-ctr-b').value)||0
-
   if (!pond_b && !ctr_b) { toast('Remplissez les taux de l\'offre challenger', 'red'); return }
-
   let ca = 0
-  if (MODULES.includes('generiqueur')) {
-    const synth = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    ca = synth.totaux.ca_total || 0
-  }
-  if (!ca) ca = 10000 // valeur exemple si pas de données
-
-  const rem_a = ca * pond_a/100 + ca * ctr_a/100
-  const rem_b = ca * pond_b/100 + ca * ctr_b/100
-  const diff  = rem_b - rem_a
-  const winner = diff > 0 ? 'B' : 'A'
-
+  if (MODULES.includes('generiqueur')) { const s = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`); ca = s.totaux.ca_total || 0 }
+  if (!ca) ca = 10000
+  const rem_a = ca*(pond_a+ctr_a)/100, rem_b = ca*(pond_b+ctr_b)/100
+  const diff = rem_b - rem_a, winner = diff > 0 ? 'B' : 'A'
   document.getElementById('cmp-result').innerHTML = `
     <div class="alert ${winner==='A'?'alert-amber':'alert-green'}">
       <span>${winner==='A'?'✓':'→'}</span>
-      <div>
-        <strong>${winner==='A' ? 'Maintenir l\'offre actuelle' : 'L\'offre challenger est meilleure'}</strong><br/>
-        Différence : <strong>${eur(Math.abs(diff))}</strong> sur un CA de ${eur(ca)}
-        (Offre A : ${eur(rem_a)} — Offre B : ${eur(rem_b)})
-      </div>
-    </div>
-  `
+      <div><strong>${winner==='A'?'Maintenir l\'offre actuelle':'L\'offre challenger est meilleure'}</strong><br/>
+      Différence : <strong>${eur(Math.abs(diff))}</strong> sur un CA de ${eur(ca)}
+      (Offre A : ${eur(rem_a)} — Offre B : ${eur(rem_b)})</div>
+    </div>`
 }
 
-// ── LOCKED ────────────────────────────────────────────────────────────────
+// ── LOCKED ─────────────────────────────────────────────────────────────────
 function lockedHTML(module) {
   const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur', rfa:'RFA' }
-  return `
-    <div class="locked-module">
-      <div class="locked-icon">🔒</div>
-      <div class="locked-title">Module ${labels[module]} non inclus</div>
-      <div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel. Passez au plan supérieur pour accéder à toutes les fonctionnalités.</div>
-      <button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button>
-    </div>
-  `
+  return `<div class="locked-module"><div class="locked-icon">🔒</div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
 }
 
-// ── START ─────────────────────────────────────────────────────────────────
 setDepotTab('grossiste')
 init()
 </script>
