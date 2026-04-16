@@ -9,15 +9,15 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --green:   #1D9E75; --green-d: #0F6E56; --green-l: #E1F5EE;
-      --blue:    #185FA5; --blue-l:  #E6F1FB;
-      --purple:  #534AB7; --purple-l:#EEEDFE;
-      --amber:   #BA7517; --amber-l: #FAEEDA;
-      --red:     #E24B4A; --red-l:   #FCEBEB;
-      --text:    #1A1A18; --sub:     #6B6B68;
-      --bg:      #F5F5F0; --bg2:     #EBEBEB;
-      --white:   #FFFFFF; --border:  #DDDDDA;
-      --sidebar: #1A1A18;
+      --green:#1D9E75; --green-d:#0F6E56; --green-l:#E1F5EE;
+      --blue:#185FA5; --blue-l:#E6F1FB;
+      --purple:#534AB7; --purple-l:#EEEDFE;
+      --amber:#BA7517; --amber-l:#FAEEDA;
+      --red:#E24B4A; --red-l:#FCEBEB;
+      --text:#1A1A18; --sub:#6B6B68;
+      --bg:#F5F5F0; --bg2:#EBEBEB;
+      --white:#FFFFFF; --border:#DDDDDA;
+      --sidebar:#1A1A18;
     }
     body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
     .sidebar { width:220px; flex-shrink:0; background:var(--sidebar); display:flex; flex-direction:column; padding:0; overflow:hidden; }
@@ -108,10 +108,17 @@
     tr.row-cher:hover td { background:#fdf0cc; }
     tr.row-remise td { background:#eef4fd; }
     tr.row-remise:hover td { background:#dce9fb; }
-    /* Modal overlay */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
     .modal-overlay.open { display:flex; }
     .modal-box { background:var(--white); border-radius:16px; padding:28px; width:440px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    /* Onglets */
+    .tabs { display:flex; gap:4px; background:var(--bg2); border-radius:10px; padding:4px; margin-bottom:20px; }
+    .tab-btn { flex:1; padding:8px 12px; border-radius:7px; border:none; background:none; font-size:12px; font-weight:600; color:var(--sub); cursor:pointer; transition:all .15s; font-family:'DM Sans',sans-serif; }
+    .tab-btn.active { background:var(--white); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    /* Grossiste cards */
+    .grossiste-card { border-left:4px solid var(--green); }
+    .grossiste-card.g2 { border-left-color:var(--blue); }
+    .grossiste-card.g3 { border-left-color:var(--amber); }
   </style>
 </head>
 <body>
@@ -205,7 +212,7 @@
   </div>
 </div>
 
-<!-- Modal changement de statut -->
+<!-- Modal statut -->
 <div id="modal-statut" class="modal-overlay">
   <div class="modal-box">
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">Modifier le statut</div>
@@ -243,7 +250,7 @@
 const API = 'https://web-production-2202b.up.railway.app'
 let TOKEN = localStorage.getItem('pharmaremise_token')
 let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = 3, CURRENT_ANNEE = 2026
-let PHARMACIE = null, CONFIG_GROSSISTE = null, GENERIQUEURS = [], depot_tab = 'grossiste'
+let PHARMACIE = null, CONFIGS_GROSSISTE = {}, depot_tab = 'grossiste'
 let _CURRENT_FACTURE_ID = null, _MODAL_CIP = null, _MODAL_NOM = ''
 
 if (!TOKEN) window.location.href = '/index.html'
@@ -270,6 +277,10 @@ function toast(msg, type='') {
 function eur(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €' }
 function pct(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%' }
 
+const SOURCE_LABELS = { cerp:'CERP', alliance:'Alliance', ocp:'OCP' }
+const SOURCE_COLORS = { cerp:'var(--green)', alliance:'var(--blue)', ocp:'var(--amber)' }
+const SOURCE_RANG   = { cerp:'Gé1', alliance:'Gé2', ocp:'Gé3' }
+
 async function init() {
   try {
     PHARMACIE = await apiGet('/auth/me')
@@ -282,8 +293,12 @@ async function init() {
     if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
     if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
     if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock">🔒</span>'
-    if (MODULES.includes('grossiste')) CONFIG_GROSSISTE = await apiGet('/grossiste/config')
-    if (MODULES.includes('generiqueur')) GENERIQUEURS = await apiGet('/generiqueur/config')
+    if (MODULES.includes('grossiste')) {
+      const configs = await apiGet('/grossiste/config')
+      if (Array.isArray(configs)) {
+        configs.forEach(c => { CONFIGS_GROSSISTE[c.source] = c })
+      }
+    }
     loadAccueil()
   } catch(e) { console.error(e); toast('Erreur de chargement', 'red') }
 }
@@ -320,15 +335,15 @@ async function loadAccueil() {
     if (MODULES.includes('grossiste')) synthGr = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
     if (MODULES.includes('generiqueur')) synthGe = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
     const ca_gr = synthGr ? synthGr.ca_total : 0, rem_gr = synthGr ? synthGr.remise_totale : 0
-    const ca_ge = synthGe ? synthGe.totaux.ca_total : 0, rem_ge = synthGe ? synthGe.totaux.contrat_total : 0
+    const ca_ge = synthGe ? synthGe.totaux?.ca_total : 0, rem_ge = synthGe ? synthGe.totaux?.contrat_total : 0
     el.innerHTML = `
       <div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">Ce mois</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Remise Grossiste</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Estimée</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Tous grossistes</div></div>
         <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">Ce mois</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val blue">${eur(rem_ge)}</div><div class="kpi-sub">Génériqueurs</div></div>
       </div>
-      ${synthGr ? renderGrossisteStats(synthGr) : ''}
+      ${synthGr && synthGr.par_grossiste?.length ? renderParGrossiste(synthGr.par_grossiste) : ''}
       <div class="card">
         <div class="card-title">Accès rapides</div>
         <div class="three-col">
@@ -340,13 +355,30 @@ async function loadAccueil() {
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
 }
 
-function renderGrossisteStats(s) {
-  if (!s || !s.stats_statut) return ''
-  const total = s.ca_total || 1
-  const rows = Object.entries(s.stats_statut).map(([k,v]) =>
-    `<tr><td>${k}</td><td>${eur(v.ca)}</td><td>${((v.ca/total)*100).toFixed(1)}%</td><td>${v.nb}</td></tr>`
-  ).join('')
-  return `<div class="card"><div class="card-title">Répartition grossiste — ce mois</div><table><thead><tr><th>Statut</th><th>CA HT</th><th>%</th><th>Lignes</th></tr></thead><tbody>${rows}</tbody></table></div>`
+function renderParGrossiste(parGrossiste) {
+  const cards = parGrossiste.map(g => {
+    const color = SOURCE_COLORS[g.source] || 'var(--sub)'
+    const label = SOURCE_LABELS[g.source] || g.source
+    const rang  = SOURCE_RANG[g.source] || ''
+    return `<div class="card" style="border-left:4px solid ${color};margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <span style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</span>
+          <div style="font-size:14px;font-weight:700;color:${color}">${label}</div>
+        </div>
+        <span style="font-size:11px;color:var(--sub)">${g.nb_factures} facture(s)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><div style="font-size:10px;color:var(--sub)">CA total</div><div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div></div>
+        <div><div style="font-size:10px;color:var(--sub)">CA éligible</div><div style="font-size:16px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.ca_eligible)}</div></div>
+        <div><div style="font-size:10px;color:var(--sub)">Remise (${g.taux_remise_pct}%)</div><div style="font-size:16px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_calculee)}</div></div>
+      </div>
+    </div>`
+  }).join('')
+  return `<div class="card">
+    <div class="card-title">Résumé par grossiste — ce mois</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>
+  </div>`
 }
 
 // ── GROSSISTE ──────────────────────────────────────────────────────────────
@@ -359,43 +391,75 @@ async function loadGrossiste() {
       apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
       apiGet(`/grossiste/factures?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
     ])
-    const fRows = factures.length ? factures.map(f => `
-      <tr>
-        <td>${f.filename}</td>
-        <td><span class="badge badge-gray">${f.source}</span></td>
-        <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
-        <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
-        <td>${f.nb_lignes}</td>
-        <td><span class="badge badge-green">Analysée</span></td>
-        <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucune facture ce mois</td></tr>'
+
+    // Grouper les factures par source
+    const parSource = {}
+    factures.forEach(f => {
+      if (!parSource[f.source]) parSource[f.source] = []
+      parSource[f.source].push(f)
+    })
+
+    // Blocs par grossiste
+    const grossisteBlocs = (synth.par_grossiste || []).map(g => {
+      const color = SOURCE_COLORS[g.source] || 'var(--sub)'
+      const label = SOURCE_LABELS[g.source] || g.source
+      const rang  = SOURCE_RANG[g.source] || ''
+      const fList = (parSource[g.source] || [])
+      const fRows = fList.length ? fList.map(f => `
+        <tr>
+          <td>${f.filename}</td>
+          <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
+          <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
+          <td>${f.nb_lignes}</td>
+          <td><span class="badge badge-green">Analysée</span></td>
+          <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
+        </tr>`).join('') :
+        '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
+
+      return `<div class="card" style="border-left:4px solid ${color}">
+        <div class="card-header">
+          <div>
+            <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</div>
+            <div style="font-size:15px;font-weight:700;color:${color}">${label}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--sub)">Taux contrat</div>
+            <div style="font-size:18px;font-weight:600;color:${color}">${g.taux_remise_pct}%</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">CA total</div>
+            <div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div>
+          </div>
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">CA éligible</div>
+            <div class="kpi-val green" style="font-size:18px">${eur(g.ca_eligible)}</div>
+          </div>
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">Remise estimée</div>
+            <div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Fichier</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
+          <tbody>${fRows}</tbody>
+        </table>
+      </div>`
+    }).join('')
+
     el.innerHTML = `
       <div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">CA total HT</div><div class="kpi-val">${eur(synth.ca_total)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(synth.ca_eligible)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-header-title">Factures du mois</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter</button>
-            <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
-          </div>
-        </div>
-        <table><thead><tr><th>Fichier</th><th>Source</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
-        <tbody>${fRows}</tbody></table>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
+        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
       </div>
-      ${CONFIG_GROSSISTE ? `
-      <div class="card">
-        <div class="card-title">Paramètres du contrat</div>
-        <div class="three-col">
-          <div><div style="font-size:11px;color:var(--sub)">Taux remise</div><div style="font-size:20px;font-weight:600;color:var(--green)">${pct(CONFIG_GROSSISTE.taux_remise_pct)}</div></div>
-          <div><div style="font-size:11px;color:var(--sub)">Seuil produit cher</div><div style="font-size:20px;font-weight:600">${eur(CONFIG_GROSSISTE.seuil_cher)}</div></div>
-          <div><div style="font-size:11px;color:var(--sub)">Forfait cher</div><div style="font-size:20px;font-weight:600">${eur(CONFIG_GROSSISTE.forfait_cher)}/boîte</div></div>
-        </div>
-      </div>` : ''}`
+      ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
 }
 
@@ -425,6 +489,8 @@ async function voirFacture(id) {
 function _renderFacture(f) {
   const el = document.getElementById('grossiste-content')
   const lignes = f.lignes || []
+  const color = SOURCE_COLORS[f.source] || 'var(--sub)'
+  const label = SOURCE_LABELS[f.source] || f.source
 
   const statsMap = {}
   for (const l of lignes) {
@@ -454,7 +520,7 @@ function _renderFacture(f) {
     const remiseCell = l.remise_pct > 0
       ? `<td style="text-align:center;color:var(--blue);font-weight:600">${l.remise_pct}%</td>`
       : `<td style="text-align:center;color:var(--sub)">—</td>`
-    const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé manuellement">✏️</span>' : ''
+    const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé">✏️</span>' : ''
     const editBtn = l.cip13
       ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})">✏️</button>`
       : ''
@@ -475,7 +541,7 @@ function _renderFacture(f) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="loadGrossiste()">← Retour</button>
       <div style="font-weight:600;font-size:15px">${f.filename}</div>
-      <span class="badge badge-gray">${f.source||'—'}</span>
+      <span class="badge" style="background:${color}20;color:${color}">${label}</span>
     </div>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-lbl">Total HT</div><div class="kpi-val">${eur(f.total_ht)}</div></div>
@@ -492,12 +558,11 @@ function _renderFacture(f) {
       <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)">💰 Produit cher</span>
       <span style="background:var(--blue-l);padding:3px 10px;border-radius:6px;color:var(--blue)">🔵 Remisé facture</span>
       <span style="background:var(--bg2);padding:3px 10px;border-radius:6px;color:var(--sub)">⚪ Exclu</span>
-      <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)">✏️ Statut forcé manuellement</span>
     </div>
     <div class="card">
       <div class="card-header">
         <div class="card-header-title">Détail des lignes</div>
-        <span style="font-size:11px;color:var(--sub)">Cliquez ✏️ pour modifier le statut d'un produit</span>
+        <span style="font-size:11px;color:var(--sub)">Cliquez ✏️ pour modifier le statut</span>
       </div>
       <div style="overflow-x:auto">
         <table>
@@ -508,57 +573,42 @@ function _renderFacture(f) {
     </div>`
 }
 
-// ── MODAL OVERRIDE STATUT ──────────────────────────────────────────────────
+// ── MODAL OVERRIDE ─────────────────────────────────────────────────────────
 function ouvrirModal(cip13, nom, statutActuel, statutForce) {
-  _MODAL_CIP = cip13
-  _MODAL_NOM = nom
+  _MODAL_CIP = cip13; _MODAL_NOM = nom
   document.getElementById('modal-cip').textContent = cip13
   document.getElementById('modal-produit-nom').textContent = nom
   document.getElementById('modal-select-statut').value = statutActuel
   document.getElementById('modal-reinit-zone').style.display = statutForce ? 'block' : 'none'
   document.getElementById('modal-statut').classList.add('open')
 }
-
 function fermerModal() {
-  document.getElementById('modal-statut').classList.remove('open')
-  _MODAL_CIP = null
+  document.getElementById('modal-statut').classList.remove('open'); _MODAL_CIP = null
 }
-
 async function appliquerOverride() {
   if (!_MODAL_CIP) return
   const statut = document.getElementById('modal-select-statut').value
   toast('Application en cours...')
   try {
     const r = await fetch(`${API}/grossiste/overrides?cip13=${encodeURIComponent(_MODAL_CIP)}&statut_force=${statut}&nom=${encodeURIComponent(_MODAL_NOM)}`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      method:'POST', headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' }, body:JSON.stringify({})
     })
     const result = await r.json()
     fermerModal()
     toast(`✅ ${result.nb_lignes} ligne(s) mise(s) à jour`, 'green')
-    if (_CURRENT_FACTURE_ID) {
-      const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`)
-      _renderFacture(f)
-    }
-  } catch(e) { toast('Erreur lors de la mise à jour', 'red') }
+    if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
+  } catch(e) { toast('Erreur', 'red') }
 }
-
 async function reinitialiserStatut() {
-  if (!_MODAL_CIP) return
-  if (!confirm(`Réinitialiser le statut de "${_MODAL_NOM}" au calcul automatique ?`)) return
-  fermerModal()
-  toast('Réinitialisation...')
+  if (!_MODAL_CIP || !confirm(`Réinitialiser le statut de "${_MODAL_NOM}" ?`)) return
+  fermerModal(); toast('Réinitialisation...')
   try {
     await fetch(`${API}/grossiste/overrides/${encodeURIComponent(_MODAL_CIP)}`, {
-      method: 'DELETE', headers: { Authorization: 'Bearer ' + TOKEN }
+      method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN }
     })
     toast('✅ Statut réinitialisé', 'green')
-    if (_CURRENT_FACTURE_ID) {
-      const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`)
-      _renderFacture(f)
-    }
-  } catch(e) { toast('Erreur lors de la réinitialisation', 'red') }
+    if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
+  } catch(e) { toast('Erreur', 'red') }
 }
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
@@ -576,9 +626,88 @@ async function exportPDFGrossiste() {
     const a = document.createElement('a'); a.href=url
     a.download=`bilan_grossiste_${String(CURRENT_MOIS).padStart(2,'0')}_${CURRENT_ANNEE}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast('Bilan PDF téléchargé !', 'green')
+    URL.revokeObjectURL(url); toast('Bilan PDF téléchargé !', 'green')
   } catch(e) { toast('Erreur réseau','red') }
+}
+
+// ── PARAMÈTRES ─────────────────────────────────────────────────────────────
+let _PARAM_TAB = 'cerp'
+
+async function loadParametres() {
+  const el = document.getElementById('parametres-content')
+  if (!MODULES.includes('grossiste')) {
+    el.innerHTML = `<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
+    return
+  }
+  _renderParametres()
+}
+
+function _renderParametres() {
+  const el = document.getElementById('parametres-content')
+  const source = _PARAM_TAB
+  const cfg = CONFIGS_GROSSISTE[source] || {}
+  const label = SOURCE_LABELS[source] || source
+  const color = SOURCE_COLORS[source] || 'var(--sub)'
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title">Contrats grossistes</div>
+      <div class="tabs">
+        ${['cerp','alliance','ocp'].map(s => `
+          <button class="tab-btn ${s===source?'active':''}" onclick="_PARAM_TAB='${s}';_renderParametres()" style="${s===source?'color:'+SOURCE_COLORS[s]:''}">
+            ${SOURCE_RANG[s]} — ${SOURCE_LABELS[s]}
+          </button>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:${color}">${label}</div>
+          <div style="font-size:12px;color:var(--sub)">Paramètres du contrat de remise arrière</div>
+        </div>
+      </div>
+      <div class="three-col">
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
+          <input type="number" id="p-taux" value="${cfg.taux_remise_pct||4}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
+          <input type="number" id="p-seuil" value="${cfg.seuil_cher||465}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label>
+          <input type="number" id="p-forfait" value="${cfg.forfait_cher||10}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+        ${checkBox('p-tva20','Exclure TVA 20%',cfg.exclure_tva20)}
+        ${checkBox('p-biosim','Exclure biosimilaires',cfg.exclure_biosim)}
+        ${checkBox('p-frigo','Exclure frigo',cfg.exclure_frigo)}
+        ${checkBox('p-stup','Exclure stupéfiants',cfg.exclure_stupefiants)}
+      </div>
+      <button class="btn btn-green" style="margin-top:16px;background:${color}" onclick="saveConfig('${source}')">Sauvegarder ${label}</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Mon compte</div>
+      <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
+      <div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div>
+    </div>`
+}
+
+function checkBox(id, label, checked) {
+  return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="${id}" ${checked?'checked':''} style="width:14px;height:14px;accent-color:var(--green)"/>${label}</label>`
+}
+
+async function saveConfig(source) {
+  const body = {
+    source,
+    rang: { cerp:1, alliance:2, ocp:3 }[source] || 1,
+    taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
+    seuil_cher:      parseFloat(document.getElementById('p-seuil').value),
+    forfait_cher:    parseFloat(document.getElementById('p-forfait').value),
+    exclure_tva20:       document.getElementById('p-tva20').checked,
+    exclure_biosim:      document.getElementById('p-biosim').checked,
+    exclure_frigo:       document.getElementById('p-frigo').checked,
+    exclure_stupefiants: document.getElementById('p-stup').checked,
+    exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
+  }
+  const updated = await apiPut(`/grossiste/config/${source}`, body)
+  CONFIGS_GROSSISTE[source] = updated
+  toast(`✅ Config ${SOURCE_LABELS[source]} sauvegardée !`, 'green')
 }
 
 // ── GÉNÉRIQUEUR ────────────────────────────────────────────────────────────
@@ -603,9 +732,9 @@ async function loadGeneriqueur() {
       </div>`).join('') || '<div class="loading-center" style="color:var(--sub)">Aucun génériqueur configuré</div>'
     el.innerHTML = `
       <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-lbl">CA total génériqueurs</div><div class="kpi-val">${eur(synth.totaux.ca_total)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(synth.totaux.rdp_total)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val green">${eur(synth.totaux.contrat_total)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA total génériqueurs</div><div class="kpi-val">${eur(synth.totaux?.ca_total||0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(synth.totaux?.rdp_total||0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val green">${eur(synth.totaux?.contrat_total||0)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Génériqueurs actifs</div><div class="kpi-val">${ges.length}</div></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
@@ -656,8 +785,7 @@ async function exportPDFGeneriqueur() {
     const a = document.createElement('a'); a.href=url
     a.download=`synthese_generiqueur_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast('PDF téléchargé !', 'green')
+    URL.revokeObjectURL(url); toast('PDF téléchargé !', 'green')
   } catch(e) { toast('Erreur réseau','red') }
 }
 
@@ -692,50 +820,6 @@ async function loadRFA() {
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
 }
 
-// ── PARAMÈTRES ─────────────────────────────────────────────────────────────
-async function loadParametres() {
-  const el = document.getElementById('parametres-content')
-  let configHTML = ''
-  if (MODULES.includes('grossiste') && CONFIG_GROSSISTE) {
-    configHTML = `
-      <div class="card">
-        <div class="card-title">Contrat grossiste</div>
-        <div class="three-col">
-          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label><input type="number" id="p-taux" value="${CONFIG_GROSSISTE.taux_remise_pct}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label><input type="number" id="p-seuil" value="${CONFIG_GROSSISTE.seuil_cher}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label><input type="number" id="p-forfait" value="${CONFIG_GROSSISTE.forfait_cher}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-        </div>
-        <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
-          ${checkBox('p-tva20','Exclure TVA 20%',CONFIG_GROSSISTE.exclure_tva20)}
-          ${checkBox('p-biosim','Exclure biosimilaires',CONFIG_GROSSISTE.exclure_biosim)}
-          ${checkBox('p-frigo','Exclure frigo',CONFIG_GROSSISTE.exclure_frigo)}
-          ${checkBox('p-stup','Exclure stupéfiants',CONFIG_GROSSISTE.exclure_stupefiants)}
-        </div>
-        <button class="btn btn-green" style="margin-top:16px" onclick="saveConfig()">Sauvegarder</button>
-      </div>`
-  }
-  el.innerHTML = `${configHTML}<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
-}
-
-function checkBox(id, label, checked) {
-  return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="${id}" ${checked?'checked':''} style="width:14px;height:14px;accent-color:var(--green)"/>${label}</label>`
-}
-
-async function saveConfig() {
-  const body = {
-    taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
-    seuil_cher: parseFloat(document.getElementById('p-seuil').value),
-    forfait_cher: parseFloat(document.getElementById('p-forfait').value),
-    exclure_tva20: document.getElementById('p-tva20').checked,
-    exclure_biosim: document.getElementById('p-biosim').checked,
-    exclure_frigo: document.getElementById('p-frigo').checked,
-    exclure_stupefiants: document.getElementById('p-stup').checked,
-    exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
-  }
-  CONFIG_GROSSISTE = await apiPut('/grossiste/config', body)
-  toast('Configuration sauvegardée !', 'green')
-}
-
 // ── DÉPÔT ──────────────────────────────────────────────────────────────────
 function setDepotTab(tab) {
   depot_tab = tab
@@ -764,7 +848,8 @@ async function uploadFactureAuto(file) {
     })
     const data = await res.json()
     if (res.ok) {
-      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
+      const src = SOURCE_LABELS[data.source] || data.source
+      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
     } else {
       div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
     }
@@ -781,7 +866,7 @@ async function calculerComparateur() {
   const ctr_b  = parseFloat(document.getElementById('cmp-ctr-b').value)||0
   if (!pond_b && !ctr_b) { toast("Remplissez les taux de l'offre challenger", 'red'); return }
   let ca = 0
-  if (MODULES.includes('generiqueur')) { const s = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`); ca = s.totaux.ca_total || 0 }
+  if (MODULES.includes('generiqueur')) { const s = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`); ca = s.totaux?.ca_total || 0 }
   if (!ca) ca = 10000
   const rem_a = ca*(pond_a+ctr_a)/100, rem_b = ca*(pond_b+ctr_b)/100
   const diff = rem_b - rem_a, winner = diff > 0 ? 'B' : 'A'
