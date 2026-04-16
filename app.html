@@ -954,7 +954,7 @@ async function uploadFactureAuto(file) {
   const fd = new FormData();
   fd.append('file', file);
   try {
-    const res = await fetch(`${API}/grossiste/factures/analyser`, {
+    const res = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + TOKEN },
       body: fd
