@@ -490,6 +490,7 @@ async function loadGrossiste() {
       const fList = (parSource[g.source] || [])
       const fRows = fList.length ? fList.map(f => `
         <tr>
+          <td><input type="checkbox" class="f-check" data-id="${f.id}" onchange="updateDeleteBtn()" /></td>
           <td>${f.filename}</td>
           <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
           <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
@@ -497,7 +498,7 @@ async function loadGrossiste() {
           <td><span class="badge badge-green">Analysée</span></td>
           <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
         </tr>`).join('') :
-        '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
+        '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
 
       return `<div class="card" style="border-left:4px solid ${color}">
         <div class="card-header">
@@ -525,7 +526,7 @@ async function loadGrossiste() {
           </div>
         </div>
         <table>
-          <thead><tr><th>Fichier</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
+          <thead><tr><th style="width:30px"><input type="checkbox" class="f-check-all" onchange="toggleAllFactures(this)" /></th><th>Fichier</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
           <tbody>${fRows}</tbody>
         </table>
       </div>`
@@ -539,11 +540,50 @@ async function loadGrossiste() {
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+        <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
         <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
       </div>
       ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
+}
+
+// ── SÉLECTION ET SUPPRESSION FACTURES ────────────────────────────────────────
+function updateDeleteBtn() {
+  const checked = document.querySelectorAll('.f-check:checked').length
+  const btn = document.getElementById('btn-supprimer-selection')
+  if (!btn) return
+  btn.textContent = `🗑️ Supprimer sélection (${checked})`
+  btn.disabled = checked === 0
+  btn.style.opacity = checked === 0 ? '0.4' : '1'
+}
+
+function toggleAllFactures(source) {
+  const card = source.closest('.card')
+  const checks = card ? card.querySelectorAll('.f-check') : document.querySelectorAll('.f-check')
+  checks.forEach(c => { c.checked = source.checked })
+  updateDeleteBtn()
+}
+
+async function supprimerFacturesSelectionnees() {
+  const checks = document.querySelectorAll('.f-check:checked')
+  if (!checks.length) return
+  const ids = Array.from(checks).map(c => c.dataset.id)
+  if (!confirm(`Supprimer ${ids.length} facture(s) ? Cette action est irréversible.`)) return
+
+  let ok = 0, err = 0
+  for (const id of ids) {
+    try {
+      const res = await fetch(`${API}/grossiste/factures/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${TOKEN}` }
+      })
+      if (res.ok) ok++; else err++
+    } catch { err++ }
+  }
+
+  toast(`${ok} facture(s) supprimée(s)${err ? ` — ${err} erreur(s)` : ''}`, err ? 'red' : 'green')
+  loadGrossiste()
 }
 
 // ── VOIR FACTURE ────────────────────────────────────────────────────────────
