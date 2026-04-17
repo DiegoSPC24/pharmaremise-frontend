@@ -2284,76 +2284,315 @@ async function loadGeneriqueur() {
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   try {
     const synth = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    const ges = synth.generiqueurs || []
-    const geCards = ges.map(g => `
-      <div class="card" style="border-left:3px solid var(--green)">
-        <div class="card-header">
-          <div><div style="font-size:13px;font-weight:600">Gé${g.rank} — ${g.name}</div><div style="font-size:11px;color:var(--sub);margin-top:2px">${g.nb_exclus} exclusion(s)</div></div>
-          <button class="btn btn-outline btn-sm" onclick="voirGeneriqueur('${g.gid}')">Détail →</button>
-        </div>
-        <div class="three-col" style="margin-top:8px">
-          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total</div><div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div></div>
-          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise pond.</div><div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_pond)}</div></div>
-          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${g.rdp?'RDP calculée':'Contrat attendu'}</div><div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${g.rdp?eur(g.rdp_calc):eur(g.ctr_calc)}</div></div>
-        </div>
-      </div>`).join('') || '<div class="loading-center" style="color:var(--sub)">Aucun génériqueur configuré</div>'
-    el.innerHTML = `
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-lbl">CA total génériqueurs</div><div class="kpi-val">${eur(synth.totaux?.ca_total||0)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(synth.totaux?.rdp_total||0)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val green">${eur(synth.totaux?.contrat_total||0)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Génériqueurs actifs</div><div class="kpi-val">${ges.length}</div></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        <button class="btn btn-green btn-sm" onclick="exportPDFGeneriqueur()">📄 Export PDF</button>
-      </div>${geCards}`
-  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
+    renderGeneriqueurPage(synth)
+  } catch(e) {
+    el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
+  }
 }
 
-async function voirGeneriqueur(gid) {
-  const data = await apiGet(`/generiqueur/${gid}/analyse?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-  const elig = (data.lignes_eligibles||[]).map(l => `
-    <tr>
-      <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
-      <td>${l.nom}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.pfht)}</td>
-      <td style="text-align:center">${l.qte}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.total_ht)}</td>
-      ${l.rdp_taux ? `<td style="color:var(--blue);font-weight:500">${(l.rdp_taux*100).toFixed(1)}%</td>` : '<td>—</td>'}
-    </tr>`).join('')
-  document.getElementById('generiqueur-content').innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <button class="btn btn-outline btn-sm" onclick="loadGeneriqueur()">← Retour</button>
-      <div style="font-weight:600">Gé${data.rank} — ${data.name}</div>
-      ${data.rdp ? '<span class="badge badge-blue">RDP Biogaran</span>' : ''}
-    </div>
+// Cache pour savoir quels détails sont dépliés
+let _GEN_DETAILS_OPEN = {}
+
+function renderGeneriqueurPage(synth) {
+  const el = document.getElementById('generiqueur-content')
+  const labos = synth.labos || []
+  const totaux = synth.totaux || {}
+
+  if (!labos.length) {
+    el.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">CA total génériques</div><div class="kpi-val">${eur(0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise totale</div><div class="kpi-val green">${eur(0)}</div></div>
+      </div>
+      <div class="card">
+        <div style="text-align:center;padding:40px;color:var(--sub)">
+          <div style="font-size:40px">💊</div>
+          <div style="margin-top:12px;font-size:14px">Aucun génériqueur à afficher ce mois</div>
+          <div style="font-size:12px;margin-top:4px">Commence par configurer tes génériqueurs dans Paramètres, ou uploade des factures grossistes pour voir les achats.</div>
+          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="goTo('parametres', document.querySelector('[onclick*=\\'parametres\\']'))">⚙️ Aller aux Paramètres</button>
+        </div>
+      </div>`
+    return
+  }
+
+  // KPIs globaux
+  const kpiHtml = `
     <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-lbl">CA total</div><div class="kpi-val">${eur(data.ca_total)}</div></div>
-      <div class="kpi-card"><div class="kpi-lbl">Remise pondérée</div><div class="kpi-val green">${eur(data.remise_pond)}</div></div>
-      ${data.rdp ? `<div class="kpi-card"><div class="kpi-lbl">RDP calculée</div><div class="kpi-val blue">${eur(data.rdp_calc)}</div></div>` : ''}
-      <div class="kpi-card"><div class="kpi-lbl">Contrat attendu</div><div class="kpi-val">${eur(data.ctr_calc)}</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Lignes incluses</div>
-      <table><thead><tr><th>CIP</th><th>Produit</th><th>PFHT</th><th>Qté</th><th>Total</th><th>RDP</th></tr></thead><tbody>${elig}</tbody></table>
+      <div class="kpi-card"><div class="kpi-lbl">CA total génériques</div><div class="kpi-val">${eur(totaux.ca_total_ht||0)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val green">${eur(totaux.remise_grossiste_e||0)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Remise contrat</div><div class="kpi-val green">${eur(totaux.remise_contrat_e||0)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(totaux.rdp_e||0)}</div></div>
+    </div>`
+
+  // Sections labos
+  const labosHtml = labos.map(l => renderLaboSection(l)).join('')
+
+  el.innerHTML = kpiHtml + labosHtml
+}
+
+function renderLaboSection(l) {
+  // Couleurs et badges
+  const isPrio = l.prioritaire
+  const couleurBord = isPrio ? '#1D9E75' : '#94a3b8'
+  const badgeOrdre = isPrio
+    ? `<span style="display:inline-block;padding:3px 9px;background:${couleurBord};color:white;border-radius:4px;font-size:11px;font-weight:600">N°${l.ordre}</span>`
+    : (l.configure
+        ? `<span style="display:inline-block;padding:3px 9px;background:${couleurBord};color:white;border-radius:4px;font-size:11px;font-weight:600">Non prio</span>`
+        : `<span style="display:inline-block;padding:3px 9px;background:#D1D5DB;color:#374151;border-radius:4px;font-size:11px;font-weight:600">Non configuré</span>`)
+
+  // Infos ligne d'en-tête
+  const infoLigne = l.configure
+    ? `Contrat ${l.taux_contrat_pct}% • Promis ${l.pct_pondere_promis}% • ${isPrio ? `Obj. annuel ${eur(l.objectif_annuel_ht)}` : `Seuil mensuel ${eur(l.seuil_mensuel_ht)}`}`
+    : `⚠️ Ce labo n'est pas dans tes paramètres — configure-le pour bénéficier des remises contrat`
+
+  // % pondéré réel avec couleur
+  const pctReel = l.pct_pondere_reel
+  const pctPromis = l.pct_pondere_promis
+  const ecart = l.ecart_promis
+  let pctColor = 'var(--sub)'
+  let pctIcon = ''
+  if (l.configure && pctPromis > 0) {
+    if (ecart >= 0) { pctColor = '#1D9E75'; pctIcon = '🟢' }
+    else if (ecart >= -2) { pctColor = '#D97706'; pctIcon = '🟡' }
+    else { pctColor = '#DC2626'; pctIcon = '🔴' }
+  }
+
+  // Section seuil non-prio
+  let seuilSection = ''
+  if (l.configure && !isPrio) {
+    seuilSection = renderJaugeSeuil(l.ca_total_ht, l.seuil_mensuel_ht, l.seuil_atteint)
+  }
+
+  // Section RDP Biogaran
+  let rdpSection = ''
+  if (l.rdp_details) {
+    rdpSection = renderRDPBiogaran(l.rdp_details)
+  }
+
+  // Section répartition par source
+  const parSource = l.par_source || {}
+  const sources = [
+    { key: 'cerp', label: '📦 CERP', color: '#1D9E75' },
+    { key: 'alliance', label: '📦 Alliance', color: '#2563EB' },
+    { key: 'ocp', label: '📦 OCP', color: '#7C3AED' },
+  ]
+  const sourcesRows = sources.map(s => {
+    const d = parSource[s.key] || { ca: 0, remise_grossiste: 0, remise_contrat: 0, nb_lignes: 0 }
+    if (d.ca <= 0) {
+      return `<tr><td style="padding:6px 10px;color:var(--sub)">${s.label}</td><td colspan="3" style="color:var(--sub);font-size:11px">— aucun achat</td></tr>`
+    }
+    return `
+      <tr>
+        <td style="padding:6px 10px;font-weight:500;color:${s.color}">${s.label}</td>
+        <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace">${eur(d.ca)}</td>
+        <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(d.remise_grossiste)}</td>
+        <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(d.remise_contrat)}</td>
+      </tr>`
+  }).join('')
+
+  const sourcesTable = `
+    <div style="margin-top:14px">
+      <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Répartition par source</div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead>
+          <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
+            <th style="padding:4px 10px;text-align:left">Source</th>
+            <th style="padding:4px 10px;text-align:right">CA HT</th>
+            <th style="padding:4px 10px;text-align:right">Remise gros.</th>
+            <th style="padding:4px 10px;text-align:right">Remise contrat</th>
+          </tr>
+        </thead>
+        <tbody>${sourcesRows}</tbody>
+      </table>
+    </div>`
+
+  // CA exclu
+  let exclusSection = ''
+  if (l.ca_exclu_ht > 0) {
+    exclusSection = `
+      <div style="margin-top:10px;padding:8px 12px;background:#FEF3C7;border-radius:6px;border-left:3px solid #D97706;font-size:12px">
+        <span style="font-weight:600;color:#92400E">⚠️ Produits avec règle particulière :</span>
+        ${eur(l.ca_exclu_ht)} (${l.ca_exclu_pct}% du CA)
+      </div>`
+  }
+
+  // Bouton détail lignes
+  const laboKey = l.labo.replace(/\s+/g,'_')
+  const isOpen = !!_GEN_DETAILS_OPEN[l.labo]
+  const detailBtn = l.details_lignes && l.details_lignes.length > 0
+    ? `<button onclick="toggleDetailsLignes('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm" style="margin-top:12px">
+         ${isOpen ? '▲ Cacher le détail' : '▼ Voir le détail'} (${l.details_lignes.length} ligne${l.details_lignes.length>1?'s':''})
+       </button>
+       <div id="details-lignes-${laboKey}" style="display:${isOpen?'block':'none'};margin-top:10px">
+         ${renderDetailsLignes(l.details_lignes)}
+       </div>`
+    : ''
+
+  return `
+    <div class="card" style="border-left:3px solid ${couleurBord}">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            ${badgeOrdre}
+            <span style="font-size:16px;font-weight:700">${l.labo}</span>
+          </div>
+          <div style="font-size:11px;color:var(--sub)">${infoLigne}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">% pondéré réel</div>
+          <div style="font-size:22px;font-weight:700;color:${pctColor};font-family:'DM Mono',monospace">${pctIcon} ${pctReel.toFixed(1)}%</div>
+          ${l.configure && pctPromis > 0 ? `<div style="font-size:10px;color:var(--sub)">Promis : ${pctPromis}% ${ecart >= 0 ? '<span style="color:#1D9E75">(+'+ecart.toFixed(1)+'%)</span>' : '<span style="color:#DC2626">('+ecart.toFixed(1)+'%)</span>'}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="three-col" style="margin-top:14px">
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total HT</div>
+          <div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(l.ca_total_ht)}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.nb_refs} réf${l.nb_refs>1?'s':''} • ${l.nb_lignes} ligne${l.nb_lignes>1?'s':''}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise totale</div>
+          <div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(l.remise_totale_e)}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">Gros. ${eur(l.remise_grossiste_e)} + Contrat ${eur(l.remise_contrat_e)}${l.rdp_e>0 ? ' + RDP '+eur(l.rdp_e) : ''}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise contrat</div>
+          <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${eur(l.remise_contrat_e)}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">Taux ${l.taux_contrat_pct}%${l.configure && !isPrio && !l.seuil_atteint ? ' (seuil non atteint)' : ''}</div>
+        </div>
+      </div>
+
+      ${seuilSection}
+      ${rdpSection}
+      ${sourcesTable}
+      ${exclusSection}
+      ${detailBtn}
     </div>`
 }
 
+function renderJaugeSeuil(ca, seuil, atteint) {
+  const pct = seuil > 0 ? Math.min(100, (ca / seuil) * 100) : 100
+  let couleur, texte, iconHtml
+  if (atteint) {
+    couleur = '#1D9E75'; iconHtml = '🟢'
+    texte = `Seuil atteint (${eur(ca)} / ${eur(seuil)}) — remise contrat active`
+  } else if (pct >= 70) {
+    couleur = '#D97706'; iconHtml = '🟡'
+    texte = `${eur(ca)} / ${eur(seuil)} — il reste ${eur(seuil - ca)} pour débloquer la remise`
+  } else {
+    couleur = '#DC2626'; iconHtml = '🔴'
+    texte = `${eur(ca)} / ${eur(seuil)} — loin du seuil, il manque ${eur(seuil - ca)}`
+  }
+
+  return `
+    <div style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600;color:${couleur}">${iconHtml} ${texte}</span>
+        <span style="font-size:11px;color:var(--sub);font-family:'DM Mono',monospace">${pct.toFixed(0)}%</span>
+      </div>
+      <div style="height:10px;background:#F3F4F6;border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${couleur};transition:width 0.3s"></div>
+      </div>
+    </div>`
+}
+
+function renderRDPBiogaran(rdp) {
+  const atteint = rdp.conditions_atteintes
+  const couleur = atteint ? '#1D9E75' : '#D97706'
+  const bg = atteint ? '#D1FAE5' : '#FEF3C7'
+  const icon = atteint ? '✅' : '⏳'
+  const label = atteint ? 'RDP Biogaran : CONDITIONS ATTEINTES' : 'RDP Biogaran : en cours'
+
+  const refsPct = Math.min(100, (rdp.realise.nb_refs / rdp.conditions.refs_requises) * 100)
+  const caPct = Math.min(100, (rdp.realise.ca / rdp.conditions.ca_requis) * 100)
+
+  return `
+    <div style="margin-top:14px;padding:12px;background:${bg};border-radius:8px;border-left:3px solid ${couleur}">
+      <div style="font-size:13px;font-weight:700;color:${couleur};margin-bottom:8px">
+        ${icon} ${label}
+        ${atteint ? `<span style="float:right;font-family:'DM Mono',monospace">RDP octroyée : ${eur(rdp.rdp_e)}</span>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+            <span>Références : ${rdp.realise.nb_refs} / ${rdp.conditions.refs_requises}</span>
+            <span style="font-family:'DM Mono',monospace">${refsPct.toFixed(0)}%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,0.5);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${refsPct}%;background:${couleur}"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+            <span>CA : ${eur(rdp.realise.ca)} / ${eur(rdp.conditions.ca_requis)}</span>
+            <span style="font-family:'DM Mono',monospace">${caPct.toFixed(0)}%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,0.5);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${caPct}%;background:${couleur}"></div>
+          </div>
+        </div>
+      </div>
+    </div>`
+}
+
+function renderDetailsLignes(lignes) {
+  // Trier par CA décroissant
+  const trie = [...lignes].sort((a, b) => (b.total_ht || 0) - (a.total_ht || 0))
+
+  const rows = trie.map(l => {
+    const srcColor = { cerp: '#1D9E75', alliance: '#2563EB', ocp: '#7C3AED' }[l.source] || 'var(--sub)'
+    const srcLabel = { cerp: 'CERP', alliance: 'ALLI', ocp: 'OCP' }[l.source] || l.source.toUpperCase()
+    const regleIcon = l.regle_particuliere ? ' <span title="Règle particulière appliquée" style="color:#D97706">⚙️</span>' : ''
+    return `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--sub)">${l.cip13}</td>
+        <td style="padding:5px 8px;font-size:11px">${l.famille || l.nom}${regleIcon}</td>
+        <td style="padding:5px 8px"><span style="font-size:9px;padding:1px 5px;background:${srcColor};color:white;border-radius:3px">${srcLabel}</span></td>
+        <td style="padding:5px 8px;text-align:center;font-size:11px">${l.qte}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.pfht)}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.total_ht)}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:11px;color:var(--sub)">${l.remise_base_labo_pct!=null ? l.remise_base_labo_pct+'%' : '—'}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:11px;font-weight:600;color:${l.taux_contrat_applique_pct>0?'var(--green)':'var(--sub)'}">${l.taux_contrat_applique_pct}%</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--green)">${eur(l.remise_contrat_e)}</td>
+      </tr>`
+  }).join('')
+
+  return `
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px">
+            <th style="padding:6px 8px;text-align:left">CIP</th>
+            <th style="padding:6px 8px;text-align:left">Molécule</th>
+            <th style="padding:6px 8px;text-align:left">Src</th>
+            <th style="padding:6px 8px">Qté</th>
+            <th style="padding:6px 8px;text-align:right">PFHT</th>
+            <th style="padding:6px 8px;text-align:right">Total HT</th>
+            <th style="padding:6px 8px;text-align:center">Rem. base</th>
+            <th style="padding:6px 8px;text-align:center">Rem. contrat</th>
+            <th style="padding:6px 8px;text-align:right">Contrat €</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`
+}
+
+function toggleDetailsLignes(labo) {
+  _GEN_DETAILS_OPEN[labo] = !_GEN_DETAILS_OPEN[labo]
+  const laboKey = labo.replace(/\s+/g,'_')
+  const el = document.getElementById(`details-lignes-${laboKey}`)
+  if (el) {
+    el.style.display = _GEN_DETAILS_OPEN[labo] ? 'block' : 'none'
+  }
+  // Mettre à jour le libellé du bouton
+  // (approche simple : on régénère la page)
+  loadGeneriqueur()
+}
+
 async function exportPDFGeneriqueur() {
-  toast('Génération du PDF...')
-  try {
-    const r = await fetch(`${API}/generiqueur/export/pdf`, {
-      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
-      body: JSON.stringify({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
-    })
-    if (!r.ok) { toast('Erreur export','red'); return }
-    const blob = await r.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href=url
-    a.download=`synthese_generiqueur_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`
-    document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    URL.revokeObjectURL(url); toast('PDF téléchargé !', 'green')
-  } catch(e) { toast('Erreur réseau','red') }
+  toast('Export PDF non disponible pour cette vue pour l\'instant', 'orange')
 }
 
 // ── RFA ────────────────────────────────────────────────────────────────────
