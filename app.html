@@ -1280,6 +1280,115 @@ async function supprimerReleve(releveId) {
   } catch(e) { toast('Erreur réseau', 'red') }
 }
 
+// ── MODIFICATIONS PINCEAU (OVERRIDES) ──────────────────────────────────────
+async function chargerListeOverrides() {
+  const el = document.getElementById('overrides-liste')
+  if (!el) return
+  try {
+    const overrides = await apiGet('/grossiste/overrides')
+    afficherListeOverrides(overrides)
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur de chargement</div>'
+  }
+}
+
+function afficherListeOverrides(overrides) {
+  const el = document.getElementById('overrides-liste')
+
+  if (!overrides || !overrides.length) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:20px;color:var(--sub);border:1px dashed var(--border);border-radius:10px">
+        <div style="font-size:28px">🖌️</div>
+        <div style="margin-top:6px;font-size:12px">Aucune modification manuelle</div>
+        <div style="font-size:11px;margin-top:2px">Utilise le pinceau sur une facture pour forcer le statut d'un CIP</div>
+      </div>`
+    return
+  }
+
+  // Libellés des statuts
+  const statutLabel = {
+    'eligible': { txt: 'Éligible', color: '#1D9E75', bg: '#E1F5EE' },
+    'produit_cher': { txt: 'Produit cher', color: '#D97706', bg: '#FEF3C7' },
+    'hors_champ': { txt: 'Hors champ', color: '#6B7280', bg: '#F3F4F6' },
+    'tva20': { txt: 'TVA 20%', color: '#7C3AED', bg: '#EDE9FE' },
+    'biosimilaire': { txt: 'Biosimilaire', color: '#2563EB', bg: '#DBEAFE' },
+    'frigo': { txt: 'Frigo', color: '#0891B2', bg: '#CFFAFE' },
+    'stupefiant': { txt: 'Stupéfiant', color: '#DC2626', bg: '#FEE2E2' },
+    'exclu': { txt: 'Exclu', color: '#DC2626', bg: '#FEE2E2' },
+  }
+
+  const formatDate = (iso) => {
+    if (!iso) return '—'
+    try {
+      const d = new Date(iso)
+      const j = String(d.getDate()).padStart(2,'0')
+      const m = String(d.getMonth()+1).padStart(2,'0')
+      const y = d.getFullYear()
+      const hh = String(d.getHours()).padStart(2,'0')
+      const mm = String(d.getMinutes()).padStart(2,'0')
+      return `${j}/${m}/${y} ${hh}:${mm}`
+    } catch(e) { return '—' }
+  }
+
+  const rows = overrides.map(o => {
+    const s = statutLabel[o.statut_force] || { txt: o.statut_force, color: '#6B7280', bg: '#F3F4F6' }
+    const dateAffichee = o.updated_at || o.created_at
+    return `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;white-space:nowrap">${o.cip13}</td>
+        <td style="padding:8px 10px;font-size:12px">${o.nom || '<span style="color:var(--sub)">Nom inconnu</span>'}</td>
+        <td style="padding:8px 10px;white-space:nowrap"><span style="padding:2px 8px;background:${s.bg};color:${s.color};border-radius:4px;font-size:11px;font-weight:600">${s.txt}</span></td>
+        <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--sub)">${o.nb_lignes_affectees}</td>
+        <td style="padding:8px 10px;font-size:11px;color:var(--sub);white-space:nowrap">${formatDate(dateAffichee)}</td>
+        <td style="padding:8px 10px;text-align:right">
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px" onclick="supprimerOverride('${o.cip13}','${(o.nom || '').replace(/'/g,"\\'")}')">🗑️</button>
+        </td>
+      </tr>`
+  }).join('')
+
+  el.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#F8FAFC;font-size:11px;color:var(--sub);text-align:left">
+            <th style="padding:8px 10px">CIP</th>
+            <th style="padding:8px 10px">Nom du produit</th>
+            <th style="padding:8px 10px">Statut forcé</th>
+            <th style="padding:8px 10px;text-align:center">Lignes</th>
+            <th style="padding:8px 10px">Dernière MàJ</th>
+            <th style="padding:8px 10px"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--sub);margin-top:8px">
+      💡 ${overrides.length} modification${overrides.length > 1 ? 's' : ''} au total. Supprimer = revenir au classement automatique pour ce CIP.
+    </div>
+  `
+}
+
+async function supprimerOverride(cip13, nom) {
+  const msg = nom
+    ? `Supprimer la modification pour "${nom}" (CIP ${cip13}) ?\n\nLe classement automatique sera rétabli pour ce CIP sur toutes les factures.`
+    : `Supprimer la modification pour le CIP ${cip13} ?`
+  if (!confirm(msg)) return
+
+  try {
+    const r = await fetch(`${API}/grossiste/overrides/${encodeURIComponent(cip13)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (r.ok) {
+      toast('✅ Modification supprimée', 'green')
+      chargerListeOverrides()
+    } else {
+      const err = await r.json().catch(() => ({}))
+      toast(err.detail || 'Erreur', 'red')
+    }
+  } catch(e) { toast('Erreur réseau', 'red') }
+}
+
 // ── GÉNÉRIQUEUR : CONFIG PARAMÈTRES ────────────────────────────────────────
 let _GEN_CONFIGS = []   // cache des configs chargées
 let _GEN_EDIT_ID = null // id en cours d'édition (null = création)
@@ -1909,6 +2018,13 @@ function _renderParametres() {
       </div>
       <div id="generiqueurs-liste"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
     </div>` : ''}
+    <div class="card" id="card-overrides">
+      <div class="card-title">🖌️ Modifications pinceau</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
+        Liste des modifications manuelles de statut appliquées par CIP. Chaque modification est appliquée automatiquement à toutes les factures (passées et futures) contenant ce CIP. Tu peux supprimer une modification pour revenir au classement automatique.
+      </div>
+      <div id="overrides-liste"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
+    </div>
     <div class="card">
       <div class="card-title">Mon compte</div>
       <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
@@ -1919,6 +2035,8 @@ function _renderParametres() {
   if (MODULES.includes('generiqueur')) {
     chargerListeGeneriqueurs()
   }
+  // Charger la liste des overrides (toujours)
+  chargerListeOverrides()
 }
 
 function checkBox(id, label, checked) {
