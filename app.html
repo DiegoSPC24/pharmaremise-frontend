@@ -1280,6 +1280,111 @@ async function supprimerReleve(releveId) {
   } catch(e) { toast('Erreur réseau', 'red') }
 }
 
+// ── RÉFÉRENTIELS TARIFS LABOS ──────────────────────────────────────────────
+async function chargerReferentiels() {
+  const el = document.getElementById('referentiels-grid')
+  if (!el) return
+  try {
+    const refs = await apiGet('/generiqueur/referentiels')
+    afficherReferentiels(refs)
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur de chargement</div>'
+  }
+}
+
+function afficherReferentiels(refs) {
+  const el = document.getElementById('referentiels-grid')
+  if (!refs || !refs.length) {
+    el.innerHTML = '<div style="color:var(--sub)">Aucun labo</div>'
+    return
+  }
+
+  const html = refs.map(r => {
+    const present = r.present
+    const borderColor = present ? '#1D9E75' : '#DC2626'
+    const bg = present ? '#F0FDF4' : '#FEF2F2'
+    const icon = present ? '🟢' : '🔴'
+    const etat = present
+      ? `<span style="color:#1D9E75;font-weight:600">${r.nb_produits} produits</span>`
+      : `<span style="color:#DC2626;font-weight:600">Référentiel manquant</span>`
+
+    return `
+      <div style="border:1px solid ${borderColor};border-radius:8px;padding:10px 12px;background:${bg};display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;margin-bottom:2px">${icon} ${r.labo}</div>
+          <div style="font-size:11px">${etat}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <input type="file" id="ref-file-${r.labo.replace(/\s+/g,'_')}" accept=".xlsx,.xls" style="display:none" onchange="uploadReferentiel('${r.labo}', this.files[0])"/>
+          <button class="btn btn-outline btn-sm" title="Uploader un nouveau fichier" onclick="document.getElementById('ref-file-${r.labo.replace(/\\s+/g,'_')}').click()">📤</button>
+          ${present ? `<button class="btn btn-outline btn-sm" title="Vider ce référentiel" style="color:var(--red);border-color:var(--red)" onclick="viderReferentiel('${r.labo}')">🗑️</button>` : ''}
+        </div>
+      </div>`
+  }).join('')
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${html}</div>`
+}
+
+async function uploadReferentiel(labo, file) {
+  if (!file) return
+  if (!file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+    toast('Le fichier doit être un Excel (.xlsx)', 'red')
+    return
+  }
+
+  toast(`⏳ Import ${labo} en cours...`)
+
+  const fd = new FormData()
+  fd.append('file', file)
+
+  try {
+    const r = await fetch(`${API}/generiqueur/referentiels/${encodeURIComponent(labo)}/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN },
+      body: fd,
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      toast('Erreur : ' + (err.detail || r.status), 'red')
+      return
+    }
+    const data = await r.json()
+    let msg = `✅ ${labo} : ${data.nb_lignes_importees} produits importés`
+    if (data.nb_lignes_ignorees > 0) {
+      msg += ` (${data.nb_lignes_ignorees} lignes ignorées)`
+    }
+    toast(msg, 'green')
+    chargerReferentiels()
+
+    // Si des erreurs, les afficher
+    if (data.erreurs_echantillon && data.erreurs_echantillon.length) {
+      setTimeout(() => {
+        alert('Quelques lignes ont été ignorées :\n\n' + data.erreurs_echantillon.join('\n'))
+      }, 500)
+    }
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+  }
+}
+
+async function viderReferentiel(labo) {
+  if (!confirm(`Vider le référentiel ${labo} ?\n\nTous les tarifs de ce labo seront supprimés. Tu pourras en uploader un nouveau ensuite.`)) return
+
+  try {
+    const r = await fetch(`${API}/generiqueur/referentiels/${encodeURIComponent(labo)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (r.ok) {
+      const data = await r.json()
+      toast(`✅ ${labo} vidé (${data.lignes_supprimees} produits supprimés)`, 'green')
+      chargerReferentiels()
+    } else {
+      toast('Erreur', 'red')
+    }
+  } catch(e) { toast('Erreur réseau', 'red') }
+}
+
 // ── MODIFICATIONS PINCEAU (OVERRIDES) ──────────────────────────────────────
 async function chargerListeOverrides() {
   const el = document.getElementById('overrides-liste')
@@ -2008,6 +2113,14 @@ function _renderParametres() {
       </div>
     </div>
     ${MODULES.includes('generiqueur') ? `
+    <div class="card" id="card-referentiels">
+      <div class="card-title">📚 Référentiels génériques</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
+        Tarifs et remises par laboratoire. Chaque case représente un labo. Clique sur 📤 pour remplacer par un nouveau fichier Excel, ou sur 🗑️ pour vider.
+        <a href="${API}/generiqueur/referentiels/template" target="_blank" style="color:var(--green);text-decoration:underline;margin-left:4px">Télécharger le modèle Excel</a>
+      </div>
+      <div id="referentiels-grid"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
+    </div>
     <div class="card" id="card-generiqueurs">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div class="card-title" style="margin:0">💊 Mes génériqueurs</div>
@@ -2034,6 +2147,7 @@ function _renderParametres() {
   // Charger la liste des génériqueurs si le module est actif
   if (MODULES.includes('generiqueur')) {
     chargerListeGeneriqueurs()
+    chargerReferentiels()
   }
   // Charger la liste des overrides (toujours)
   chargerListeOverrides()
