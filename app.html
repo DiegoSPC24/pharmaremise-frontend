@@ -108,760 +108,785 @@
     tr.row-cher:hover td { background:#fdf0cc; }
     tr.row-remise td { background:#eef4fd; }
     tr.row-remise:hover td { background:#dce9fb; }
-
-    /* Styles pour l'authentification */
-    .auth-container { 
-      min-height: 100vh; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      background: linear-gradient(135deg, var(--green) 0%, var(--green-d) 100%); 
-    }
-    .auth-card { 
-      background: white; 
-      padding: 3rem; 
-      border-radius: 16px; 
-      box-shadow: 0 20px 60px rgba(0,0,0,0.1); 
-      width: 100%; 
-      max-width: 400px; 
-    }
-    .auth-title { 
-      font-family: 'DM Serif Display', serif; 
-      font-size: 2rem; 
-      color: var(--text); 
-      margin-bottom: 0.5rem; 
-      text-align: center; 
-    }
-    .auth-subtitle { 
-      color: var(--sub); 
-      text-align: center; 
-      margin-bottom: 2rem; 
-    }
-    .form-group { 
-      margin-bottom: 1.5rem; 
-    }
-    .form-label { 
-      display: block; 
-      margin-bottom: 0.5rem; 
-      font-weight: 500; 
-      color: var(--text); 
-    }
-    .form-input { 
-      width: 100%; 
-      padding: 0.75rem; 
-      border: 1px solid var(--border); 
-      border-radius: 8px; 
-      font-size: 1rem; 
-      transition: border-color 0.3s; 
-    }
-    .form-input:focus { 
-      outline: none; 
-      border-color: var(--green); 
-    }
-    .btn-auth { 
-      width: 100%; 
-      padding: 0.875rem; 
-      background: var(--green); 
-      color: white; 
-      border: none; 
-      border-radius: 8px; 
-      font-size: 1rem; 
-      font-weight: 600; 
-      cursor: pointer; 
-      transition: background 0.3s; 
-      margin-bottom: 1rem; 
-    }
-    .btn-auth:hover { 
-      background: var(--green-d); 
-    }
-    .auth-link { 
-      text-align: center; 
-      color: var(--sub); 
-    }
-    .auth-link a { 
-      color: var(--green); 
-      text-decoration: none; 
-      font-weight: 500; 
-    }
-    .auth-link a:hover { 
-      text-decoration: underline; 
-    }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--white); border-radius:16px; padding:28px; width:440px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    /* Onglets */
+    .tabs { display:flex; gap:4px; background:var(--bg2); border-radius:10px; padding:4px; margin-bottom:20px; }
+    .tab-btn { flex:1; padding:8px 12px; border-radius:7px; border:none; background:none; font-size:12px; font-weight:600; color:var(--sub); cursor:pointer; transition:all .15s; font-family:'DM Sans',sans-serif; }
+    .tab-btn.active { background:var(--white); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    /* Grossiste cards */
+    .grossiste-card { border-left:4px solid var(--green); }
+    .grossiste-card.g2 { border-left-color:var(--blue); }
+    .grossiste-card.g3 { border-left-color:var(--amber); }
   </style>
 </head>
 <body>
-  <!-- Toast notification -->
-  <div id="toast"></div>
 
-  <!-- Interface d'authentification -->
-  <div id="auth-screen" class="auth-container">
-    <div class="auth-card">
-      <div class="auth-title">PharmaRemise</div>
-      <div class="auth-subtitle">Gestion des remises arrière</div>
-      
-      <!-- Formulaire de connexion -->
-      <div id="login-form">
-        <div class="form-group">
-          <label class="form-label" for="email">Adresse email</label>
-          <input type="email" id="email" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="password">Mot de passe</label>
-          <input type="password" id="password" class="form-input" required>
-        </div>
-        <button type="button" class="btn-auth" onclick="login()">Se connecter</button>
-        <div class="auth-link">
-          <a href="#" onclick="showRegister()">Créer un compte</a>
-        </div>
-      </div>
-
-      <!-- Formulaire d'inscription -->
-      <div id="register-form" style="display: none;">
-        <div class="form-group">
-          <label class="form-label" for="reg-nom">Nom de la pharmacie</label>
-          <input type="text" id="reg-nom" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-email">Adresse email</label>
-          <input type="email" id="reg-email" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-password">Mot de passe</label>
-          <input type="password" id="reg-password" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-finess">FINESS (optionnel)</label>
-          <input type="text" id="reg-finess" class="form-input">
-        </div>
-        <button type="button" class="btn-auth" onclick="register()">Créer le compte</button>
-        <div class="auth-link">
-          <a href="#" onclick="showLogin()">Déjà inscrit ? Se connecter</a>
-        </div>
+<div class="sidebar">
+  <div class="sidebar-logo">Pharma<span>Remise</span></div>
+  <div class="sidebar-plan">Plan : <strong id="plan-label">Chargement...</strong></div>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon">🏠</span> Accueil</button>
+    <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon">🏭</span> Grossiste</button>
+    <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon">💊</span> Génériqueur</button>
+    <button class="nav-item" id="nav-rfa" onclick="goTo('rfa',this)"><span class="icon">📋</span> RFA</button>
+    <button class="nav-item" onclick="goTo('depot',this)"><span class="icon">📁</span> Dépôt factures</button>
+    <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon">⚖️</span> Comparateur</button>
+    <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon">⚙️</span> Paramètres</button>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">P</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Chargement...</div>
+        <div class="user-plan" id="user-plan">...</div>
       </div>
     </div>
+    <button class="btn-logout" onclick="logout()">← Déconnexion</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Accueil</div>
+    <div class="topbar-mois">
+      <span>📅</span>
+      <select id="sel-mois" onchange="onMoisChange()">
+        <option value="1">Janvier 2026</option>
+        <option value="2">Février 2026</option>
+        <option value="3" selected>Mars 2026</option>
+        <option value="4">Avril 2026</option>
+      </select>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="refreshData()">↻ Actualiser</button>
   </div>
 
-  <!-- Interface principale de l'application -->
-  <div id="app-screen" style="display: none; width: 100%; height: 100vh; display: flex;">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-logo">
-        PharmaRemise <span>Pro</span>
-      </div>
-      <div class="sidebar-plan">
-        Plan <strong id="user-plan">Grossiste</strong>
-      </div>
-      <nav class="sidebar-nav">
-        <button class="nav-item active" onclick="setScreen('grossiste')">
-          <span class="icon">📊</span>
-          <span>Grossiste</span>
-        </button>
-        <button class="nav-item" onclick="setScreen('generiqueur')">
-          <span class="icon">💊</span>
-          <span>Génériqueur</span>
-          <span class="lock" id="gen-lock">🔒</span>
-        </button>
-        <button class="nav-item" onclick="setScreen('rfa')">
-          <span class="icon">📄</span>
-          <span>RFA</span>
-          <span class="lock" id="rfa-lock">🔒</span>
-        </button>
-        <button class="nav-item" onclick="setScreen('depot')">
-          <span class="icon">📤</span>
-          <span>Dépôt</span>
-        </button>
-        <button class="nav-item" onclick="setScreen('comparateur')">
-          <span class="icon">⚖️</span>
-          <span>Comparateur</span>
-        </button>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="sidebar-user">
-          <div class="user-avatar" id="user-avatar">P</div>
-          <div class="user-info">
-            <div class="user-name" id="user-name">Pharmacie</div>
-            <div class="user-plan" id="user-plan-detail">Plan Grossiste</div>
-          </div>
+  <div class="content">
+    <div id="screen-accueil" class="screen active"><div id="accueil-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-grossiste" class="screen"><div id="grossiste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-generiqueur" class="screen"><div id="generiqueur-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-rfa" class="screen"><div id="rfa-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+
+    <div id="screen-depot" class="screen">
+      <div class="card">
+        <div class="card-title">Déposer une facture</div>
+        <div class="three-col" style="margin-bottom:16px">
+          <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
+          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct labo</button>
+          <button class="btn btn-outline" id="depot-tab-rfa" onclick="setDepotTab('rfa')" style="justify-content:center">📋 RFA</button>
         </div>
-        <button class="btn-logout" onclick="logout()">Déconnexion</button>
+        <div id="depot-form">
+          <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
+            <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
+            <div class="upload-icon">📄</div>
+            <div class="upload-title">Glissez vos factures PDF ici</div>
+            <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
+          </div>
+          <div id="upload-queue" style="margin-top:12px"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Contenu principal -->
-    <div class="main">
-      <div class="topbar">
-        <div class="topbar-title" id="screen-title">Grossiste</div>
-        <div class="topbar-mois">
-          <span>📅</span>
-          <select id="mois-select" onchange="updatePeriod()">
-            <option value="1">Janvier</option>
-            <option value="2">Février</option>
-            <option value="3">Mars</option>
-            <option value="4" selected>Avril</option>
-            <option value="5">Mai</option>
-            <option value="6">Juin</option>
-            <option value="7">Juillet</option>
-            <option value="8">Août</option>
-            <option value="9">Septembre</option>
-            <option value="10">Octobre</option>
-            <option value="11">Novembre</option>
-            <option value="12">Décembre</option>
-          </select>
-          <select id="annee-select" onchange="updatePeriod()">
-            <option value="2024" selected>2024</option>
-            <option value="2025">2025</option>
-            <option value="2026">2026</option>
-          </select>
+    <div id="screen-comparateur" class="screen">
+      <div class="card">
+        <div class="card-title">Comparateur d'offres</div>
+        <div class="two-col">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--green)">Offre actuelle</div>
+            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-a" value="6.97" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-a" value="9.0" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--amber)">Offre challenger</div>
+            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-b" placeholder="ex: 20" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-b" placeholder="ex: 8" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          </div>
         </div>
+        <button class="btn btn-green" style="margin-top:16px" onclick="calculerComparateur()">Calculer →</button>
+        <div id="cmp-result" style="margin-top:16px"></div>
       </div>
-      
-      <div class="content">
-        <!-- Écran Grossiste -->
-        <div id="grossiste-content" class="screen active">
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-lbl">CA Total HT</div>
-              <div class="kpi-val" id="kpi-ca-total">€ 0</div>
-              <div class="kpi-sub">Ce mois-ci</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-lbl">CA Eligible</div>
-              <div class="kpi-val green" id="kpi-ca-eligible">€ 0</div>
-              <div class="kpi-sub">Éligible remise</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-lbl">Remise calculée</div>
-              <div class="kpi-val green" id="kpi-remise">€ 0</div>
-              <div class="kpi-sub">Estimation</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-lbl">Factures</div>
-              <div class="kpi-val blue" id="kpi-factures">0</div>
-              <div class="kpi-sub">Analysées</div>
-            </div>
-          </div>
+    </div>
 
-          <!-- Synthèse par grossiste -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-title">Synthèse Multi-Grossiste</div>
-              <button class="btn btn-green" onclick="exportPDF()">📄 Export PDF</button>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Grossiste</th>
-                  <th>Rang</th>
-                  <th>Factures</th>
-                  <th>CA Total</th>
-                  <th>CA Eligible</th>
-                  <th>Remise</th>
-                  <th>Taux</th>
-                </tr>
-              </thead>
-              <tbody id="synthese-grossiste">
-                <tr>
-                  <td colspan="7" style="text-align: center; padding: 2rem; color: var(--sub);">
-                    Aucune facture analysée ce mois-ci
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <div id="screen-parametres" class="screen"><div id="parametres-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+  </div>
+</div>
 
-          <!-- Configuration Multi-Grossiste -->
-          <div class="card">
-            <div class="card-title">Configuration Multi-Grossiste</div>
-            <div class="three-col">
-              <div>
-                <h4>CERP (Rang 1)</h4>
-                <div class="form-group">
-                  <label class="form-label">Taux remise (%)</label>
-                  <input type="number" id="cerp-taux" class="form-input" step="0.1" placeholder="4.0">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Seuil cher (€)</label>
-                  <input type="number" id="cerp-seuil" class="form-input" step="0.01" placeholder="465.00">
-                </div>
-                <button class="btn btn-green btn-sm" onclick="saveConfig('cerp')">💾 Sauvegarder</button>
-              </div>
-              <div>
-                <h4>Alliance (Rang 2)</h4>
-                <div class="form-group">
-                  <label class="form-label">Taux remise (%)</label>
-                  <input type="number" id="alliance-taux" class="form-input" step="0.1" placeholder="3.5">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Seuil cher (€)</label>
-                  <input type="number" id="alliance-seuil" class="form-input" step="0.01" placeholder="500.00">
-                </div>
-                <button class="btn btn-green btn-sm" onclick="saveConfig('alliance')">💾 Sauvegarder</button>
-              </div>
-              <div>
-                <h4>OCP (Rang 3)</h4>
-                <div class="form-group">
-                  <label class="form-label">Taux remise (%)</label>
-                  <input type="number" id="ocp-taux" class="form-input" step="0.1" placeholder="3.0">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Seuil cher (€)</label>
-                  <input type="number" id="ocp-seuil" class="form-input" step="0.01" placeholder="450.00">
-                </div>
-                <button class="btn btn-green btn-sm" onclick="saveConfig('ocp')">💾 Sauvegarder</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Écran Dépôt -->
-        <div id="depot-content" class="screen">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-title">Déposer des factures</div>
-              <div>
-                <button id="depot-tab-grossiste" class="btn btn-green" onclick="setDepotTab('grossiste')">Grossiste</button>
-                <button id="depot-tab-labo" class="btn btn-outline" onclick="setDepotTab('labo')">Laboratoire</button>
-                <button id="depot-tab-rfa" class="btn btn-outline" onclick="setDepotTab('rfa')">RFA</button>
-              </div>
-            </div>
-            
-            <div class="upload-zone" 
-                 onclick="document.getElementById('file-input').click()"
-                 ondrop="onFileDrop(event)" 
-                 ondragover="event.preventDefault(); event.currentTarget.style.borderColor = 'var(--green)'" 
-                 ondragleave="event.currentTarget.style.borderColor = 'var(--border)'">
-              <div class="upload-icon">📄</div>
-              <div class="upload-title">Glissez vos fichiers PDF ici</div>
-              <div class="upload-sub">Auto-détection CERP • Alliance • OCP</div>
-            </div>
-            <input type="file" id="file-input" accept=".pdf" multiple style="display: none;" onchange="onFilesSelected(this.files)">
-            
-            <div id="upload-queue"></div>
-          </div>
-        </div>
-
-        <!-- Autres écrans (stubs) -->
-        <div id="generiqueur-content" class="screen">
-          <div class="locked-module">
-            <div class="locked-icon">🔒</div>
-            <div class="locked-title">Module Génériqueur</div>
-            <div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div>
-            <button class="btn btn-green">Voir les plans →</button>
-          </div>
-        </div>
-
-        <div id="rfa-content" class="screen">
-          <div class="locked-module">
-            <div class="locked-icon">🔒</div>
-            <div class="locked-title">Module RFA</div>
-            <div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div>
-            <button class="btn btn-green">Voir les plans →</button>
-          </div>
-        </div>
-
-        <div id="comparateur-content" class="screen">
-          <div class="card">
-            <div class="card-title">Comparateur d'offres</div>
-            <p>Fonctionnalité à venir...</p>
-          </div>
-        </div>
-      </div>
+<!-- Modal statut -->
+<div id="modal-statut" class="modal-overlay">
+  <div class="modal-box">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Modifier le statut</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:16px" id="modal-produit-nom"></div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:12px">CIP13 : <span id="modal-cip" style="font-family:'DM Mono',monospace;color:var(--text)"></span></div>
+    <div style="font-size:12px;color:var(--amber);background:var(--amber-l);padding:8px 12px;border-radius:8px;margin-bottom:14px">
+      ⚠️ Ce changement s'appliquera à <strong>toutes les factures</strong> contenant ce CIP13.
+    </div>
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Nouveau statut</label>
+    <select id="modal-select-statut" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:16px">
+      <option value="eligible">Éligible remise</option>
+      <option value="produit_cher">Produit cher</option>
+      <option value="remise_facture">Remisé facture</option>
+      <option value="generique">Générique</option>
+      <option value="biosimilaire">Biosimilaire</option>
+      <option value="tva_20">TVA 20% exclu</option>
+      <option value="tva_5_5">TVA 5,5% exclu</option>
+      <option value="tva_10">TVA 10% exclu</option>
+      <option value="frigo">Frigo exclu</option>
+      <option value="stupefiants">Stupéfiant exclu</option>
+    </select>
+    <div id="modal-reinit-zone" style="display:none;margin-bottom:14px">
+      <button onclick="reinitialiserStatut()" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);font-size:11px">↺ Réinitialiser au statut automatique</button>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="fermerModal()">Annuler</button>
+      <button class="btn btn-green" onclick="appliquerOverride()">Appliquer à toutes les factures</button>
     </div>
   </div>
+</div>
 
-  <script>
-    // Configuration API
-    const API = 'https://web-production-2202b.up.railway.app'; // URL de votre API Railway
-    let TOKEN = localStorage.getItem('pharmaremise_token');
-    let USER = null;
-    let MODULES = [];
-    let CURRENT_MOIS = 4;
-    let CURRENT_ANNEE = 2024;
-    let depot_tab = 'grossiste';
+<div id="toast"></div>
 
-    // Initialisation
-    async function init() {
-      if (TOKEN) {
-        try {
-          const user = await apiGet('/auth/me');
-          if (user) {
-            USER = user;
-            showApp();
-            return;
-          }
-        } catch (e) {
-          localStorage.removeItem('pharmaremise_token');
-          TOKEN = null;
-        }
-      }
-      showAuth();
-    }
+<script>
+const API = 'https://web-production-2202b.up.railway.app'
+let TOKEN = localStorage.getItem('pharmaremise_token')
+let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = 3, CURRENT_ANNEE = 2026
+let PHARMACIE = null, CONFIGS_GROSSISTE = {}, depot_tab = 'grossiste'
+let _CURRENT_FACTURE_ID = null, _MODAL_CIP = null, _MODAL_NOM = ''
 
-    // Authentification
-    function showAuth() {
-      document.getElementById('auth-screen').style.display = 'flex';
-      document.getElementById('app-screen').style.display = 'none';
-    }
+if (!TOKEN) window.location.href = '/index.html'
 
-    function showApp() {
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('app-screen').style.display = 'flex';
-      
-      // Mettre à jour l'interface utilisateur
-      if (USER) {
-        document.getElementById('user-name').textContent = USER.nom;
-        document.getElementById('user-avatar').textContent = USER.nom.charAt(0).toUpperCase();
-      }
-      
-      // Charger les données
-      loadGrossiste();
-      loadConfigs();
-    }
+async function apiGet(path) {
+  const r = await fetch(`${API}${path}`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
+  if (r.status === 401) { localStorage.clear(); window.location.href='/index.html'; }
+  return r.json()
+}
+async function apiPost(path, body) {
+  const r = await fetch(`${API}${path}`, { method:'POST', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
+  return r.json()
+}
+async function apiPut(path, body) {
+  const r = await fetch(`${API}${path}`, { method:'PUT', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
+  return r.json()
+}
 
-    function showLogin() {
-      document.getElementById('login-form').style.display = 'block';
-      document.getElementById('register-form').style.display = 'none';
-    }
+function toast(msg, type='') {
+  const t = document.getElementById('toast')
+  t.textContent = msg; t.className = 'show ' + type
+  setTimeout(() => t.className = '', 3000)
+}
+function eur(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €' }
+function pct(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%' }
 
-    function showRegister() {
-      document.getElementById('login-form').style.display = 'none';
-      document.getElementById('register-form').style.display = 'block';
-    }
+const SOURCE_LABELS = { cerp:'CERP', alliance:'Alliance', ocp:'OCP' }
+const SOURCE_COLORS = { cerp:'var(--green)', alliance:'var(--blue)', ocp:'var(--amber)' }
+const SOURCE_RANG   = { cerp:'Gé1', alliance:'Gé2', ocp:'Gé3' }
 
-    async function login() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-
-      if (!email || !password) {
-        toast('Veuillez remplir tous les champs', 'red');
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          TOKEN = data.access_token;
-          USER = data.pharmacie;
-          MODULES = data.modules || [];
-          localStorage.setItem('pharmaremise_token', TOKEN);
-          toast('Connexion réussie !', 'green');
-          showApp();
-        } else {
-          toast(data.detail || 'Erreur de connexion', 'red');
-        }
-      } catch (error) {
-        toast('Erreur de connexion au serveur', 'red');
-        console.error('Login error:', error);
+async function init() {
+  try {
+    PHARMACIE = await apiGet('/auth/me')
+    const abo = await apiGet('/abonnement/current')
+    MODULES = abo.modules || []
+    document.getElementById('user-name').textContent = PHARMACIE.nom
+    document.getElementById('user-plan').textContent = abo.plan
+    document.getElementById('user-avatar').textContent = PHARMACIE.nom[0].toUpperCase()
+    document.getElementById('plan-label').textContent = abo.plan.replace('_',' ')
+    if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
+    if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
+    if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock">🔒</span>'
+    if (MODULES.includes('grossiste')) {
+      const configs = await apiGet('/grossiste/config')
+      if (Array.isArray(configs)) {
+        configs.forEach(c => { CONFIGS_GROSSISTE[c.source] = c })
       }
     }
+    loadAccueil()
+  } catch(e) { console.error(e); toast('Erreur de chargement', 'red') }
+}
 
-    async function register() {
-      const nom = document.getElementById('reg-nom').value;
-      const email = document.getElementById('reg-email').value;
-      const password = document.getElementById('reg-password').value;
-      const finess = document.getElementById('reg-finess').value;
+function logout() { localStorage.clear(); window.location.href = '/index.html' }
 
-      if (!nom || !email || !password) {
-        toast('Veuillez remplir tous les champs obligatoires', 'red');
-        return;
-      }
+function goTo(screen, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById('screen-'+screen).classList.add('active')
+  CURRENT_SCREEN = screen
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', rfa:'Contrôle RFA', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
+  document.getElementById('topbar-title').textContent = titles[screen] || screen
+  if (screen === 'grossiste')   loadGrossiste()
+  if (screen === 'generiqueur') loadGeneriqueur()
+  if (screen === 'rfa')         loadRFA()
+  if (screen === 'parametres')  loadParametres()
+}
 
-      try {
-        const response = await fetch(`${API}/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nom, email, password, finess })
-        });
+function onMoisChange() {
+  CURRENT_MOIS = parseInt(document.getElementById('sel-mois').value)
+  if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
+  else loadAccueil()
+}
+function refreshData() { goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active')); toast('Données actualisées', 'green') }
 
-        const data = await response.json();
+// ── ACCUEIL ────────────────────────────────────────────────────────────────
+async function loadAccueil() {
+  const el = document.getElementById('accueil-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  try {
+    let synthGr = null, synthGe = null
+    if (MODULES.includes('grossiste')) synthGr = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    if (MODULES.includes('generiqueur')) synthGe = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    const ca_gr = synthGr ? synthGr.ca_total : 0, rem_gr = synthGr ? synthGr.remise_totale : 0
+    const ca_ge = synthGe ? synthGe.totaux?.ca_total : 0, rem_ge = synthGe ? synthGe.totaux?.contrat_total : 0
+    el.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Tous grossistes</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val blue">${eur(rem_ge)}</div><div class="kpi-sub">Génériqueurs</div></div>
+      </div>
+      ${synthGr && synthGr.par_grossiste?.length ? renderParGrossiste(synthGr.par_grossiste) : ''}
+      <div class="card">
+        <div class="card-title">Accès rapides</div>
+        <div class="three-col">
+          ${MODULES.includes('grossiste') ? `<button class="btn btn-outline" onclick="goTo('depot',document.getElementById('nav-grossiste'))" style="justify-content:center">📄 Déposer une facture</button>` : ''}
+          ${MODULES.includes('generiqueur') ? `<button class="btn btn-outline" onclick="goTo('generiqueur',document.getElementById('nav-generiqueur'))" style="justify-content:center">💊 Voir génériqueurs</button>` : ''}
+          ${MODULES.includes('rfa') ? `<button class="btn btn-outline" onclick="goTo('rfa',document.getElementById('nav-rfa'))" style="justify-content:center">📋 Contrôle RFA</button>` : ''}
+        </div>
+      </div>`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
+}
 
-        if (response.ok) {
-          TOKEN = data.access_token;
-          USER = data.pharmacie;
-          MODULES = data.modules || [];
-          localStorage.setItem('pharmaremise_token', TOKEN);
-          toast('Compte créé avec succès !', 'green');
-          showApp();
-        } else {
-          toast(data.detail || 'Erreur lors de la création du compte', 'red');
-        }
-      } catch (error) {
-        toast('Erreur de connexion au serveur', 'red');
-        console.error('Register error:', error);
-      }
+function renderParGrossiste(parGrossiste) {
+  const cards = parGrossiste.map(g => {
+    const color = SOURCE_COLORS[g.source] || 'var(--sub)'
+    const label = SOURCE_LABELS[g.source] || g.source
+    const rang  = SOURCE_RANG[g.source] || ''
+    return `<div class="card" style="border-left:4px solid ${color};margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <span style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</span>
+          <div style="font-size:14px;font-weight:700;color:${color}">${label}</div>
+        </div>
+        <span style="font-size:11px;color:var(--sub)">${g.nb_factures} facture(s)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><div style="font-size:10px;color:var(--sub)">CA total</div><div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div></div>
+        <div><div style="font-size:10px;color:var(--sub)">CA éligible</div><div style="font-size:16px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.ca_eligible)}</div></div>
+        <div><div style="font-size:10px;color:var(--sub)">Remise (${g.taux_remise_pct}%)</div><div style="font-size:16px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_calculee)}</div></div>
+      </div>
+    </div>`
+  }).join('')
+  return `<div class="card">
+    <div class="card-title">Résumé par grossiste — ce mois</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>
+  </div>`
+}
+
+// ── GROSSISTE ──────────────────────────────────────────────────────────────
+async function loadGrossiste() {
+  if (!MODULES.includes('grossiste')) { document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste'); return }
+  const el = document.getElementById('grossiste-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  try {
+    const [synth, factures] = await Promise.all([
+      apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
+      apiGet(`/grossiste/factures?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
+    ])
+
+    // Grouper les factures par source
+    const parSource = {}
+    factures.forEach(f => {
+      if (!parSource[f.source]) parSource[f.source] = []
+      parSource[f.source].push(f)
+    })
+
+    // Blocs par grossiste
+    const grossisteBlocs = (synth.par_grossiste || []).map(g => {
+      const color = SOURCE_COLORS[g.source] || 'var(--sub)'
+      const label = SOURCE_LABELS[g.source] || g.source
+      const rang  = SOURCE_RANG[g.source] || ''
+      const fList = (parSource[g.source] || [])
+      const fRows = fList.length ? fList.map(f => `
+        <tr>
+          <td>${f.filename}</td>
+          <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
+          <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
+          <td>${f.nb_lignes}</td>
+          <td><span class="badge badge-green">Analysée</span></td>
+          <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
+        </tr>`).join('') :
+        '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
+
+      return `<div class="card" style="border-left:4px solid ${color}">
+        <div class="card-header">
+          <div>
+            <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</div>
+            <div style="font-size:15px;font-weight:700;color:${color}">${label}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--sub)">Taux contrat</div>
+            <div style="font-size:18px;font-weight:600;color:${color}">${g.taux_remise_pct}%</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">CA total</div>
+            <div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div>
+          </div>
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">CA éligible</div>
+            <div class="kpi-val green" style="font-size:18px">${eur(g.ca_eligible)}</div>
+          </div>
+          <div class="kpi-card" style="padding:10px 14px">
+            <div class="kpi-lbl">Remise estimée</div>
+            <div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Fichier</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
+          <tbody>${fRows}</tbody>
+        </table>
+      </div>`
+    }).join('')
+
+    el.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">CA total HT</div><div class="kpi-val">${eur(synth.ca_total)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(synth.ca_eligible)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
+        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
+      </div>
+      ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
+}
+
+// ── VOIR FACTURE ────────────────────────────────────────────────────────────
+const STATUT_INFO = {
+  eligible:       { label:'Éligible remise',  badge:'badge-green',  icon:'✅' },
+  produit_cher:   { label:'Produit cher',      badge:'badge-amber',  icon:'💰' },
+  remise_facture: { label:'Remisé facture',    badge:'badge-blue',   icon:'🔵' },
+  generique:      { label:'Générique',         badge:'badge-gray',   icon:'⚪' },
+  biosimilaire:   { label:'Biosimilaire',      badge:'badge-purple', icon:'🟣' },
+  tva_20:         { label:'TVA 20% exclu',     badge:'badge-red',    icon:'🔴' },
+  tva_5_5:        { label:'TVA 5,5% exclu',    badge:'badge-red',    icon:'🔴' },
+  tva_10:         { label:'TVA 10% exclu',     badge:'badge-red',    icon:'🔴' },
+  frigo:          { label:'Frigo exclu',       badge:'badge-blue',   icon:'❄️' },
+  stupefiants:    { label:'Stupéfiant exclu',  badge:'badge-red',    icon:'⛔' },
+}
+const ORDRE_STATUT = ['eligible','produit_cher','remise_facture','generique','biosimilaire','tva_20','tva_5_5','tva_10','frigo','stupefiants']
+
+async function voirFacture(id) {
+  _CURRENT_FACTURE_ID = id
+  const el = document.getElementById('grossiste-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  const f = await apiGet(`/grossiste/factures/${id}`)
+  _renderFacture(f)
+}
+
+function _renderFacture(f) {
+  const el = document.getElementById('grossiste-content')
+  const lignes = f.lignes || []
+  const color = SOURCE_COLORS[f.source] || 'var(--sub)'
+  const label = SOURCE_LABELS[f.source] || f.source
+
+  const statsMap = {}
+  for (const l of lignes) {
+    const s = l.statut || 'autre'
+    if (!statsMap[s]) statsMap[s] = { nb:0, ca:0 }
+    statsMap[s].nb++
+    statsMap[s].ca += parseFloat(l.total_ht || 0)
+  }
+
+  const resumeCards = Object.entries(statsMap).map(([s,v]) => {
+    const info = STATUT_INFO[s] || { label:s, badge:'badge-gray', icon:'•' }
+    return `<div class="kpi-card" style="border-left:3px solid var(--border)">
+      <div class="kpi-lbl">${info.icon} ${info.label}</div>
+      <div class="kpi-val" style="font-size:18px">${eur(v.ca)}</div>
+      <div class="kpi-sub">${v.nb} ligne(s)</div>
+    </div>`
+  }).join('')
+
+  lignes.sort((a,b) => {
+    const ia = ORDRE_STATUT.indexOf(a.statut), ib = ORDRE_STATUT.indexOf(b.statut)
+    return (ia===-1?99:ia) - (ib===-1?99:ib)
+  })
+
+  const rows = lignes.map(l => {
+    const info = STATUT_INFO[l.statut] || { label:l.statut, badge:'badge-gray' }
+    const rowCls = l.statut==='eligible' ? 'row-eligible' : l.statut==='produit_cher' ? 'row-cher' : l.statut==='remise_facture' ? 'row-remise' : ''
+    const remiseCell = l.remise_pct > 0
+      ? `<td style="text-align:center;color:var(--blue);font-weight:600">${l.remise_pct}%</td>`
+      : `<td style="text-align:center;color:var(--sub)">—</td>`
+    const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé">✏️</span>' : ''
+    const editBtn = l.cip13
+      ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})">✏️</button>`
+      : ''
+    return `<tr class="${rowCls}">
+      <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
+      <td style="font-weight:500">${l.nom||'—'}</td>
+      <td>${l.fournisseur||'—'}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ppht||l.pfht)}</td>
+      <td style="text-align:center">${l.qte}</td>
+      ${remiseCell}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:600">${eur(l.total_ht)}</td>
+      <td style="text-align:center;color:var(--sub)">${l.tva_pct ? l.tva_pct+'%' : '—'}</td>
+      <td><span class="badge ${info.badge}">${info.label}${forceTag}</span>${editBtn}</td>
+    </tr>`
+  }).join('')
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="loadGrossiste()">← Retour</button>
+      <div style="font-weight:600;font-size:15px">${f.filename}</div>
+      <span class="badge" style="background:${color}20;color:${color}">${label}</span>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-lbl">Total HT</div><div class="kpi-val">${eur(f.total_ht)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(f.ca_eligible)}</div><div class="kpi-sub">${f.total_ht>0?((f.ca_eligible/f.total_ht)*100).toFixed(1)+'% du total':''}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Remise calculée</div><div class="kpi-val green">${eur(f.remise_calculee)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Nb lignes</div><div class="kpi-val">${f.nb_lignes}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Répartition par statut</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">${resumeCards}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:12px">
+      <span style="background:var(--green-l);padding:3px 10px;border-radius:6px;color:var(--green-d)">✅ Éligible</span>
+      <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)">💰 Produit cher</span>
+      <span style="background:var(--blue-l);padding:3px 10px;border-radius:6px;color:var(--blue)">🔵 Remisé facture</span>
+      <span style="background:var(--bg2);padding:3px 10px;border-radius:6px;color:var(--sub)">⚪ Exclu</span>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-title">Détail des lignes</div>
+        <span style="font-size:11px;color:var(--sub)">Cliquez ✏️ pour modifier le statut</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>CIP</th><th>Produit</th><th>Fournisseur</th><th style="text-align:right">PFHT</th><th style="text-align:center">Qté</th><th style="text-align:center">Remise</th><th style="text-align:right">Total HT</th><th style="text-align:center">TVA</th><th>Statut</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`
+}
+
+// ── MODAL OVERRIDE ─────────────────────────────────────────────────────────
+function ouvrirModal(cip13, nom, statutActuel, statutForce) {
+  _MODAL_CIP = cip13; _MODAL_NOM = nom
+  document.getElementById('modal-cip').textContent = cip13
+  document.getElementById('modal-produit-nom').textContent = nom
+  document.getElementById('modal-select-statut').value = statutActuel
+  document.getElementById('modal-reinit-zone').style.display = statutForce ? 'block' : 'none'
+  document.getElementById('modal-statut').classList.add('open')
+}
+function fermerModal() {
+  document.getElementById('modal-statut').classList.remove('open'); _MODAL_CIP = null
+}
+async function appliquerOverride() {
+  if (!_MODAL_CIP) return
+  const statut = document.getElementById('modal-select-statut').value
+  toast('Application en cours...')
+  try {
+    const r = await fetch(`${API}/grossiste/overrides?cip13=${encodeURIComponent(_MODAL_CIP)}&statut_force=${statut}&nom=${encodeURIComponent(_MODAL_NOM)}`, {
+      method:'POST', headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' }, body:JSON.stringify({})
+    })
+    const result = await r.json()
+    fermerModal()
+    toast(`✅ ${result.nb_lignes} ligne(s) mise(s) à jour`, 'green')
+    if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
+  } catch(e) { toast('Erreur', 'red') }
+}
+async function reinitialiserStatut() {
+  if (!_MODAL_CIP || !confirm(`Réinitialiser le statut de "${_MODAL_NOM}" ?`)) return
+  fermerModal(); toast('Réinitialisation...')
+  try {
+    await fetch(`${API}/grossiste/overrides/${encodeURIComponent(_MODAL_CIP)}`, {
+      method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN }
+    })
+    toast('✅ Statut réinitialisé', 'green')
+    if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
+  } catch(e) { toast('Erreur', 'red') }
+}
+
+// ── EXPORT PDF ─────────────────────────────────────────────────────────────
+async function exportPDFGrossiste() {
+  toast('Génération du bilan PDF...')
+  try {
+    const r = await fetch(`${API}/grossiste/export/pdf`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
+    })
+    if (!r.ok) { const err = await r.json().catch(()=>({})); toast('Erreur : '+(err.detail||r.status),'red'); return }
+    const blob = await r.blob()
+    if (blob.size < 100) { toast('PDF vide','red'); return }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url
+    a.download=`bilan_grossiste_${String(CURRENT_MOIS).padStart(2,'0')}_${CURRENT_ANNEE}.pdf`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url); toast('Bilan PDF téléchargé !', 'green')
+  } catch(e) { toast('Erreur réseau','red') }
+}
+
+// ── PARAMÈTRES ─────────────────────────────────────────────────────────────
+let _PARAM_TAB = 'cerp'
+
+async function loadParametres() {
+  const el = document.getElementById('parametres-content')
+  if (!MODULES.includes('grossiste')) {
+    el.innerHTML = `<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
+    return
+  }
+  _renderParametres()
+}
+
+function _renderParametres() {
+  const el = document.getElementById('parametres-content')
+  const source = _PARAM_TAB
+  const cfg = CONFIGS_GROSSISTE[source] || {}
+  const label = SOURCE_LABELS[source] || source
+  const color = SOURCE_COLORS[source] || 'var(--sub)'
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title">Contrats grossistes</div>
+      <div class="tabs">
+        ${['cerp','alliance','ocp'].map(s => `
+          <button class="tab-btn ${s===source?'active':''}" onclick="_PARAM_TAB='${s}';_renderParametres()" style="${s===source?'color:'+SOURCE_COLORS[s]:''}">
+            ${SOURCE_RANG[s]} — ${SOURCE_LABELS[s]}
+          </button>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:${color}">${label}</div>
+          <div style="font-size:12px;color:var(--sub)">Paramètres du contrat de remise arrière</div>
+        </div>
+      </div>
+      <div class="three-col">
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
+          <input type="number" id="p-taux" value="${cfg.taux_remise_pct||4}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
+          <input type="number" id="p-seuil" value="${cfg.seuil_cher||465}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label>
+          <input type="number" id="p-forfait" value="${cfg.forfait_cher||10}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+        ${checkBox('p-tva20','Exclure TVA 20%',cfg.exclure_tva20)}
+        ${checkBox('p-biosim','Exclure biosimilaires',cfg.exclure_biosim)}
+        ${checkBox('p-frigo','Exclure frigo',cfg.exclure_frigo)}
+        ${checkBox('p-stup','Exclure stupéfiants',cfg.exclure_stupefiants)}
+      </div>
+      <button class="btn btn-green" style="margin-top:16px;background:${color}" onclick="saveConfig('${source}')">Sauvegarder ${label}</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Mon compte</div>
+      <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
+      <div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div>
+    </div>`
+}
+
+function checkBox(id, label, checked) {
+  return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="${id}" ${checked?'checked':''} style="width:14px;height:14px;accent-color:var(--green)"/>${label}</label>`
+}
+
+async function saveConfig(source) {
+  const body = {
+    source,
+    rang: { cerp:1, alliance:2, ocp:3 }[source] || 1,
+    taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
+    seuil_cher:      parseFloat(document.getElementById('p-seuil').value),
+    forfait_cher:    parseFloat(document.getElementById('p-forfait').value),
+    exclure_tva20:       document.getElementById('p-tva20').checked,
+    exclure_biosim:      document.getElementById('p-biosim').checked,
+    exclure_frigo:       document.getElementById('p-frigo').checked,
+    exclure_stupefiants: document.getElementById('p-stup').checked,
+    exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
+  }
+  const updated = await apiPut(`/grossiste/config/${source}`, body)
+  CONFIGS_GROSSISTE[source] = updated
+  toast(`✅ Config ${SOURCE_LABELS[source]} sauvegardée !`, 'green')
+}
+
+// ── GÉNÉRIQUEUR ────────────────────────────────────────────────────────────
+async function loadGeneriqueur() {
+  if (!MODULES.includes('generiqueur')) { document.getElementById('generiqueur-content').innerHTML = lockedHTML('generiqueur'); return }
+  const el = document.getElementById('generiqueur-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  try {
+    const synth = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    const ges = synth.generiqueurs || []
+    const geCards = ges.map(g => `
+      <div class="card" style="border-left:3px solid var(--green)">
+        <div class="card-header">
+          <div><div style="font-size:13px;font-weight:600">Gé${g.rank} — ${g.name}</div><div style="font-size:11px;color:var(--sub);margin-top:2px">${g.nb_exclus} exclusion(s)</div></div>
+          <button class="btn btn-outline btn-sm" onclick="voirGeneriqueur('${g.gid}')">Détail →</button>
+        </div>
+        <div class="three-col" style="margin-top:8px">
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total</div><div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(g.ca_total)}</div></div>
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise pond.</div><div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(g.remise_pond)}</div></div>
+          <div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${g.rdp?'RDP calculée':'Contrat attendu'}</div><div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${g.rdp?eur(g.rdp_calc):eur(g.ctr_calc)}</div></div>
+        </div>
+      </div>`).join('') || '<div class="loading-center" style="color:var(--sub)">Aucun génériqueur configuré</div>'
+    el.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">CA total génériqueurs</div><div class="kpi-val">${eur(synth.totaux?.ca_total||0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(synth.totaux?.rdp_total||0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val green">${eur(synth.totaux?.contrat_total||0)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Génériqueurs actifs</div><div class="kpi-val">${ges.length}</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+        <button class="btn btn-green btn-sm" onclick="exportPDFGeneriqueur()">📄 Export PDF</button>
+      </div>${geCards}`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
+}
+
+async function voirGeneriqueur(gid) {
+  const data = await apiGet(`/generiqueur/${gid}/analyse?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+  const elig = (data.lignes_eligibles||[]).map(l => `
+    <tr>
+      <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
+      <td>${l.nom}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.pfht)}</td>
+      <td style="text-align:center">${l.qte}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.total_ht)}</td>
+      ${l.rdp_taux ? `<td style="color:var(--blue);font-weight:500">${(l.rdp_taux*100).toFixed(1)}%</td>` : '<td>—</td>'}
+    </tr>`).join('')
+  document.getElementById('generiqueur-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="loadGeneriqueur()">← Retour</button>
+      <div style="font-weight:600">Gé${data.rank} — ${data.name}</div>
+      ${data.rdp ? '<span class="badge badge-blue">RDP Biogaran</span>' : ''}
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-lbl">CA total</div><div class="kpi-val">${eur(data.ca_total)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Remise pondérée</div><div class="kpi-val green">${eur(data.remise_pond)}</div></div>
+      ${data.rdp ? `<div class="kpi-card"><div class="kpi-lbl">RDP calculée</div><div class="kpi-val blue">${eur(data.rdp_calc)}</div></div>` : ''}
+      <div class="kpi-card"><div class="kpi-lbl">Contrat attendu</div><div class="kpi-val">${eur(data.ctr_calc)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Lignes incluses</div>
+      <table><thead><tr><th>CIP</th><th>Produit</th><th>PFHT</th><th>Qté</th><th>Total</th><th>RDP</th></tr></thead><tbody>${elig}</tbody></table>
+    </div>`
+}
+
+async function exportPDFGeneriqueur() {
+  toast('Génération du PDF...')
+  try {
+    const r = await fetch(`${API}/generiqueur/export/pdf`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
+    })
+    if (!r.ok) { toast('Erreur export','red'); return }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url
+    a.download=`synthese_generiqueur_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url); toast('PDF téléchargé !', 'green')
+  } catch(e) { toast('Erreur réseau','red') }
+}
+
+// ── RFA ────────────────────────────────────────────────────────────────────
+async function loadRFA() {
+  if (!MODULES.includes('rfa')) { document.getElementById('rfa-content').innerHTML = lockedHTML('rfa'); return }
+  const el = document.getElementById('rfa-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  try {
+    const synth = await apiGet(`/rfa/synthese?annee=${CURRENT_ANNEE}`)
+    const rows = (synth.labos||[]).map(l => `
+      <tr>
+        <td style="font-weight:500">${l.labo}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ca_annuel)}</td>
+        <td style="text-align:center">${pct(l.taux_pct)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(l.rfa_attendue)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${l.avoir_recu!==null?eur(l.avoir_recu):'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${l.ecart>=0?'var(--green)':'var(--red)'}">${l.ecart!==null?eur(l.ecart):'—'}</td>
+        <td><span class="badge ${l.statut==='recu'?'badge-green':'badge-amber'}">${l.statut==='recu'?'Reçu':'En attente'}</span></td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucun labo RFA configuré</td></tr>'
+    el.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">RFA attendue</div><div class="kpi-val green">${eur(synth.total_attendu)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">RFA reçue</div><div class="kpi-val">${eur(synth.total_recu)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Écart global</div><div class="kpi-val ${synth.ecart_global>=0?'green':'red'}">${eur(synth.ecart_global)}</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Labos suivis</div><div class="kpi-val">${(synth.labos||[]).length}</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-header-title">Suivi RFA ${CURRENT_ANNEE}</div></div>
+        <table><thead><tr><th>Laboratoire</th><th>CA annuel</th><th>Taux</th><th>RFA attendue</th><th>Avoir reçu</th><th>Écart</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>`
+  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
+}
+
+// ── DÉPÔT ──────────────────────────────────────────────────────────────────
+function setDepotTab(tab) {
+  depot_tab = tab
+  ;['grossiste','labo','rfa'].forEach(t => {
+    document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
+  })
+}
+function onFileDrop(event) {
+  event.preventDefault(); event.currentTarget.style.borderColor = 'var(--border)'; onFilesSelected(event.dataTransfer.files)
+}
+function onFilesSelected(files) {
+  if (!files || files.length === 0) return
+  Array.from(files).forEach(f => { if (f.type === 'application/pdf') uploadFactureAuto(f) })
+}
+async function uploadFactureAuto(file) {
+  const queue = document.getElementById('upload-queue')
+  const div = document.createElement('div')
+  div.className = 'alert alert-green'
+  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
+  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
+  queue.appendChild(div)
+  const fd = new FormData(); fd.append('file', file)
+  try {
+    const res = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
+    })
+    const data = await res.json()
+    if (res.ok) {
+      const src = SOURCE_LABELS[data.source] || data.source
+      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
+    } else {
+      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
     }
+  } catch(e) {
+    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+  }
+}
 
-    function logout() {
-      localStorage.removeItem('pharmaremise_token');
-      TOKEN = null;
-      USER = null;
-      MODULES = [];
-      showAuth();
-      toast('Déconnexion réussie', 'green');
-    }
+// ── COMPARATEUR ────────────────────────────────────────────────────────────
+async function calculerComparateur() {
+  const pond_a = parseFloat(document.getElementById('cmp-pond-a').value)||0
+  const ctr_a  = parseFloat(document.getElementById('cmp-ctr-a').value)||0
+  const pond_b = parseFloat(document.getElementById('cmp-pond-b').value)||0
+  const ctr_b  = parseFloat(document.getElementById('cmp-ctr-b').value)||0
+  if (!pond_b && !ctr_b) { toast("Remplissez les taux de l'offre challenger", 'red'); return }
+  let ca = 0
+  if (MODULES.includes('generiqueur')) { const s = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`); ca = s.totaux?.ca_total || 0 }
+  if (!ca) ca = 10000
+  const rem_a = ca*(pond_a+ctr_a)/100, rem_b = ca*(pond_b+ctr_b)/100
+  const diff = rem_b - rem_a, winner = diff > 0 ? 'B' : 'A'
+  document.getElementById('cmp-result').innerHTML = `
+    <div class="alert ${winner==='A'?'alert-amber':'alert-green'}">
+      <span>${winner==='A'?'✓':'→'}</span>
+      <div><strong>${winner==='A'?"Maintenir l'offre actuelle":"L'offre challenger est meilleure"}</strong><br/>
+      Différence : <strong>${eur(Math.abs(diff))}</strong> sur un CA de ${eur(ca)}
+      (Offre A : ${eur(rem_a)} — Offre B : ${eur(rem_b)})</div>
+    </div>`
+}
 
-    // Navigation
-    function setScreen(screen) {
-      // Mettre à jour la navigation
-      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-      event.target.classList.add('active');
+// ── LOCKED ─────────────────────────────────────────────────────────────────
+function lockedHTML(module) {
+  const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur', rfa:'RFA' }
+  return `<div class="locked-module"><div class="locked-icon">🔒</div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
+}
 
-      // Mettre à jour le contenu
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screen + '-content').classList.add('active');
-
-      // Mettre à jour le titre
-      const titles = {
-        grossiste: 'Grossiste',
-        generiqueur: 'Génériqueur',
-        rfa: 'RFA',
-        depot: 'Dépôt de factures',
-        comparateur: 'Comparateur'
-      };
-      document.getElementById('screen-title').textContent = titles[screen] || screen;
-
-      // Charger les données spécifiques
-      if (screen === 'grossiste') {
-        loadGrossiste();
-      }
-    }
-
-    function updatePeriod() {
-      CURRENT_MOIS = parseInt(document.getElementById('mois-select').value);
-      CURRENT_ANNEE = parseInt(document.getElementById('annee-select').value);
-      
-      // Recharger les données
-      const activeScreen = document.querySelector('.screen.active').id.replace('-content', '');
-      if (activeScreen === 'grossiste') {
-        loadGrossiste();
-      }
-    }
-
-    // API Helper
-    async function apiGet(endpoint) {
-      const response = await fetch(`${API}${endpoint}`, {
-        headers: { 'Authorization': `Bearer ${TOKEN}` }
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    }
-
-    async function apiPost(endpoint, data) {
-      const response = await fetch(`${API}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${TOKEN}`
-        },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    }
-
-    // Fonctions Grossiste
-    async function loadGrossiste() {
-      try {
-        const synthese = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`);
-        
-        // Mettre à jour les KPIs
-        document.getElementById('kpi-ca-total').textContent = eur(synthese.ca_total || 0);
-        document.getElementById('kpi-ca-eligible').textContent = eur(synthese.ca_eligible || 0);
-        document.getElementById('kpi-remise').textContent = eur(synthese.remise_totale || 0);
-        document.getElementById('kpi-factures').textContent = synthese.nb_factures || 0;
-
-        // Mettre à jour le tableau grossiste
-        const tbody = document.getElementById('synthese-grossiste');
-        if (synthese.par_grossiste && synthese.par_grossiste.length > 0) {
-          tbody.innerHTML = synthese.par_grossiste.map(g => `
-            <tr>
-              <td><span class="badge badge-green">${g.source.toUpperCase()}</span></td>
-              <td>${g.rang}</td>
-              <td>${g.nb_factures}</td>
-              <td>${eur(g.ca_total)}</td>
-              <td>${eur(g.ca_eligible)}</td>
-              <td>${eur(g.remise_calculee)}</td>
-              <td>${g.taux_remise_pct}%</td>
-            </tr>
-          `).join('');
-        } else {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--sub);">Aucune facture analysée ce mois-ci</td></tr>';
-        }
-      } catch (error) {
-        console.error('Erreur chargement grossiste:', error);
-        toast('Erreur de chargement des données', 'red');
-      }
-    }
-
-    async function loadConfigs() {
-      try {
-        const configs = await apiGet('/grossiste/config');
-        
-        configs.forEach(config => {
-          const source = config.source;
-          const tauxEl = document.getElementById(`${source}-taux`);
-          const seuilEl = document.getElementById(`${source}-seuil`);
-          
-          if (tauxEl) tauxEl.value = config.taux_remise_pct || 0;
-          if (seuilEl) seuilEl.value = config.seuil_cher || 0;
-        });
-      } catch (error) {
-        console.error('Erreur chargement configs:', error);
-      }
-    }
-
-    async function saveConfig(source) {
-      const taux = parseFloat(document.getElementById(`${source}-taux`).value) || 0;
-      const seuil = parseFloat(document.getElementById(`${source}-seuil`).value) || 0;
-
-      const config = {
-        source,
-        taux_remise_pct: taux,
-        seuil_cher: seuil,
-        forfait_cher: 10.0,
-        rang: { cerp: 1, alliance: 2, ocp: 3 }[source] || 1
-      };
-
-      try {
-        await fetch(`${API}/grossiste/config/${source}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${TOKEN}`
-          },
-          body: JSON.stringify(config)
-        });
-
-        toast(`Configuration ${source.toUpperCase()} sauvegardée`, 'green');
-      } catch (error) {
-        toast('Erreur sauvegarde configuration', 'red');
-        console.error('Config save error:', error);
-      }
-    }
-
-    // Upload de fichiers
-    function setDepotTab(tab) {
-      depot_tab = tab;
-      ['grossiste', 'labo', 'rfa'].forEach(t => {
-        document.getElementById('depot-tab-' + t).className = 'btn ' + (t === tab ? 'btn-green' : 'btn-outline');
-      });
-    }
-
-    function onFileDrop(event) {
-      event.preventDefault();
-      event.currentTarget.style.borderColor = 'var(--border)';
-      onFilesSelected(event.dataTransfer.files);
-    }
-
-    function onFilesSelected(files) {
-      if (!files || files.length === 0) return;
-      Array.from(files).forEach(f => {
-        if (f.type === 'application/pdf') uploadFactureAuto(f);
-      });
-    }
-
-    async function uploadFactureAuto(file) {
-      const queue = document.getElementById('upload-queue');
-      const div = document.createElement('div');
-      div.className = 'alert alert-green';
-      div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px';
-      div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`;
-      queue.appendChild(div);
-
-      const fd = new FormData();
-      fd.append('file', file);
-
-      try {
-        const response = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${TOKEN}` },
-          body: fd
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          const source = data.source.toUpperCase();
-          div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${source} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`;
-          
-          // Si le backend a détecté un mois/année différent, on bascule dessus
-          const moisDetecte = data.mois;
-          const anneeDetectee = data.annee;
-          if (moisDetecte && anneeDetectee && (moisDetecte !== CURRENT_MOIS || anneeDetectee !== CURRENT_ANNEE)) {
-            document.getElementById('mois-select').value = moisDetecte;
-            document.getElementById('annee-select').value = anneeDetectee;
-            CURRENT_MOIS = moisDetecte;
-            CURRENT_ANNEE = anneeDetectee;
-            div.innerHTML += `<div style="font-size:11px;color:var(--sub);margin-top:4px">📅 Facture classée dans ${['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][moisDetecte-1]} ${anneeDetectee}</div>`;
-          }
-
-          // Recharger les données
-          loadGrossiste();
-        } else {
-          div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail || 'Erreur'}</span>`;
-        }
-      } catch (error) {
-        div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`;
-        console.error('Upload error:', error);
-      }
-    }
-
-    async function exportPDF() {
-      try {
-        const response = await fetch(`${API}/grossiste/export/pdf`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${TOKEN}`
-          },
-          body: JSON.stringify({ mois: CURRENT_MOIS, annee: CURRENT_ANNEE })
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `synthese_grossiste_${CURRENT_MOIS}_${CURRENT_ANNEE}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          toast('PDF téléchargé !', 'green');
-        } else {
-          toast('Erreur export PDF', 'red');
-        }
-      } catch (error) {
-        toast('Erreur export PDF', 'red');
-        console.error('Export error:', error);
-      }
-    }
-
-    // Utilitaires
-    function eur(n) {
-      try {
-        const val = parseFloat(n || 0);
-        return '€ ' + val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      } catch {
-        return '€ 0,00';
-      }
-    }
-
-    function toast(message, type = 'green') {
-      const toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.className = `show ${type}`;
-      setTimeout(() => toast.classList.remove('show'), 3000);
-    }
-
-    // Initialisation au chargement
-    init();
-  </script>
+setDepotTab('grossiste')
+init()
+</script>
 </body>
 </html>
