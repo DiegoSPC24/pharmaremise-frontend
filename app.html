@@ -324,6 +324,25 @@
   </div>
 </div>
 
+<!-- Modal Export PDF période -->
+<div id="modal-periode" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:420px;width:90%">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Export PDF sur période</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Un tableau récapitulatif par mois, avec cumul total.</div>
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Mois de début</label>
+    <select id="per-debut" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:12px"></select>
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Mois de fin</label>
+    <select id="per-fin" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:16px"></select>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="fermerModalePeriode()" class="btn btn-outline btn-sm">Annuler</button>
+      <button onclick="lancerExportPeriode()" class="btn btn-green btn-sm">📄 Générer</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -542,7 +561,8 @@ async function loadGrossiste() {
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
         <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
-        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF Bilan</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()">📊 Export PDF période</button>
+        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF mois</button>
       </div>
       ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
@@ -751,6 +771,68 @@ async function exportPDFGrossiste() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url); toast('Bilan PDF téléchargé !', 'green')
   } catch(e) { toast('Erreur réseau','red') }
+}
+
+// ── EXPORT PDF PÉRIODE ─────────────────────────────────────────────────────
+function _remplirSelectMois(selectId, defaultMois, defaultAnnee) {
+  const sel = document.getElementById(selectId)
+  const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+  let html = ''
+  for (let annee = 2024; annee <= 2030; annee++) {
+    for (let m = 1; m <= 12; m++) {
+      const selected = (m === defaultMois && annee === defaultAnnee) ? ' selected' : ''
+      html += `<option value="${m}-${annee}"${selected}>${moisNoms[m-1]} ${annee}</option>`
+    }
+  }
+  sel.innerHTML = html
+}
+
+function ouvrirModalePeriode() {
+  // Par défaut : de (mois-2) à (mois actuel)
+  const now = new Date()
+  const moisFin = CURRENT_MOIS
+  const anneeFin = CURRENT_ANNEE
+  let moisDebut = moisFin - 2
+  let anneeDebut = anneeFin
+  if (moisDebut <= 0) { moisDebut += 12; anneeDebut -= 1 }
+
+  _remplirSelectMois('per-debut', moisDebut, anneeDebut)
+  _remplirSelectMois('per-fin', moisFin, anneeFin)
+  document.getElementById('modal-periode').classList.add('open')
+}
+
+function fermerModalePeriode() {
+  document.getElementById('modal-periode').classList.remove('open')
+}
+
+async function lancerExportPeriode() {
+  const [md, ad] = document.getElementById('per-debut').value.split('-').map(Number)
+  const [mf, af] = document.getElementById('per-fin').value.split('-').map(Number)
+
+  // Vérifier que début <= fin
+  if (ad * 12 + md > af * 12 + mf) {
+    toast('Le mois de début doit être avant le mois de fin', 'red')
+    return
+  }
+
+  fermerModalePeriode()
+  toast('Génération du PDF période...')
+
+  try {
+    const r = await fetch(`${API}/grossiste/export/pdf-periode`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mois_debut: md, annee_debut: ad, mois_fin: mf, annee_fin: af })
+    })
+    if (!r.ok) { const err = await r.json().catch(() => ({})); toast('Erreur : ' + (err.detail || r.status), 'red'); return }
+    const blob = await r.blob()
+    if (blob.size < 100) { toast('PDF vide', 'red'); return }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url
+    a.download = `recap_grossiste_${String(md).padStart(2,'0')}_${ad}_a_${String(mf).padStart(2,'0')}_${af}.pdf`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url); toast('PDF période téléchargé !', 'green')
+  } catch(e) { toast('Erreur réseau', 'red') }
 }
 
 // ── PARAMÈTRES ─────────────────────────────────────────────────────────────
