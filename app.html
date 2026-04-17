@@ -343,6 +343,46 @@
   </div>
 </div>
 
+<!-- Modal Sauvegarde config avec date d'application -->
+<div id="modal-sauvegarde-config" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:460px;width:90%">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Sauvegarder les paramètres</div>
+    <div id="modal-sauv-sub" style="font-size:12px;color:var(--sub);margin-bottom:16px">Choisissez à partir de quelle date cette règle s'applique.</div>
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Applicable à partir de</label>
+    <select id="sauv-date" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:14px"></select>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:16px;padding:10px;background:#F8F9FA;border-radius:8px">
+      <input type="checkbox" id="sauv-recalc" checked style="width:16px;height:16px;accent-color:var(--green)"/>
+      <span>Recalculer les factures depuis cette date avec ces nouveaux paramètres</span>
+    </label>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="fermerModaleSauvegarde()" class="btn btn-outline btn-sm">Annuler</button>
+      <button onclick="confirmerSauvegarde()" class="btn btn-green btn-sm">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Recalcul période indépendant -->
+<div id="modal-recalcul" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:460px;width:90%">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Recalculer une période</div>
+    <div id="modal-recalc-sub" style="font-size:12px;color:var(--sub);margin-bottom:16px">Applique les règles en vigueur à chaque mois sur la période choisie.</div>
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Mois de début</label>
+    <select id="recalc-debut" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:12px"></select>
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Mois de fin</label>
+    <select id="recalc-fin" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:16px"></select>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="fermerModaleRecalcul()" class="btn btn-outline btn-sm">Annuler</button>
+      <button onclick="lancerRecalcul()" class="btn btn-green btn-sm">🔄 Recalculer</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -884,7 +924,10 @@ function _renderParametres() {
         ${checkBox('p-frigo','Exclure frigo',cfg.exclure_frigo)}
         ${checkBox('p-stup','Exclure stupéfiants',cfg.exclure_stupefiants)}
       </div>
-      <button class="btn btn-green" style="margin-top:16px;background:${color}" onclick="saveConfig('${source}')">Sauvegarder ${label}</button>
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-green" style="background:${color}" onclick="ouvrirModaleSauvegarde('${source}')">Sauvegarder ${label}</button>
+        <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')">🔄 Recalculer une période</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">Mon compte</div>
@@ -898,9 +941,39 @@ function checkBox(id, label, checked) {
 }
 
 async function saveConfig(source) {
+  // Kept for backward compatibility (not used anymore — use ouvrirModaleSauvegarde)
+  ouvrirModaleSauvegarde(source)
+}
+
+// ── SAUVEGARDE CONFIG AVEC DATE D'APPLICATION ─────────────────────────────
+let _SAUV_SOURCE = null
+
+function ouvrirModaleSauvegarde(source) {
+  _SAUV_SOURCE = source
+  const label = SOURCE_LABELS[source] || source
+  document.getElementById('modal-sauv-sub').textContent =
+    `Nouveaux paramètres pour ${label}. À partir de quelle date s'appliquent-ils ?`
+  _remplirSelectMois('sauv-date', CURRENT_MOIS, CURRENT_ANNEE)
+  document.getElementById('sauv-recalc').checked = true
+  document.getElementById('modal-sauvegarde-config').classList.add('open')
+}
+
+function fermerModaleSauvegarde() {
+  document.getElementById('modal-sauvegarde-config').classList.remove('open')
+  _SAUV_SOURCE = null
+}
+
+async function confirmerSauvegarde() {
+  if (!_SAUV_SOURCE) return
+  const source = _SAUV_SOURCE
+  const [m, a] = document.getElementById('sauv-date').value.split('-').map(Number)
+  const recalculer = document.getElementById('sauv-recalc').checked
+
   const body = {
     source,
-    rang: { cerp:1, alliance:2, ocp:3 }[source] || 1,
+    date_debut_mois: m,
+    date_debut_annee: a,
+    recalculer: recalculer,
     taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
     seuil_cher:      parseFloat(document.getElementById('p-seuil').value),
     forfait_cher:    parseFloat(document.getElementById('p-forfait').value),
@@ -910,9 +983,80 @@ async function saveConfig(source) {
     exclure_stupefiants: document.getElementById('p-stup').checked,
     exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
   }
-  const updated = await apiPut(`/grossiste/config/${source}`, body)
-  CONFIGS_GROSSISTE[source] = updated
-  toast(`✅ Config ${SOURCE_LABELS[source]} sauvegardée !`, 'green')
+
+  fermerModaleSauvegarde()
+  toast('💾 Sauvegarde en cours...')
+
+  try {
+    const r = await fetch(`${API}/grossiste/config/historique`, {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (!r.ok) { const err = await r.json().catch(()=>({})); toast('Erreur : '+(err.detail||r.status),'red'); return }
+    const data = await r.json()
+
+    // Mettre à jour la config actuelle côté client
+    CONFIGS_GROSSISTE[source] = { ...CONFIGS_GROSSISTE[source], ...body }
+
+    const nb = data.recalcul?.nb_factures_recalculees || 0
+    if (recalculer && nb > 0) {
+      toast(`✅ Sauvegardé — ${nb} facture(s) recalculée(s)`, 'green')
+    } else {
+      toast(`✅ Paramètres sauvegardés`, 'green')
+    }
+  } catch(e) { toast('Erreur réseau','red') }
+}
+
+// ── RECALCUL PÉRIODE INDÉPENDANT ──────────────────────────────────────────
+let _RECALC_SOURCE = null
+
+function ouvrirModaleRecalcul(source) {
+  _RECALC_SOURCE = source
+  const label = SOURCE_LABELS[source] || source
+  document.getElementById('modal-recalc-sub').textContent =
+    `Recalcul des factures ${label} sur une période donnée (utilise les règles historiques).`
+
+  const moisFin = CURRENT_MOIS, anneeFin = CURRENT_ANNEE
+  let moisDebut = moisFin - 2, anneeDebut = anneeFin
+  if (moisDebut <= 0) { moisDebut += 12; anneeDebut -= 1 }
+
+  _remplirSelectMois('recalc-debut', moisDebut, anneeDebut)
+  _remplirSelectMois('recalc-fin', moisFin, anneeFin)
+  document.getElementById('modal-recalcul').classList.add('open')
+}
+
+function fermerModaleRecalcul() {
+  document.getElementById('modal-recalcul').classList.remove('open')
+  _RECALC_SOURCE = null
+}
+
+async function lancerRecalcul() {
+  if (!_RECALC_SOURCE) return
+  const source = _RECALC_SOURCE
+  const [md, ad] = document.getElementById('recalc-debut').value.split('-').map(Number)
+  const [mf, af] = document.getElementById('recalc-fin').value.split('-').map(Number)
+
+  if (ad * 12 + md > af * 12 + mf) {
+    toast('Le mois de début doit être avant le mois de fin', 'red')
+    return
+  }
+
+  fermerModaleRecalcul()
+  toast('🔄 Recalcul en cours...')
+
+  try {
+    const r = await fetch(`${API}/grossiste/recalcul/periode`, {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        source, mois_debut: md, annee_debut: ad, mois_fin: mf, annee_fin: af
+      })
+    })
+    if (!r.ok) { const err = await r.json().catch(()=>({})); toast('Erreur : '+(err.detail||r.status),'red'); return }
+    const data = await r.json()
+    toast(`✅ ${data.nb_factures_recalculees} facture(s) recalculée(s)`, 'green')
+  } catch(e) { toast('Erreur réseau','red') }
 }
 
 // ── GÉNÉRIQUEUR ────────────────────────────────────────────────────────────
