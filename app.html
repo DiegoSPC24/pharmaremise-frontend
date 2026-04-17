@@ -389,10 +389,16 @@
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">📋 Analyser un relevé</div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Sélectionnez un relevé PDF (CERP, Alliance ou OCP). L'app va le comparer avec vos factures analysées.</div>
 
-    <div id="releve-drop" style="border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer" onclick="document.getElementById('releve-file').click()">
-      <div style="font-size:32px">📄</div>
-      <div style="font-size:13px;margin-top:8px">Cliquez pour choisir un PDF</div>
-      <div id="releve-filename" style="font-size:11px;color:var(--sub);margin-top:6px"></div>
+    <div id="releve-drop"
+         ondragover="onReleveDragOver(event)"
+         ondragleave="onReleveDragLeave(event)"
+         ondrop="onReleveDrop(event)"
+         style="border:2px dashed var(--border);border-radius:10px;padding:32px 24px;text-align:center;cursor:pointer;transition:all 0.2s"
+         onclick="document.getElementById('releve-file').click()">
+      <div style="font-size:36px">📄</div>
+      <div style="font-size:14px;margin-top:8px;font-weight:500">Glissez votre PDF ici</div>
+      <div style="font-size:12px;color:var(--sub);margin-top:4px">ou cliquez pour parcourir vos fichiers</div>
+      <div id="releve-filename" style="font-size:11px;color:var(--sub);margin-top:10px"></div>
     </div>
     <input type="file" id="releve-file" accept=".pdf" style="display:none" onchange="onReleveFileSelected(this.files)" />
 
@@ -415,6 +421,20 @@
 
     <div id="releve-result-kpi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
     <div id="releve-result-content"></div>
+  </div>
+</div>
+
+<!-- Modal Liste des relevés stockés -->
+<div id="modal-releves-liste" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:900px;width:95%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">📂 Mes relevés</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:2px">Cliquez sur un relevé pour voir le rapprochement à jour avec vos factures actuelles.</div>
+      </div>
+      <button onclick="fermerListeReleves()" class="btn btn-outline btn-sm">✕ Fermer</button>
+    </div>
+    <div id="releves-liste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
   </div>
 </div>
 
@@ -648,6 +668,7 @@ async function loadGrossiste() {
         <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
         <button class="btn btn-outline btn-sm" onclick="ouvrirModaleReleve()">📋 Analyser un relevé</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirListeReleves()">📂 Mes relevés</button>
         <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()">📊 Export PDF période</button>
         <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF mois</button>
       </div>
@@ -951,6 +972,34 @@ async function onReleveFileSelected(files) {
   await analyserReleve(file)
 }
 
+function onReleveDragOver(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  const zone = document.getElementById('releve-drop')
+  zone.style.borderColor = 'var(--green)'
+  zone.style.background = '#E1F5EE'
+}
+
+function onReleveDragLeave(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  const zone = document.getElementById('releve-drop')
+  zone.style.borderColor = 'var(--border)'
+  zone.style.background = ''
+}
+
+function onReleveDrop(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  const zone = document.getElementById('releve-drop')
+  zone.style.borderColor = 'var(--border)'
+  zone.style.background = ''
+  const files = e.dataTransfer.files
+  if (files && files.length) {
+    onReleveFileSelected(files)
+  }
+}
+
 async function analyserReleve(file) {
   const fd = new FormData()
   fd.append('file', file)
@@ -978,9 +1027,12 @@ function afficherResultatReleve(data) {
   const moisNoms = ['Jan','Fév','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc']
   const sourceLabel = { cerp: 'CERP', alliance: 'Alliance', ocp: 'OCP' }[data.source] || data.source
 
-  // Sous-titre
-  document.getElementById('releve-result-sub').textContent =
-    `${sourceLabel} — N° ${data.num_releve || '?'} — Période du ${data.periode_debut || '?'} au ${data.periode_fin || '?'}`
+  // Sous-titre avec date du rapprochement
+  const now = new Date()
+  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
+  document.getElementById('releve-result-sub').innerHTML =
+    `${sourceLabel} — N° ${data.num_releve || '?'} — Période du ${data.periode_debut || '?'} au ${data.periode_fin || '?'}<br>` +
+    `<span style="color:var(--green)">🔄 Rapprochement effectué à ${hm}</span>`
 
   // KPIs
   const kpiHtml = `
@@ -1076,7 +1128,112 @@ function afficherResultatReleve(data) {
 
 function voirFactureDepuisReleve(id) {
   fermerModaleReleveResult()
+  fermerListeReleves()
   voirFacture(id)
+}
+
+// ── LISTE DES RELEVÉS STOCKÉS ─────────────────────────────────────────────
+async function ouvrirListeReleves() {
+  document.getElementById('modal-releves-liste').classList.add('open')
+  document.getElementById('releves-liste-content').innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+
+  try {
+    const releves = await apiGet('/releve/liste')
+    afficherListeReleves(releves)
+  } catch(e) {
+    document.getElementById('releves-liste-content').innerHTML =
+      '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
+  }
+}
+
+function fermerListeReleves() {
+  document.getElementById('modal-releves-liste').classList.remove('open')
+}
+
+function afficherListeReleves(releves) {
+  const el = document.getElementById('releves-liste-content')
+  const sourceLabels = { cerp: 'CERP', alliance: 'Alliance', ocp: 'OCP' }
+  const sourceColors = { cerp: '#1D9E75', alliance: '#2563EB', ocp: '#7C3AED' }
+
+  if (!releves || !releves.length) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--sub)">
+        <div style="font-size:40px">📭</div>
+        <div style="margin-top:12px;font-size:14px">Aucun relevé analysé pour l'instant</div>
+        <div style="font-size:12px;margin-top:4px">Cliquez sur "📋 Analyser un relevé" pour commencer</div>
+      </div>
+    `
+    return
+  }
+
+  // Grouper par grossiste pour lisibilité
+  const parSource = { cerp: [], alliance: [], ocp: [] }
+  releves.forEach(r => { if (parSource[r.source]) parSource[r.source].push(r) })
+
+  let html = ''
+  for (const source of ['cerp', 'alliance', 'ocp']) {
+    const list = parSource[source]
+    if (!list.length) continue
+    const label = sourceLabels[source]
+    const color = sourceColors[source]
+
+    html += `<div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:600;color:${color};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${color}">
+        ${label} (${list.length})
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--bg);font-size:11px;color:var(--sub);text-align:left">
+          <th style="padding:8px">N° Relevé</th>
+          <th>Période</th>
+          <th style="text-align:right">Total TTC</th>
+          <th>Fichier</th>
+          <th style="text-align:center">Action</th>
+        </tr></thead>
+        <tbody>`
+
+    for (const r of list) {
+      html += `<tr>
+        <td style="font-family:'DM Mono',monospace;padding:8px">${r.num_releve || '?'}</td>
+        <td>${r.periode_debut || '?'} → ${r.periode_fin || '?'}</td>
+        <td style="font-family:'DM Mono',monospace;text-align:right">${eur(r.total_ttc || 0)}</td>
+        <td style="font-size:11px;color:var(--sub)">${r.filename || ''}</td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-green btn-sm" onclick="ouvrirRapprochement('${r.id}')">Voir</button>
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerReleve('${r.id}')">🗑️</button>
+        </td>
+      </tr>`
+    }
+    html += `</tbody></table></div>`
+  }
+
+  el.innerHTML = html
+}
+
+async function ouvrirRapprochement(releveId) {
+  fermerListeReleves()
+  toast('⏳ Rapprochement en cours...')
+  try {
+    const data = await apiGet(`/releve/${releveId}/rapprochement`)
+    afficherResultatReleve(data)
+  } catch(e) {
+    toast('Erreur lors du rapprochement', 'red')
+  }
+}
+
+async function supprimerReleve(releveId) {
+  if (!confirm('Supprimer ce relevé de l\'historique ? (les factures ne sont pas touchées)')) return
+  try {
+    const r = await fetch(`${API}/releve/${releveId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (r.ok) {
+      toast('✅ Relevé supprimé', 'green')
+      ouvrirListeReleves()  // rafraîchir
+    } else {
+      toast('Erreur lors de la suppression', 'red')
+    }
+  } catch(e) { toast('Erreur réseau', 'red') }
 }
 
 // ── PARAMÈTRES ─────────────────────────────────────────────────────────────
