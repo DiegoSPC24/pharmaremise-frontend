@@ -1718,8 +1718,8 @@ function renderModaleRegles() {
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">💊 Par molécule</div>
       <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Ajoute une molécule spécifique avec un taux particulier. La règle molécule prime sur la règle catégorie.</div>
       <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
-        <input type="text" id="mol-search" placeholder="Tape le nom de la molécule..." oninput="chercherMolecule(this.value)" 
-               style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+        <input type="text" id="mol-search" placeholder="Cherche par molécule (paracétamol), nom complet (IBUPROFENE 400 mg) ou CIP (3400930...)" oninput="chercherMolecule(this.value)" 
+               style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"/>
       </div>
       <div id="mol-suggestions" style="margin-bottom:10px"></div>
       ${molRows ? `
@@ -1772,22 +1772,45 @@ async function chercherMolecule(q) {
   _MOL_SEARCH_TIMER = setTimeout(async () => {
     try {
       const data = await apiGet(`/generiqueur/molecules/${encodeURIComponent(_GEN_EDIT_LABO)}?q=${encodeURIComponent(q)}`)
-      if (!data.molecules || !data.molecules.length) {
-        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:6px">Aucun résultat</div>'
+      if (!data.items || !data.items.length) {
+        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:8px;text-align:center">Aucun résultat</div>'
         return
       }
-      // Filtrer celles déjà ajoutées
-      const dejaAjoutees = _REGLES_TMP_MOL.map(r => r.molecule)
-      const dispo = data.molecules.filter(m => !dejaAjoutees.includes(m)).slice(0, 8)
+      // Filtrer ceux déjà ajoutés (par CIP OU par description exacte)
+      const dejaAjoutes = _REGLES_TMP_MOL.map(r => r.molecule)
+      const dispo = data.items.filter(m => !dejaAjoutes.includes(m.label) && !dejaAjoutes.includes(m.cip13))
+
       if (!dispo.length) {
-        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:6px">Toutes déjà ajoutées</div>'
+        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:8px;text-align:center">Tous déjà ajoutés</div>'
         return
       }
-      sug.innerHTML = dispo.map(m => `
-        <button onclick="ajouterRegleMolecule('${m.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm" style="margin:2px;padding:4px 8px;font-size:11px">+ ${m}</button>
-      `).join('')
+
+      // Affichage plus riche : description complète + CIP + prix + remise
+      sug.innerHTML = `
+        <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:white">
+          ${dispo.slice(0, 20).map(m => {
+            const ppht = m.ppht != null ? `${m.ppht.toFixed(2)}€` : '—'
+            const remise = m.remise_pct != null ? `${m.remise_pct}%` : '—'
+            const labelEsc = (m.label || '').replace(/'/g, "\\'").replace(/"/g, '&quot;')
+            return `
+              <div onclick="ajouterRegleMolecule('${labelEsc}')"
+                   style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s"
+                   onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'">
+                <div style="font-size:12px;font-weight:500;color:var(--text)">${m.label}</div>
+                <div style="font-size:10px;color:var(--sub);margin-top:2px;display:flex;gap:10px">
+                  <span>CIP ${m.cip13}</span>
+                  <span>${m.famille}</span>
+                  <span style="color:var(--green)">PPHT ${ppht}</span>
+                  <span style="color:var(--green)">Remise ${remise}</span>
+                </div>
+              </div>
+            `
+          }).join('')}
+          ${dispo.length > 20 ? `<div style="padding:6px 12px;font-size:10px;color:var(--sub);text-align:center;border-top:1px solid var(--border)">+ ${dispo.length - 20} autres résultats — affine ta recherche</div>` : ''}
+        </div>
+      `
     } catch(e) {
-      sug.innerHTML = '<div style="font-size:12px;color:var(--red)">Erreur</div>'
+      sug.innerHTML = '<div style="font-size:12px;color:var(--red);padding:6px">Erreur de recherche</div>'
     }
   }, 300)
 }
