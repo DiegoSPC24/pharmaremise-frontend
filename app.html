@@ -547,16 +547,27 @@ async function loadGrossiste() {
       const label = SOURCE_LABELS[g.source] || g.source
       const rang  = SOURCE_RANG[g.source] || ''
       const fList = (parSource[g.source] || [])
-      const fRows = fList.length ? fList.map(f => `
-        <tr>
+      const fRows = fList.length ? fList.map(f => {
+        const isDup = f.is_duplicate === true
+        const dupCount = (f.duplicates_of || []).length
+        const rowStyle = isDup ? 'background:#FFF5F5' : ''
+        const dupTitle = isDup
+          ? `Cette facture (n° ${f.num_facture}) existe en ${dupCount + 1} exemplaires. Autres copies : ${(f.duplicates_of||[]).map(d=>d.filename).join(', ')}`
+          : ''
+        const dupBadge = isDup
+          ? `<span class="badge" style="background:#FEE2E2;color:#B91C1C;margin-right:6px;cursor:help" title="${dupTitle.replace(/"/g,'&quot;')}">🔴 DOUBLON</span>`
+          : ''
+        return `
+        <tr style="${rowStyle}">
           <td><input type="checkbox" class="f-check" data-id="${f.id}" onchange="updateDeleteBtn()" /></td>
           <td>${f.filename}</td>
           <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
           <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
           <td>${f.nb_lignes}</td>
           <td><span class="badge badge-green">Analysée</span></td>
-          <td><button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
-        </tr>`).join('') :
+          <td style="white-space:nowrap">${dupBadge}<button class="btn btn-outline btn-sm" onclick="voirFacture('${f.id}')">Voir</button></td>
+        </tr>`
+      }).join('') :
         '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
 
       return `<div class="card" style="border-left:4px solid ${color}">
