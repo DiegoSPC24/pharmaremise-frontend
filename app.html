@@ -438,6 +438,50 @@
   </div>
 </div>
 
+<!-- Modal Ajouter un génériqueur (choix labo) -->
+<div id="modal-gen-ajout" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:480px;width:90%">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">➕ Ajouter un génériqueur</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Choisis le laboratoire à ajouter. Tu pourras configurer son contrat ensuite.</div>
+    <div id="gen-ajout-liste" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="fermerModaleAjoutGeneriqueur()" class="btn btn-outline btn-sm">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Éditer un génériqueur -->
+<div id="modal-gen-edit" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:700px;width:95%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:700" id="gen-edit-titre">Configurer Biogaran</div>
+        <div style="font-size:12px;color:var(--sub)" id="gen-edit-sub">Paramètres du contrat</div>
+      </div>
+      <button onclick="fermerModaleEditGeneriqueur()" class="btn btn-outline btn-sm">✕</button>
+    </div>
+    <div id="gen-edit-content"><div class="loading-center"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- Modal Règles particulières -->
+<div id="modal-gen-regles" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:700px;width:95%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:700" id="gen-regles-titre">Règles particulières</div>
+        <div style="font-size:12px;color:var(--sub)">Exclusions ou taux différents selon catégorie de remise ou molécule</div>
+      </div>
+      <button onclick="fermerModaleRegles()" class="btn btn-outline btn-sm">✕</button>
+    </div>
+    <div id="gen-regles-content"><div class="loading-center"><div class="spinner"></div></div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <button onclick="fermerModaleRegles()" class="btn btn-outline btn-sm">Annuler</button>
+      <button onclick="sauvegarderReglesTemporaires()" class="btn btn-green btn-sm">Valider</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1236,6 +1280,547 @@ async function supprimerReleve(releveId) {
   } catch(e) { toast('Erreur réseau', 'red') }
 }
 
+// ── GÉNÉRIQUEUR : CONFIG PARAMÈTRES ────────────────────────────────────────
+let _GEN_CONFIGS = []   // cache des configs chargées
+let _GEN_EDIT_ID = null // id en cours d'édition (null = création)
+let _GEN_EDIT_LABO = null
+let _GEN_EDIT_REGLES_CAT = []
+let _GEN_EDIT_REGLES_MOL = []
+
+async function chargerListeGeneriqueurs() {
+  const el = document.getElementById('generiqueurs-liste')
+  if (!el) return
+  try {
+    const configs = await apiGet('/generiqueur/config')
+    _GEN_CONFIGS = configs
+    afficherListeGeneriqueurs(configs)
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur de chargement</div>'
+  }
+}
+
+function afficherListeGeneriqueurs(configs) {
+  const el = document.getElementById('generiqueurs-liste')
+  if (!configs || !configs.length) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--sub);border:1px dashed var(--border);border-radius:10px">
+        <div style="font-size:32px">💊</div>
+        <div style="margin-top:8px;font-size:13px">Aucun génériqueur configuré</div>
+        <div style="font-size:11px;margin-top:4px">Clique sur "+ Ajouter" pour commencer</div>
+      </div>`
+    return
+  }
+
+  // Trier : prioritaires en premier (par ordre), puis non-prioritaires
+  const prios = configs.filter(c => c.prioritaire).sort((a,b) => a.ordre - b.ordre)
+  const nonPrios = configs.filter(c => !c.prioritaire).sort((a,b) => a.labo.localeCompare(b.labo))
+
+  let html = ''
+
+  if (prios.length) {
+    html += `<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⭐ Prioritaires</div>`
+    html += prios.map(c => renderCarteGeneriqueur(c)).join('')
+  }
+
+  if (nonPrios.length) {
+    html += `<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Non prioritaires</div>`
+    html += nonPrios.map(c => renderCarteGeneriqueur(c)).join('')
+  }
+
+  el.innerHTML = html
+}
+
+function renderCarteGeneriqueur(c) {
+  const isBiogaran = c.labo === 'Biogaran'
+  const badgeColor = c.prioritaire ? '#1D9E75' : '#94a3b8'
+  const badgeTxt = c.prioritaire ? `N°${c.ordre}` : 'Non prio'
+  const objTxt = c.prioritaire
+    ? `Obj. annuel : ${eur(c.objectif_annuel_ht)}`
+    : `Seuil mensuel : ${eur(c.seuil_mensuel_ht)}`
+  const biogaranTag = isBiogaran && c.prioritaire && c.ordre === 1
+    ? '<span style="font-size:10px;padding:2px 6px;background:#FEF3C7;color:#92400E;border-radius:3px;margin-left:6px">RDP auto</span>'
+    : ''
+  const nbReglesCat = (c.regles_categorie || []).length
+  const nbReglesMol = (c.regles_molecule || []).length
+  const reglesInfo = (nbReglesCat + nbReglesMol > 0)
+    ? `<span style="color:var(--sub);font-size:11px;margin-left:8px">• ${nbReglesCat+nbReglesMol} règle${nbReglesCat+nbReglesMol>1?'s':''} particulière${nbReglesCat+nbReglesMol>1?'s':''}</span>`
+    : ''
+
+  return `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;background:white;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <span style="display:inline-block;font-size:10px;padding:2px 7px;background:${badgeColor};color:white;border-radius:3px;font-weight:600">${badgeTxt}</span>
+          <span style="font-weight:600;font-size:14px">${c.labo}</span>
+          ${biogaranTag}
+        </div>
+        <div style="font-size:11px;color:var(--sub)">
+          Contrat : ${c.taux_contrat_pct}% • Promis : ${c.pct_pondere_promis}% • ${objTxt}${reglesInfo}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="ouvrirModaleEditGeneriqueur('${c.id}')">Modifier</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerGeneriqueur('${c.id}','${c.labo}')">🗑️</button>
+      </div>
+    </div>`
+}
+
+async function ouvrirModaleAjoutGeneriqueur() {
+  const modal = document.getElementById('modal-gen-ajout')
+  const liste = document.getElementById('gen-ajout-liste')
+  liste.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--sub)">Chargement...</div>'
+  modal.classList.add('open')
+
+  try {
+    const data = await apiGet('/generiqueur/labos-disponibles')
+    const labosDejaConfigures = (_GEN_CONFIGS || []).map(c => c.labo)
+    const labosDispo = data.labos.filter(l => !labosDejaConfigures.includes(l))
+
+    if (!labosDispo.length) {
+      liste.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--sub);padding:16px">Tous les labos sont déjà configurés.</div>'
+      return
+    }
+
+    liste.innerHTML = labosDispo.map(labo => `
+      <button class="btn btn-outline" onclick="selectionnerLaboNouveau('${labo}')" style="justify-content:center;text-align:center;padding:14px">
+        ${labo}
+      </button>
+    `).join('')
+  } catch(e) {
+    liste.innerHTML = '<div style="grid-column:1/-1;color:var(--red)">Erreur de chargement</div>'
+  }
+}
+
+function fermerModaleAjoutGeneriqueur() {
+  document.getElementById('modal-gen-ajout').classList.remove('open')
+}
+
+function selectionnerLaboNouveau(labo) {
+  fermerModaleAjoutGeneriqueur()
+  // Ouvrir la modale d'édition en mode création
+  _GEN_EDIT_ID = null
+  _GEN_EDIT_LABO = labo
+  _GEN_EDIT_REGLES_CAT = []
+  _GEN_EDIT_REGLES_MOL = []
+  document.getElementById('gen-edit-titre').textContent = `Configurer ${labo}`
+  document.getElementById('gen-edit-sub').textContent = 'Nouveau génériqueur'
+  renderFormulaireGeneriqueur({
+    labo: labo,
+    ordre: 999,
+    prioritaire: false,
+    taux_contrat_pct: 0,
+    pct_pondere_promis: 0,
+    objectif_annuel_ht: 0,
+    seuil_mensuel_ht: 350,
+    regles_categorie: [],
+    regles_molecule: [],
+    biogaran: null,
+  })
+  document.getElementById('modal-gen-edit').classList.add('open')
+}
+
+async function ouvrirModaleEditGeneriqueur(id) {
+  const c = _GEN_CONFIGS.find(x => x.id === id)
+  if (!c) { toast('Config introuvable', 'red'); return }
+
+  _GEN_EDIT_ID = id
+  _GEN_EDIT_LABO = c.labo
+  _GEN_EDIT_REGLES_CAT = JSON.parse(JSON.stringify(c.regles_categorie || []))
+  _GEN_EDIT_REGLES_MOL = JSON.parse(JSON.stringify(c.regles_molecule || []))
+
+  document.getElementById('gen-edit-titre').textContent = `Configurer ${c.labo}`
+  document.getElementById('gen-edit-sub').textContent = 'Modifier les paramètres'
+  renderFormulaireGeneriqueur(c)
+  document.getElementById('modal-gen-edit').classList.add('open')
+}
+
+function fermerModaleEditGeneriqueur() {
+  document.getElementById('modal-gen-edit').classList.remove('open')
+}
+
+function renderFormulaireGeneriqueur(c) {
+  const isBiogaran = c.labo === 'Biogaran'
+  const html = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Statut</label>
+        <select id="ge-prio" onchange="togglePrioritaire()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <option value="0" ${!c.prioritaire?'selected':''}>Non prioritaire</option>
+          <option value="1" ${c.prioritaire?'selected':''}>Prioritaire</option>
+        </select>
+      </div>
+      <div id="ge-ordre-wrap" style="${c.prioritaire?'':'display:none'}">
+        <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Ordre (1=principal)</label>
+        <input type="number" id="ge-ordre" value="${c.ordre||1}" min="1" max="99" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat (%)</label>
+        <input type="number" id="ge-contrat" value="${c.taux_contrat_pct||0}" step="0.1" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">% pondéré promis par le commercial</label>
+        <input type="number" id="ge-promis" value="${c.pct_pondere_promis||0}" step="0.1" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+      </div>
+    </div>
+
+    <div id="ge-prio-section" style="${c.prioritaire?'':'display:none'};margin-bottom:14px">
+      <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Objectif annuel HT (€)</label>
+      <input type="number" id="ge-obj-annuel" value="${c.objectif_annuel_ht||0}" step="100" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+    </div>
+
+    <div id="ge-nonprio-section" style="${!c.prioritaire?'':'display:none'};margin-bottom:14px">
+      <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil mensuel HT (€)</label>
+      <input type="number" id="ge-seuil-mensuel" value="${c.seuil_mensuel_ht||350}" step="10" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">💡 350€ par défaut. Si le CA mensuel est sous ce seuil, la remise contrat ne s'applique pas.</div>
+    </div>
+
+    <div style="padding:12px;background:#F8FAFC;border-radius:8px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:600">⚙️ Règles particulières</div>
+          <div style="font-size:11px;color:var(--sub)" id="ge-regles-summary">Aucune règle</div>
+        </div>
+        <button onclick="ouvrirModaleRegles()" class="btn btn-outline btn-sm">Configurer</button>
+      </div>
+    </div>
+
+    ${isBiogaran ? `
+    <div id="ge-biogaran-section" style="${c.prioritaire && c.ordre === 1 ? '' : 'display:none'};padding:12px;background:#FEF3C7;border-radius:8px;margin-bottom:14px;border:1px solid #FCD34D">
+      <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">🎯 Règles Biogaran pré-définies</div>
+      <div style="font-size:11px;color:#92400E;margin-bottom:8px">Appliquées automatiquement pour Biogaran prioritaire n°1. Tu peux les modifier ci-dessous.</div>
+      ${renderSectionBiogaran(c.biogaran)}
+    </div>
+    ` : ''}
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border)">
+      <button onclick="fermerModaleEditGeneriqueur()" class="btn btn-outline btn-sm">Annuler</button>
+      <button onclick="enregistrerGeneriqueur()" class="btn btn-green btn-sm">Enregistrer</button>
+    </div>
+  `
+  document.getElementById('gen-edit-content').innerHTML = html
+  majSummaryRegles()
+}
+
+function renderSectionBiogaran(biogaran) {
+  const b = biogaran || {
+    generique: { refs_mensuelles: 75, ca_mensuel_ht: 3750 },
+    pda: { refs_mensuelles: 6, ca_mensuel_ht: 750 },
+    soins_plaies_paliers: [
+      { ca_mensuel_ht: 87.5, pct_bonus: 5 },
+      { ca_mensuel_ht: 125, pct_bonus: 6 },
+      { ca_mensuel_ht: 175, pct_bonus: 7 },
+    ],
+    hydrocellulaires_annuels: [
+      { ca_annuel_ht: 2500, pct_bonus: 5 },
+      { ca_annuel_ht: 3000, pct_bonus: 8 },
+      { ca_annuel_ht: 3500, pct_bonus: 11 },
+    ]
+  }
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <label style="font-size:11px;color:#92400E">Générique : réfs/mois</label>
+        <input type="number" id="bg-gen-refs" value="${b.generique?.refs_mensuelles||75}" style="width:100%;padding:6px 8px;border:1px solid #FCD34D;border-radius:6px;font-size:12px;background:white"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#92400E">Générique : CA €/mois</label>
+        <input type="number" id="bg-gen-ca" value="${b.generique?.ca_mensuel_ht||3750}" style="width:100%;padding:6px 8px;border:1px solid #FCD34D;border-radius:6px;font-size:12px;background:white"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#92400E">PDA : réfs/mois</label>
+        <input type="number" id="bg-pda-refs" value="${b.pda?.refs_mensuelles||6}" style="width:100%;padding:6px 8px;border:1px solid #FCD34D;border-radius:6px;font-size:12px;background:white"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#92400E">PDA : CA €/mois</label>
+        <input type="number" id="bg-pda-ca" value="${b.pda?.ca_mensuel_ht||750}" style="width:100%;padding:6px 8px;border:1px solid #FCD34D;border-radius:6px;font-size:12px;background:white"/>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#92400E;margin-top:6px">
+      🩹 Soins des plaies (paliers mensuels) : 87,50€ → +5% / 125€ → +6% / 175€ → +7%<br>
+      🩹 Hydrocellulaires (annuels) : 2500€ → +5% / 3000€ → +8% / 3500€ → +11%
+    </div>
+  `
+}
+
+function togglePrioritaire() {
+  const isPrio = document.getElementById('ge-prio').value === '1'
+  document.getElementById('ge-ordre-wrap').style.display = isPrio ? 'block' : 'none'
+  document.getElementById('ge-prio-section').style.display = isPrio ? 'block' : 'none'
+  document.getElementById('ge-nonprio-section').style.display = isPrio ? 'none' : 'block'
+
+  // Afficher section Biogaran uniquement si Biogaran + prioritaire n°1
+  const biogaranSection = document.getElementById('ge-biogaran-section')
+  if (biogaranSection) {
+    const ordre = parseInt(document.getElementById('ge-ordre').value) || 999
+    biogaranSection.style.display = (isPrio && ordre === 1 && _GEN_EDIT_LABO === 'Biogaran') ? 'block' : 'none'
+  }
+}
+
+async function enregistrerGeneriqueur() {
+  const isPrio = document.getElementById('ge-prio').value === '1'
+  const ordre = isPrio ? parseInt(document.getElementById('ge-ordre').value) || 1 : 999
+
+  const payload = {
+    labo: _GEN_EDIT_LABO,
+    ordre: ordre,
+    prioritaire: isPrio,
+    taux_contrat_pct: parseFloat(document.getElementById('ge-contrat').value) || 0,
+    pct_pondere_promis: parseFloat(document.getElementById('ge-promis').value) || 0,
+    objectif_annuel_ht: isPrio ? (parseFloat(document.getElementById('ge-obj-annuel').value) || 0) : 0,
+    seuil_mensuel_ht: isPrio ? 350 : (parseFloat(document.getElementById('ge-seuil-mensuel').value) || 350),
+    regles_categorie: _GEN_EDIT_REGLES_CAT,
+    regles_molecule: _GEN_EDIT_REGLES_MOL,
+    biogaran: null,
+  }
+
+  // Si Biogaran prioritaire n°1 : lire les champs Biogaran
+  if (_GEN_EDIT_LABO === 'Biogaran' && isPrio && ordre === 1) {
+    const refsGen = document.getElementById('bg-gen-refs')
+    if (refsGen) {
+      payload.biogaran = {
+        generique: {
+          refs_mensuelles: parseInt(refsGen.value) || 75,
+          ca_mensuel_ht: parseFloat(document.getElementById('bg-gen-ca').value) || 3750,
+        },
+        pda: {
+          refs_mensuelles: parseInt(document.getElementById('bg-pda-refs').value) || 6,
+          ca_mensuel_ht: parseFloat(document.getElementById('bg-pda-ca').value) || 750,
+        },
+        soins_plaies_paliers: [
+          { ca_mensuel_ht: 87.5, pct_bonus: 5 },
+          { ca_mensuel_ht: 125, pct_bonus: 6 },
+          { ca_mensuel_ht: 175, pct_bonus: 7 },
+        ],
+        hydrocellulaires_annuels: [
+          { ca_annuel_ht: 2500, pct_bonus: 5 },
+          { ca_annuel_ht: 3000, pct_bonus: 8 },
+          { ca_annuel_ht: 3500, pct_bonus: 11 },
+        ]
+      }
+    }
+  }
+
+  try {
+    if (_GEN_EDIT_ID) {
+      await apiPut(`/generiqueur/config/${_GEN_EDIT_ID}`, payload)
+      toast('✅ Modifications enregistrées', 'green')
+    } else {
+      await apiPost('/generiqueur/config', payload)
+      toast('✅ Génériqueur ajouté', 'green')
+    }
+    fermerModaleEditGeneriqueur()
+    chargerListeGeneriqueurs()
+  } catch(e) {
+    const msg = e.message || 'Erreur d\'enregistrement'
+    toast(msg, 'red')
+  }
+}
+
+async function supprimerGeneriqueur(id, labo) {
+  if (!confirm(`Supprimer la configuration ${labo} ?`)) return
+  try {
+    const r = await fetch(`${API}/generiqueur/config/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (r.ok) {
+      toast(`✅ ${labo} supprimé`, 'green')
+      chargerListeGeneriqueurs()
+    } else {
+      toast('Erreur', 'red')
+    }
+  } catch(e) { toast('Erreur réseau', 'red') }
+}
+
+// ── RÈGLES PARTICULIÈRES ──────────────────────────────────────────────────
+let _REGLES_TMP_CAT = []
+let _REGLES_TMP_MOL = []
+let _CATEGORIES_DISPO = []
+
+async function ouvrirModaleRegles() {
+  _REGLES_TMP_CAT = JSON.parse(JSON.stringify(_GEN_EDIT_REGLES_CAT))
+  _REGLES_TMP_MOL = JSON.parse(JSON.stringify(_GEN_EDIT_REGLES_MOL))
+
+  document.getElementById('gen-regles-titre').textContent = `Règles particulières — ${_GEN_EDIT_LABO}`
+  document.getElementById('modal-gen-regles').classList.add('open')
+
+  // Charger les catégories de remise disponibles pour ce labo
+  try {
+    const data = await apiGet(`/generiqueur/categories-remise/${encodeURIComponent(_GEN_EDIT_LABO)}`)
+    _CATEGORIES_DISPO = data.categories
+    renderModaleRegles()
+  } catch(e) {
+    document.getElementById('gen-regles-content').innerHTML = '<div style="color:var(--red)">Erreur chargement</div>'
+  }
+}
+
+function fermerModaleRegles() {
+  document.getElementById('modal-gen-regles').classList.remove('open')
+}
+
+function renderModaleRegles() {
+  const el = document.getElementById('gen-regles-content')
+
+  // Catégories
+  const catRows = _CATEGORIES_DISPO.map(cat => {
+    const regle = _REGLES_TMP_CAT.find(r => r.categorie_remise === cat)
+    const active = !!regle
+    const taux = regle ? regle.taux_applique : ''
+    return `
+      <tr>
+        <td style="padding:6px 8px;vertical-align:middle">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="checkbox" ${active?'checked':''} onchange="toggleRegleCategorie(${cat}, this.checked)"/>
+            Catégorie ${cat}%
+          </label>
+        </td>
+        <td style="padding:6px 8px;vertical-align:middle">
+          <input type="number" value="${taux}" placeholder="0 = exclu" step="0.1"
+                 ${active?'':'disabled'}
+                 onchange="setTauxCategorie(${cat}, this.value)"
+                 style="width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;${active?'':'background:#F8FAFC'}"/>
+          <span style="font-size:11px;color:var(--sub);margin-left:4px">% appliqué</span>
+        </td>
+      </tr>`
+  }).join('')
+
+  // Molécules
+  const molRows = _REGLES_TMP_MOL.map((r, i) => `
+    <tr>
+      <td style="padding:4px 8px">${r.molecule}</td>
+      <td style="padding:4px 8px">
+        <input type="number" value="${r.taux_applique}" step="0.1"
+               onchange="setTauxMolecule(${i}, this.value)"
+               style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px"/>
+        <span style="font-size:11px;color:var(--sub)">%</span>
+      </td>
+      <td style="padding:4px 8px;text-align:right">
+        <button onclick="supprimerRegleMolecule(${i})" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:2px 6px">🗑️</button>
+      </td>
+    </tr>
+  `).join('')
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 Par catégorie de remise</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Coche les catégories où le contrat ne s'applique pas, ou s'applique à un taux différent. <strong>0% = exclusion totale</strong>.</div>
+      ${_CATEGORIES_DISPO.length ? `
+        <table style="width:100%;border-collapse:collapse;background:#F8FAFC;border-radius:8px">
+          <tbody>${catRows}</tbody>
+        </table>
+      ` : '<div style="font-size:12px;color:var(--sub)">Aucune catégorie détectée pour ce labo.</div>'}
+    </div>
+
+    <div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">💊 Par molécule</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Ajoute une molécule spécifique avec un taux particulier. La règle molécule prime sur la règle catégorie.</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
+        <input type="text" id="mol-search" placeholder="Tape le nom de la molécule..." oninput="chercherMolecule(this.value)" 
+               style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      </div>
+      <div id="mol-suggestions" style="margin-bottom:10px"></div>
+      ${molRows ? `
+        <table style="width:100%;border-collapse:collapse;background:#F8FAFC;border-radius:8px">
+          <thead><tr style="font-size:11px;color:var(--sub);text-align:left">
+            <th style="padding:6px 8px">Molécule</th>
+            <th style="padding:6px 8px">Taux</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${molRows}</tbody>
+        </table>
+      ` : '<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px">Aucune règle molécule</div>'}
+    </div>
+  `
+}
+
+function toggleRegleCategorie(cat, checked) {
+  if (checked) {
+    if (!_REGLES_TMP_CAT.find(r => r.categorie_remise === cat)) {
+      _REGLES_TMP_CAT.push({ categorie_remise: cat, taux_applique: 0 })
+    }
+  } else {
+    _REGLES_TMP_CAT = _REGLES_TMP_CAT.filter(r => r.categorie_remise !== cat)
+  }
+  renderModaleRegles()
+}
+
+function setTauxCategorie(cat, val) {
+  const r = _REGLES_TMP_CAT.find(x => x.categorie_remise === cat)
+  if (r) r.taux_applique = parseFloat(val) || 0
+}
+
+function setTauxMolecule(i, val) {
+  if (_REGLES_TMP_MOL[i]) _REGLES_TMP_MOL[i].taux_applique = parseFloat(val) || 0
+}
+
+function supprimerRegleMolecule(i) {
+  _REGLES_TMP_MOL.splice(i, 1)
+  renderModaleRegles()
+}
+
+let _MOL_SEARCH_TIMER = null
+async function chercherMolecule(q) {
+  clearTimeout(_MOL_SEARCH_TIMER)
+  const sug = document.getElementById('mol-suggestions')
+  if (!q || q.length < 2) {
+    sug.innerHTML = ''
+    return
+  }
+  _MOL_SEARCH_TIMER = setTimeout(async () => {
+    try {
+      const data = await apiGet(`/generiqueur/molecules/${encodeURIComponent(_GEN_EDIT_LABO)}?q=${encodeURIComponent(q)}`)
+      if (!data.molecules || !data.molecules.length) {
+        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:6px">Aucun résultat</div>'
+        return
+      }
+      // Filtrer celles déjà ajoutées
+      const dejaAjoutees = _REGLES_TMP_MOL.map(r => r.molecule)
+      const dispo = data.molecules.filter(m => !dejaAjoutees.includes(m)).slice(0, 8)
+      if (!dispo.length) {
+        sug.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:6px">Toutes déjà ajoutées</div>'
+        return
+      }
+      sug.innerHTML = dispo.map(m => `
+        <button onclick="ajouterRegleMolecule('${m.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm" style="margin:2px;padding:4px 8px;font-size:11px">+ ${m}</button>
+      `).join('')
+    } catch(e) {
+      sug.innerHTML = '<div style="font-size:12px;color:var(--red)">Erreur</div>'
+    }
+  }, 300)
+}
+
+function ajouterRegleMolecule(molecule) {
+  _REGLES_TMP_MOL.push({ molecule: molecule, taux_applique: 0 })
+  document.getElementById('mol-search').value = ''
+  document.getElementById('mol-suggestions').innerHTML = ''
+  renderModaleRegles()
+}
+
+function sauvegarderReglesTemporaires() {
+  // Copier les règles temporaires dans le state principal
+  _GEN_EDIT_REGLES_CAT = JSON.parse(JSON.stringify(_REGLES_TMP_CAT))
+  _GEN_EDIT_REGLES_MOL = JSON.parse(JSON.stringify(_REGLES_TMP_MOL))
+  fermerModaleRegles()
+  majSummaryRegles()
+}
+
+function majSummaryRegles() {
+  const nb = _GEN_EDIT_REGLES_CAT.length + _GEN_EDIT_REGLES_MOL.length
+  const el = document.getElementById('ge-regles-summary')
+  if (!el) return
+  if (nb === 0) {
+    el.textContent = 'Aucune règle'
+  } else {
+    const parts = []
+    if (_GEN_EDIT_REGLES_CAT.length) parts.push(`${_GEN_EDIT_REGLES_CAT.length} par catégorie`)
+    if (_GEN_EDIT_REGLES_MOL.length) parts.push(`${_GEN_EDIT_REGLES_MOL.length} par molécule`)
+    el.textContent = parts.join(', ')
+  }
+}
+
 // ── PARAMÈTRES ─────────────────────────────────────────────────────────────
 let _PARAM_TAB = 'cerp'
 
@@ -1290,11 +1875,27 @@ function _renderParametres() {
         <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')">🔄 Recalculer une période</button>
       </div>
     </div>
+    ${MODULES.includes('generiqueur') ? `
+    <div class="card" id="card-generiqueurs">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="card-title" style="margin:0">💊 Mes génériqueurs</div>
+        <button class="btn btn-green btn-sm" onclick="ouvrirModaleAjoutGeneriqueur()">+ Ajouter</button>
+      </div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
+        Configure tes contrats avec les laboratoires génériqueurs. Les prioritaires ont des objectifs annuels, les autres un seuil mensuel.
+      </div>
+      <div id="generiqueurs-liste"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
+    </div>` : ''}
     <div class="card">
       <div class="card-title">Mon compte</div>
       <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
       <div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div>
     </div>`
+
+  // Charger la liste des génériqueurs si le module est actif
+  if (MODULES.includes('generiqueur')) {
+    chargerListeGeneriqueurs()
+  }
 }
 
 function checkBox(id, label, checked) {
