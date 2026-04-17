@@ -383,6 +383,41 @@
   </div>
 </div>
 
+<!-- Modal Analyser un relevé (upload) -->
+<div id="modal-releve-upload" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:480px;width:90%">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">📋 Analyser un relevé</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Sélectionnez un relevé PDF (CERP, Alliance ou OCP). L'app va le comparer avec vos factures analysées.</div>
+
+    <div id="releve-drop" style="border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer" onclick="document.getElementById('releve-file').click()">
+      <div style="font-size:32px">📄</div>
+      <div style="font-size:13px;margin-top:8px">Cliquez pour choisir un PDF</div>
+      <div id="releve-filename" style="font-size:11px;color:var(--sub);margin-top:6px"></div>
+    </div>
+    <input type="file" id="releve-file" accept=".pdf" style="display:none" onchange="onReleveFileSelected(this.files)" />
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="fermerModaleReleve()" class="btn btn-outline btn-sm">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Résultat rapprochement relevé -->
+<div id="modal-releve-result" class="modal-overlay">
+  <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:900px;width:95%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:700">Rapprochement du relevé</div>
+        <div id="releve-result-sub" style="font-size:12px;color:var(--sub);margin-top:2px"></div>
+      </div>
+      <button onclick="fermerModaleReleveResult()" class="btn btn-outline btn-sm">✕ Fermer</button>
+    </div>
+
+    <div id="releve-result-kpi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
+    <div id="releve-result-content"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -609,9 +644,10 @@ async function loadGrossiste() {
         <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirModaleReleve()">📋 Analyser un relevé</button>
         <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()">📊 Export PDF période</button>
         <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF mois</button>
       </div>
@@ -884,6 +920,163 @@ async function lancerExportPeriode() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url); toast('PDF période téléchargé !', 'green')
   } catch(e) { toast('Erreur réseau', 'red') }
+}
+
+// ── ANALYSE D'UN RELEVÉ ────────────────────────────────────────────────────
+let _RELEVE_FILE = null
+
+function ouvrirModaleReleve() {
+  _RELEVE_FILE = null
+  document.getElementById('releve-filename').textContent = ''
+  document.getElementById('releve-file').value = ''
+  document.getElementById('modal-releve-upload').classList.add('open')
+}
+
+function fermerModaleReleve() {
+  document.getElementById('modal-releve-upload').classList.remove('open')
+}
+
+function fermerModaleReleveResult() {
+  document.getElementById('modal-releve-result').classList.remove('open')
+}
+
+async function onReleveFileSelected(files) {
+  if (!files || !files.length) return
+  const file = files[0]
+  _RELEVE_FILE = file
+  document.getElementById('releve-filename').textContent = '📎 ' + file.name
+  // Lancer l'analyse directement
+  fermerModaleReleve()
+  toast('⏳ Analyse du relevé en cours...')
+  await analyserReleve(file)
+}
+
+async function analyserReleve(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+
+  try {
+    const r = await fetch(`${API}/releve/analyser`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN },
+      body: fd
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      toast('Erreur : ' + (err.detail || r.status), 'red')
+      return
+    }
+    const data = await r.json()
+    afficherResultatReleve(data)
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+    console.error(e)
+  }
+}
+
+function afficherResultatReleve(data) {
+  const moisNoms = ['Jan','Fév','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc']
+  const sourceLabel = { cerp: 'CERP', alliance: 'Alliance', ocp: 'OCP' }[data.source] || data.source
+
+  // Sous-titre
+  document.getElementById('releve-result-sub').textContent =
+    `${sourceLabel} — N° ${data.num_releve || '?'} — Période du ${data.periode_debut || '?'} au ${data.periode_fin || '?'}`
+
+  // KPIs
+  const kpiHtml = `
+    <div class="kpi-card"><div class="kpi-lbl">Total relevé</div><div class="kpi-val">${eur(data.total_ttc || 0)}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Factures OK</div><div class="kpi-val green">${data.nb_ok}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Manquantes</div><div class="kpi-val" style="color:var(--red)">${data.nb_manquante}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Écarts</div><div class="kpi-val" style="color:#D97706">${data.nb_ecart}</div></div>
+  `
+  document.getElementById('releve-result-kpi').innerHTML = kpiHtml
+
+  // Trier : manquantes en premier, puis écarts, puis OK
+  const ordre = { manquante: 0, ecart: 1, ok: 2 }
+  const lignesTrie = [...data.lignes].sort((a, b) =>
+    (ordre[a.statut] ?? 3) - (ordre[b.statut] ?? 3)
+  )
+
+  // Rendu du tableau principal
+  const rows = lignesTrie.map(l => {
+    let statutBadge = ''
+    let bg = ''
+    if (l.statut === 'ok') {
+      statutBadge = '<span class="badge badge-green">✅ OK</span>'
+    } else if (l.statut === 'manquante') {
+      statutBadge = '<span class="badge" style="background:#FEE2E2;color:#B91C1C">❌ MANQUANTE</span>'
+      bg = 'background:#FFF5F5'
+    } else if (l.statut === 'ecart') {
+      const e = l.ecart != null ? ` (${eur(l.ecart)})` : ''
+      statutBadge = `<span class="badge" style="background:#FEF3C7;color:#92400E">⚠️ ÉCART${e}</span>`
+      bg = 'background:#FFFBEB'
+    }
+
+    const typeIcon = l.is_avoir ? '💰 AV' : ''
+    const appMontant = l.facture_match
+      ? `${eur(l.facture_match.total_ht || 0)}`
+      : '<span style="color:var(--sub)">—</span>'
+    const appAction = l.facture_match
+      ? `<button class="btn btn-outline btn-sm" onclick="voirFactureDepuisReleve('${l.facture_match.id}')">Voir</button>`
+      : ''
+
+    return `<tr style="${bg}">
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${l.num_piece} ${typeIcon}</td>
+      <td>${l.date || ''}</td>
+      <td style="font-family:'DM Mono',monospace;text-align:right">${eur(l.montant_ht || l.montant_ttc || 0)}</td>
+      <td style="font-family:'DM Mono',monospace;text-align:right">${appMontant}</td>
+      <td>${statutBadge}</td>
+      <td>${appAction}</td>
+    </tr>`
+  }).join('')
+
+  // Zone factures en trop
+  let enTropHtml = ''
+  if (data.factures_en_trop && data.factures_en_trop.length) {
+    const enTropRows = data.factures_en_trop.map(f => `
+      <tr>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${f.num_facture || '?'}</td>
+        <td>${f.filename}</td>
+        <td>${moisNoms[f.mois-1]} ${f.annee}</td>
+        <td style="font-family:'DM Mono',monospace;text-align:right">${eur(f.total_ht || 0)}</td>
+        <td><button class="btn btn-outline btn-sm" onclick="voirFactureDepuisReleve('${f.id}')">Voir</button></td>
+      </tr>
+    `).join('')
+    enTropHtml = `
+      <div style="margin-top:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:#D97706">⚠️ Factures dans l'app mais absentes du relevé (${data.factures_en_trop.length})</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Ces factures sont dans la période du relevé mais n'apparaissent pas dedans. Peut-être un problème de classement ou de date.</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--bg);font-size:11px;color:var(--sub);text-align:left">
+            <th style="padding:8px">N° Facture</th><th>Fichier</th><th>Mois</th><th style="text-align:right">Total HT</th><th></th>
+          </tr></thead>
+          <tbody>${enTropRows}</tbody>
+        </table>
+      </div>
+    `
+  }
+
+  const mainHtml = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--bg);font-size:11px;color:var(--sub);text-align:left">
+        <th style="padding:8px">N° pièce</th>
+        <th>Date</th>
+        <th style="text-align:right">Montant relevé</th>
+        <th style="text-align:right">Montant app</th>
+        <th>Statut</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${enTropHtml}
+  `
+  document.getElementById('releve-result-content').innerHTML = mainHtml
+  document.getElementById('modal-releve-result').classList.add('open')
+}
+
+function voirFactureDepuisReleve(id) {
+  fermerModaleReleveResult()
+  voirFacture(id)
 }
 
 // ── PARAMÈTRES ─────────────────────────────────────────────────────────────
