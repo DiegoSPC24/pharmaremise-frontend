@@ -727,9 +727,9 @@ function renderAccueilPage() {
         </div>
         ${isBiogaranPrio ? `
         <div class="kpi-card">
-          <div class="kpi-lbl">RDP</div>
-          <div class="kpi-val blue">${eur(gn.rdp_e || 0)}</div>
-          <div class="kpi-sub">Remise de palier Biogaran</div>
+          <div class="kpi-lbl">RDP ${gn.rdp_conditions_atteintes ? '✅' : '⏳'}</div>
+          <div class="kpi-val ${gn.rdp_conditions_atteintes ? 'green' : 'blue'}">${eur(gn.rdp_potentielle_e || gn.rdp_e || 0)}</div>
+          <div class="kpi-sub">${gn.rdp_conditions_atteintes ? 'Atteinte' : 'Potentielle si conditions atteintes'}</div>
         </div>` : ''}
         <div class="kpi-card">
           <div class="kpi-lbl">Contrat</div>
@@ -2879,10 +2879,13 @@ function renderLaboSection(l) {
   // CA exclu
   let exclusSection = ''
   if (l.ca_exclu_ht > 0) {
+    // Calcul du % à la volée (ca_exclu_pct peut être absent de la réponse API)
+    const caBase = (l.ca_total_ht || 0) + (l.ca_exclu_ht || 0)
+    const pctExclu = caBase > 0 ? (l.ca_exclu_ht / caBase * 100) : 0
     exclusSection = `
       <div style="margin-top:10px;padding:8px 12px;background:#FEF3C7;border-radius:6px;border-left:3px solid #D97706;font-size:12px">
         <span style="font-weight:600;color:#92400E">⚠️ Produits avec règle particulière :</span>
-        ${eur(l.ca_exclu_ht)} (${l.ca_exclu_pct}% du CA)
+        ${eur(l.ca_exclu_ht)} (${pctExclu.toFixed(1)}% du CA)
       </div>`
   }
 
