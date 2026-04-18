@@ -2459,29 +2459,88 @@ function renderLaboSection(l) {
         ${pondereBlock}
       </div>
 
-      <div class="three-col" style="margin-top:14px">
-        <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total HT</div>
-          <div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(l.ca_total_ht)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.nb_refs} réf${l.nb_refs>1?'s':''} • ${l.nb_lignes} ligne${l.nb_lignes>1?'s':''}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise totale</div>
-          <div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(l.remise_totale_e)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">Gros. ${eur(l.remise_grossiste_e)}${l.configure ? ' + Contrat '+eur(l.remise_contrat_e) : ''}${l.rdp_e>0 ? ' + RDP '+eur(l.rdp_e) : ''}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${l.configure ? 'Remise contrat' : 'Remise grossiste'}</div>
-          <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${eur(l.configure ? l.remise_contrat_e : l.remise_grossiste_e)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.configure ? 'Taux '+l.taux_contrat_pct+'%' + (!isPrio && !l.seuil_atteint ? ' (seuil non atteint)' : '') : 'Aucun contrat configuré'}</div>
-        </div>
-      </div>
+      ${renderMetriquesLabo(l, isPrio)}
 
       ${seuilSection}
       ${rdpSection}
       ${sourcesTable}
       ${exclusSection}
       ${detailBtn}
+    </div>`
+}
+
+// Bloc de métriques : 4 colonnes par défaut, 5 si Biogaran (avec RDP)
+function renderMetriquesLabo(l, isPrio) {
+  const isBiogaran = l.labo === 'Biogaran'
+  const nbCols = isBiogaran ? 5 : 4
+
+  // Colonne 1 : CA total
+  const colCA = `
+    <div>
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">CA total HT</div>
+      <div style="font-size:18px;font-weight:600;font-family:'DM Mono',monospace">${eur(l.ca_total_ht)}</div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.nb_refs} réf${l.nb_refs>1?'s':''} • ${l.nb_lignes} ligne${l.nb_lignes>1?'s':''}</div>
+    </div>`
+
+  // Colonne 2 : Remise grossiste
+  const colGros = `
+    <div>
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise grossiste</div>
+      <div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(l.remise_grossiste_e)}</div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px">Déjà appliquée sur factures</div>
+    </div>`
+
+  // Colonne 3 (Biogaran uniquement) : RDP
+  let colRDP = ''
+  if (isBiogaran) {
+    const rdp = l.rdp_details
+    const atteint = rdp && rdp.conditions_atteintes
+    const rdpEffective = l.rdp_e || 0
+    const rdpPotentielle = rdp && rdp.rdp_potentielle_e ? rdp.rdp_potentielle_e : 0
+
+    if (atteint) {
+      colRDP = `
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
+          <div style="font-size:18px;font-weight:600;color:#2563EB;font-family:'DM Mono',monospace">${eur(rdpEffective)}</div>
+          <div style="font-size:10px;color:#2563EB;margin-top:2px">✅ Conditions atteintes (10%)</div>
+        </div>`
+    } else {
+      colRDP = `
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
+          <div style="font-size:18px;font-weight:600;color:var(--sub);font-family:'DM Mono',monospace">${eur(rdpPotentielle)}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">⏳ potentielle (si atteint)</div>
+        </div>`
+    }
+  }
+
+  // Colonne 4 : Contrat
+  const colContrat = `
+    <div>
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise contrat</div>
+      <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${eur(l.configure ? l.remise_contrat_e : 0)}</div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.configure ? 'Taux '+l.taux_contrat_pct+'%' + (!isPrio && !l.seuil_atteint ? ' (seuil non atteint)' : '') : 'Non configuré'}</div>
+    </div>`
+
+  // Colonne 5 : Total de remise
+  // Pour Biogaran : inclure RDP potentielle dans le total "effectif" reste l.remise_totale_e
+  const totalAffiche = l.remise_totale_e
+  const pctTotal = l.ca_total_ht > 0 ? (totalAffiche / l.ca_total_ht * 100).toFixed(1) : 0
+  const colTotal = `
+    <div>
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Total remise</div>
+      <div style="font-size:18px;font-weight:700;color:var(--green);font-family:'DM Mono',monospace">${eur(totalAffiche)}</div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px">= ${pctTotal}% du CA</div>
+    </div>`
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(${nbCols},1fr);gap:14px;margin-top:14px">
+      ${colCA}
+      ${colGros}
+      ${colRDP}
+      ${colContrat}
+      ${colTotal}
     </div>`
 }
 
