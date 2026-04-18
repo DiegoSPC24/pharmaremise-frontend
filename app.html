@@ -2333,7 +2333,7 @@ function renderGeneriqueurPage(synth) {
 function renderLaboSection(l) {
   // Couleurs et badges
   const isPrio = l.prioritaire
-  const couleurBord = isPrio ? '#1D9E75' : '#94a3b8'
+  const couleurBord = isPrio ? '#1D9E75' : (l.configure ? '#94a3b8' : '#D1D5DB')
   const badgeOrdre = isPrio
     ? `<span style="display:inline-block;padding:3px 9px;background:${couleurBord};color:white;border-radius:4px;font-size:11px;font-weight:600">N°${l.ordre}</span>`
     : (l.configure
@@ -2345,7 +2345,7 @@ function renderLaboSection(l) {
     ? `Contrat ${l.taux_contrat_pct}% • Promis ${l.pct_pondere_promis}% • ${isPrio ? `Obj. annuel ${eur(l.objectif_annuel_ht)}` : `Seuil mensuel ${eur(l.seuil_mensuel_ht)}`}`
     : `⚠️ Ce labo n'est pas dans tes paramètres — configure-le pour bénéficier des remises contrat`
 
-  // % pondéré réel avec couleur
+  // % pondéré réel avec couleur — SEULEMENT si configuré (sinon ça n'a pas de sens)
   const pctReel = l.pct_pondere_reel
   const pctPromis = l.pct_pondere_promis
   const ecart = l.ecart_promis
@@ -2357,16 +2357,31 @@ function renderLaboSection(l) {
     else { pctColor = '#DC2626'; pctIcon = '🔴' }
   }
 
-  // Section seuil non-prio
+  // Affichage % pondéré uniquement si configuré
+  const pondereBlock = l.configure ? `
+    <div style="text-align:right">
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">% pondéré réel</div>
+      <div style="font-size:22px;font-weight:700;color:${pctColor};font-family:'DM Mono',monospace">${pctIcon} ${pctReel.toFixed(1)}%</div>
+      ${pctPromis > 0 ? `<div style="font-size:10px;color:var(--sub)">Promis : ${pctPromis}% ${ecart >= 0 ? '<span style="color:#1D9E75">(+'+ecart.toFixed(1)+'%)</span>' : '<span style="color:#DC2626">('+ecart.toFixed(1)+'%)</span>'}</div>` : ''}
+    </div>` : ''
+
+  // Section seuil :
+  // - Pour non-prio configurés : jauge seuil normale
+  // - Pour non configurés : jauge avec seuil par défaut 350€
   let seuilSection = ''
   if (l.configure && !isPrio) {
-    seuilSection = renderJaugeSeuil(l.ca_total_ht, l.seuil_mensuel_ht, l.seuil_atteint)
+    seuilSection = renderJaugeSeuil(l.ca_total_ht, l.seuil_mensuel_ht, l.seuil_atteint, false)
+  } else if (!l.configure) {
+    const seuilDefaut = 350
+    const atteintDefaut = l.ca_total_ht >= seuilDefaut
+    seuilSection = renderJaugeSeuil(l.ca_total_ht, seuilDefaut, atteintDefaut, true)
   }
 
-  // Section RDP Biogaran
+  // Section RDP Biogaran (prio n°1 Biogaran uniquement)
   let rdpSection = ''
   if (l.rdp_details) {
-    rdpSection = renderRDPBiogaran(l.rdp_details)
+    const isBiogaranPrio1 = (l.labo === 'Biogaran' && isPrio && l.ordre === 1)
+    rdpSection = renderRDPBiogaran(l.rdp_details, isBiogaranPrio1)
   }
 
   // Section répartition par source
@@ -2416,15 +2431,18 @@ function renderLaboSection(l) {
       </div>`
   }
 
-  // Bouton détail lignes
+  // Bouton détail lignes + bouton export
   const laboKey = l.labo.replace(/\s+/g,'_')
   const isOpen = !!_GEN_DETAILS_OPEN[l.labo]
   const detailBtn = l.details_lignes && l.details_lignes.length > 0
-    ? `<button onclick="toggleDetailsLignes('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm" style="margin-top:12px">
-         ${isOpen ? '▲ Cacher le détail' : '▼ Voir le détail'} (${l.details_lignes.length} ligne${l.details_lignes.length>1?'s':''})
-       </button>
+    ? `<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+         <button onclick="toggleDetailsLignes('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm">
+           ${isOpen ? '▲ Cacher le détail' : '▼ Voir le détail'} (${l.details_lignes.length} ligne${l.details_lignes.length>1?'s':''})
+         </button>
+         <button onclick="telechargerDetailLabo('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm">📥 Télécharger (Excel)</button>
+       </div>
        <div id="details-lignes-${laboKey}" style="display:${isOpen?'block':'none'};margin-top:10px">
-         ${renderDetailsLignes(l.details_lignes)}
+         ${renderDetailsLignes(l.details_lignes, l.labo)}
        </div>`
     : ''
 
@@ -2438,11 +2456,7 @@ function renderLaboSection(l) {
           </div>
           <div style="font-size:11px;color:var(--sub)">${infoLigne}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">% pondéré réel</div>
-          <div style="font-size:22px;font-weight:700;color:${pctColor};font-family:'DM Mono',monospace">${pctIcon} ${pctReel.toFixed(1)}%</div>
-          ${l.configure && pctPromis > 0 ? `<div style="font-size:10px;color:var(--sub)">Promis : ${pctPromis}% ${ecart >= 0 ? '<span style="color:#1D9E75">(+'+ecart.toFixed(1)+'%)</span>' : '<span style="color:#DC2626">('+ecart.toFixed(1)+'%)</span>'}</div>` : ''}
-        </div>
+        ${pondereBlock}
       </div>
 
       <div class="three-col" style="margin-top:14px">
@@ -2454,12 +2468,12 @@ function renderLaboSection(l) {
         <div>
           <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise totale</div>
           <div style="font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace">${eur(l.remise_totale_e)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">Gros. ${eur(l.remise_grossiste_e)} + Contrat ${eur(l.remise_contrat_e)}${l.rdp_e>0 ? ' + RDP '+eur(l.rdp_e) : ''}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">Gros. ${eur(l.remise_grossiste_e)}${l.configure ? ' + Contrat '+eur(l.remise_contrat_e) : ''}${l.rdp_e>0 ? ' + RDP '+eur(l.rdp_e) : ''}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">Remise contrat</div>
-          <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${eur(l.remise_contrat_e)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">Taux ${l.taux_contrat_pct}%${l.configure && !isPrio && !l.seuil_atteint ? ' (seuil non atteint)' : ''}</div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">${l.configure ? 'Remise contrat' : 'Remise grossiste'}</div>
+          <div style="font-size:18px;font-weight:600;color:var(--blue);font-family:'DM Mono',monospace">${eur(l.configure ? l.remise_contrat_e : l.remise_grossiste_e)}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">${l.configure ? 'Taux '+l.taux_contrat_pct+'%' + (!isPrio && !l.seuil_atteint ? ' (seuil non atteint)' : '') : 'Aucun contrat configuré'}</div>
         </div>
       </div>
 
@@ -2471,12 +2485,16 @@ function renderLaboSection(l) {
     </div>`
 }
 
-function renderJaugeSeuil(ca, seuil, atteint) {
+function renderJaugeSeuil(ca, seuil, atteint, isNonConfigure) {
   const pct = seuil > 0 ? Math.min(100, (ca / seuil) * 100) : 100
   let couleur, texte, iconHtml
   if (atteint) {
     couleur = '#1D9E75'; iconHtml = '🟢'
-    texte = `Seuil atteint (${eur(ca)} / ${eur(seuil)}) — remise contrat active`
+    if (isNonConfigure) {
+      texte = `Seuil dépassé (${eur(ca)} / ${eur(seuil)}) — tu devrais configurer ce labo pour toucher une remise contrat`
+    } else {
+      texte = `Seuil atteint (${eur(ca)} / ${eur(seuil)}) — remise contrat active`
+    }
   } else if (pct >= 70) {
     couleur = '#D97706'; iconHtml = '🟡'
     texte = `${eur(ca)} / ${eur(seuil)} — il reste ${eur(seuil - ca)} pour débloquer la remise`
@@ -2497,12 +2515,30 @@ function renderJaugeSeuil(ca, seuil, atteint) {
     </div>`
 }
 
-function renderRDPBiogaran(rdp) {
+function renderRDPBiogaran(rdp, isBiogaranPrio1) {
   const atteint = rdp.conditions_atteintes
-  const couleur = atteint ? '#1D9E75' : '#D97706'
-  const bg = atteint ? '#D1FAE5' : '#FEF3C7'
-  const icon = atteint ? '✅' : '⏳'
-  const label = atteint ? 'RDP Biogaran : CONDITIONS ATTEINTES' : 'RDP Biogaran : en cours'
+  // Pour Biogaran prio n°1 : couleurs douces (constamment OK en pratique)
+  // Pour les autres (futurs cas) : couleurs agressives
+  let couleur, bg, icon, label
+  if (atteint) {
+    // Vert doux dans tous les cas quand atteint
+    couleur = '#1D9E75'
+    bg = '#ECFDF5'  // vert très pâle
+    icon = '✅'
+    label = 'RDP Biogaran : CONDITIONS ATTEINTES'
+  } else if (isBiogaranPrio1) {
+    // Biogaran prio n°1 non atteint : bleu/gris discret (inhabituel mais pas alarmant)
+    couleur = '#475569'
+    bg = '#F1F5F9'
+    icon = '⏳'
+    label = 'RDP Biogaran : en cours'
+  } else {
+    // Autres prio non atteint : orange agressif (vraie alerte)
+    couleur = '#D97706'
+    bg = '#FEF3C7'
+    icon = '⚠️'
+    label = 'RDP : conditions non atteintes'
+  }
 
   const refsPct = Math.min(100, (rdp.realise.nb_refs / rdp.conditions.refs_requises) * 100)
   const caPct = Math.min(100, (rdp.realise.ca / rdp.conditions.ca_requis) * 100)
@@ -2519,7 +2555,7 @@ function renderRDPBiogaran(rdp) {
             <span>Références : ${rdp.realise.nb_refs} / ${rdp.conditions.refs_requises}</span>
             <span style="font-family:'DM Mono',monospace">${refsPct.toFixed(0)}%</span>
           </div>
-          <div style="height:6px;background:rgba(255,255,255,0.5);border-radius:3px;overflow:hidden">
+          <div style="height:6px;background:rgba(255,255,255,0.6);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${refsPct}%;background:${couleur}"></div>
           </div>
         </div>
@@ -2528,7 +2564,7 @@ function renderRDPBiogaran(rdp) {
             <span>CA : ${eur(rdp.realise.ca)} / ${eur(rdp.conditions.ca_requis)}</span>
             <span style="font-family:'DM Mono',monospace">${caPct.toFixed(0)}%</span>
           </div>
-          <div style="height:6px;background:rgba(255,255,255,0.5);border-radius:3px;overflow:hidden">
+          <div style="height:6px;background:rgba(255,255,255,0.6);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${caPct}%;background:${couleur}"></div>
           </div>
         </div>
@@ -2536,47 +2572,129 @@ function renderRDPBiogaran(rdp) {
     </div>`
 }
 
-function renderDetailsLignes(lignes) {
+function renderDetailsLignes(lignes, labo) {
   // Trier par CA décroissant
   const trie = [...lignes].sort((a, b) => (b.total_ht || 0) - (a.total_ht || 0))
+  const isBiogaran = labo === 'Biogaran'
 
   const rows = trie.map(l => {
     const srcColor = { cerp: '#1D9E75', alliance: '#2563EB', ocp: '#7C3AED' }[l.source] || 'var(--sub)'
     const srcLabel = { cerp: 'CERP', alliance: 'ALLI', ocp: 'OCP' }[l.source] || l.source.toUpperCase()
     const regleIcon = l.regle_particuliere ? ' <span title="Règle particulière appliquée" style="color:#D97706">⚙️</span>' : ''
+
+    // Remise grossiste : comparaison avec la référence
+    const rgp = l.remise_grossiste_pct || 0
+    const rge = l.remise_grossiste_e || 0
+    const rgfn = l.remise_generique_pct   // référence (peut être null)
+    const rgfe = l.remise_generique_e || 0
+
+    // Comparaison % grossiste vs % référence (est-ce que le grossiste applique bien ce que le labo promet ?)
+    let compColor = 'var(--text)'
+    let compIcon = ''
+    if (rgfn !== null && rgfn !== undefined) {
+      const diff = rgp - rgfn
+      if (Math.abs(diff) < 0.5) { compColor = 'var(--green)'; compIcon = '' }
+      else if (diff < 0) { compColor = '#DC2626'; compIcon = ' ⚠️' }
+      else { compColor = 'var(--green)'; compIcon = '' }
+    }
+
+    // Cellules RDP (uniquement Biogaran)
+    let rdpCells = ''
+    if (isBiogaran) {
+      const rdpPct = l.rdp_pct
+      const rdpE = l.rdp_e || 0
+      if (rdpPct !== null && rdpPct !== undefined) {
+        rdpCells = `
+          <td style="padding:4px 6px;text-align:right;font-size:11px;font-family:'DM Mono',monospace;color:#2563EB">${rdpPct}%</td>
+          <td style="padding:4px 6px;text-align:right;font-size:11px;font-family:'DM Mono',monospace;color:#2563EB">${eur(rdpE)}</td>`
+      } else {
+        rdpCells = `<td style="padding:4px 6px;text-align:center;color:var(--sub);font-size:11px">—</td><td style="padding:4px 6px;text-align:center;color:var(--sub);font-size:11px">—</td>`
+      }
+    }
+
     return `
       <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--sub)">${l.cip13}</td>
-        <td style="padding:5px 8px;font-size:11px">${l.famille || l.nom}${regleIcon}</td>
-        <td style="padding:5px 8px"><span style="font-size:9px;padding:1px 5px;background:${srcColor};color:white;border-radius:3px">${srcLabel}</span></td>
-        <td style="padding:5px 8px;text-align:center;font-size:11px">${l.qte}</td>
-        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.pfht)}</td>
-        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.total_ht)}</td>
-        <td style="padding:5px 8px;text-align:center;font-size:11px;color:var(--sub)">${l.remise_base_labo_pct!=null ? l.remise_base_labo_pct+'%' : '—'}</td>
-        <td style="padding:5px 8px;text-align:center;font-size:11px;font-weight:600;color:${l.taux_contrat_applique_pct>0?'var(--green)':'var(--sub)'}">${l.taux_contrat_applique_pct}%</td>
-        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--green)">${eur(l.remise_contrat_e)}</td>
+        <td style="padding:4px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--sub)">${l.cip13}</td>
+        <td style="padding:4px 6px;font-size:11px">${l.famille || l.nom}${regleIcon}</td>
+        <td style="padding:4px 6px"><span style="font-size:9px;padding:1px 5px;background:${srcColor};color:white;border-radius:3px">${srcLabel}</span></td>
+        <td style="padding:4px 6px;text-align:center;font-size:11px">${l.qte}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.pfht)}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;font-weight:600">${eur(l.total_ht)}</td>
+
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}">${rgp}%${compIcon}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}">${eur(rge)}</td>
+
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--sub)">${rgfn !== null && rgfn !== undefined ? rgfn+'%' : '—'}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--sub)">${rgfn !== null && rgfn !== undefined ? eur(rgfe) : '—'}</td>
+
+        ${rdpCells}
+
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${l.taux_contrat_applique_pct>0?'var(--green)':'var(--sub)'}">${l.taux_contrat_applique_pct}%</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${l.remise_contrat_e>0?'var(--green)':'var(--sub)'}">${eur(l.remise_contrat_e)}</td>
       </tr>`
   }).join('')
 
   return `
+    <div style="margin-bottom:8px;padding:8px 12px;background:#F8FAFC;border-radius:6px;font-size:11px;color:var(--sub)">
+      <strong style="color:var(--text)">Légende :</strong> 
+      <span style="color:var(--green)">●</span> Remise grossiste OK (conforme à la référence) • 
+      <span style="color:#DC2626">⚠️</span> Remise grossiste insuffisante vs référence labo • 
+      <span style="color:#D97706">⚙️</span> Règle particulière appliquée
+    </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
         <thead>
-          <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px">
-            <th style="padding:6px 8px;text-align:left">CIP</th>
-            <th style="padding:6px 8px;text-align:left">Molécule</th>
-            <th style="padding:6px 8px;text-align:left">Src</th>
-            <th style="padding:6px 8px">Qté</th>
-            <th style="padding:6px 8px;text-align:right">PFHT</th>
-            <th style="padding:6px 8px;text-align:right">Total HT</th>
-            <th style="padding:6px 8px;text-align:center">Rem. base</th>
-            <th style="padding:6px 8px;text-align:center">Rem. contrat</th>
-            <th style="padding:6px 8px;text-align:right">Contrat €</th>
+          <tr style="background:#F8FAFC;font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px">
+            <th style="padding:6px 6px;text-align:left">CIP</th>
+            <th style="padding:6px 6px;text-align:left">Molécule</th>
+            <th style="padding:6px 6px;text-align:left">Src</th>
+            <th style="padding:6px 6px">Qté</th>
+            <th style="padding:6px 6px;text-align:right">PFHT</th>
+            <th style="padding:6px 6px;text-align:right">Total HT</th>
+            <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#E0F2FE">Rem. grossiste</th>
+            <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#FEF3C7">Rem. générique (réf.)</th>
+            ${isBiogaran ? '<th style="padding:6px 6px;text-align:right" colspan="2" style="background:#DBEAFE">Rem. RDP</th>' : ''}
+            <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#D1FAE5">Rem. contrat</th>
+          </tr>
+          <tr style="background:#F8FAFC;font-size:9px;color:var(--sub)">
+            <th colspan="6"></th>
+            <th style="padding:2px 6px;text-align:right">%</th>
+            <th style="padding:2px 6px;text-align:right">€</th>
+            <th style="padding:2px 6px;text-align:right">%</th>
+            <th style="padding:2px 6px;text-align:right">€</th>
+            ${isBiogaran ? '<th style="padding:2px 6px;text-align:right">%</th><th style="padding:2px 6px;text-align:right">€</th>' : ''}
+            <th style="padding:2px 6px;text-align:right">%</th>
+            <th style="padding:2px 6px;text-align:right">€</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`
+}
+
+async function telechargerDetailLabo(labo) {
+  toast('Génération du fichier Excel...')
+  try {
+    const r = await fetch(`${API}/generiqueur/synthese/export-excel/${encodeURIComponent(labo)}?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (!r.ok) {
+      toast('Erreur export', 'red')
+      return
+    }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `detail_${labo.replace(/\s+/g,'_')}_${CURRENT_MOIS}_${CURRENT_ANNEE}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast('✅ Fichier téléchargé', 'green')
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+  }
 }
 
 function toggleDetailsLignes(labo) {
