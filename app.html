@@ -130,7 +130,6 @@
     <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon">🏠</span> Accueil</button>
     <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon">🏭</span> Grossiste</button>
     <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon">💊</span> Génériqueur</button>
-    <button class="nav-item" id="nav-rfa" onclick="goTo('rfa',this)"><span class="icon">📋</span> RFA</button>
     <button class="nav-item" onclick="goTo('depot',this)"><span class="icon">📁</span> Dépôt factures</button>
     <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon">⚖️</span> Comparateur</button>
     <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon">⚙️</span> Paramètres</button>
@@ -176,15 +175,13 @@
     <div id="screen-accueil" class="screen active"><div id="accueil-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
     <div id="screen-grossiste" class="screen"><div id="grossiste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
     <div id="screen-generiqueur" class="screen"><div id="generiqueur-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
-    <div id="screen-rfa" class="screen"><div id="rfa-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
 
     <div id="screen-depot" class="screen">
       <div class="card">
         <div class="card-title">Déposer une facture</div>
-        <div class="three-col" style="margin-bottom:16px">
+        <div class="two-col" style="margin-bottom:16px">
           <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
           <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct labo</button>
-          <button class="btn btn-outline" id="depot-tab-rfa" onclick="setDepotTab('rfa')" style="justify-content:center">📋 RFA</button>
         </div>
         <div id="depot-form">
           <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
@@ -444,7 +441,6 @@ async function init() {
     document.getElementById('plan-label').textContent = abo.plan.replace('_',' ')
     if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
     if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
-    if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock">🔒</span>'
     if (MODULES.includes('grossiste')) {
       const configs = await apiGet('/grossiste/config')
       if (Array.isArray(configs)) {
@@ -465,11 +461,10 @@ function goTo(screen, btn) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('screen-'+screen).classList.add('active')
   CURRENT_SCREEN = screen
-  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', rfa:'Contrôle RFA', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
   document.getElementById('topbar-title').textContent = titles[screen] || screen
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
-  if (screen === 'rfa')         loadRFA()
   if (screen === 'parametres')  loadParametres()
   if (screen === 'comparateur') loadComparateur()
 }
@@ -3230,41 +3225,10 @@ async function exportPDFGeneriqueur() {
   toast('Export PDF non disponible pour cette vue pour l\'instant', 'orange')
 }
 
-// ── RFA ────────────────────────────────────────────────────────────────────
-async function loadRFA() {
-  if (!MODULES.includes('rfa')) { document.getElementById('rfa-content').innerHTML = lockedHTML('rfa'); return }
-  const el = document.getElementById('rfa-content')
-  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-  try {
-    const synth = await apiGet(`/rfa/synthese?annee=${CURRENT_ANNEE}`)
-    const rows = (synth.labos||[]).map(l => `
-      <tr>
-        <td style="font-weight:500">${l.labo}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ca_annuel)}</td>
-        <td style="text-align:center">${pct(l.taux_pct)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(l.rfa_attendue)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${l.avoir_recu!==null?eur(l.avoir_recu):'—'}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:${l.ecart>=0?'var(--green)':'var(--red)'}">${l.ecart!==null?eur(l.ecart):'—'}</td>
-        <td><span class="badge ${l.statut==='recu'?'badge-green':'badge-amber'}">${l.statut==='recu'?'Reçu':'En attente'}</span></td>
-      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:24px">Aucun labo RFA configuré</td></tr>'
-    el.innerHTML = `
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-lbl">RFA attendue</div><div class="kpi-val green">${eur(synth.total_attendu)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">RFA reçue</div><div class="kpi-val">${eur(synth.total_recu)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Écart global</div><div class="kpi-val ${synth.ecart_global>=0?'green':'red'}">${eur(synth.ecart_global)}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Labos suivis</div><div class="kpi-val">${(synth.labos||[]).length}</div></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-header-title">Suivi RFA ${CURRENT_ANNEE}</div></div>
-        <table><thead><tr><th>Laboratoire</th><th>CA annuel</th><th>Taux</th><th>RFA attendue</th><th>Avoir reçu</th><th>Écart</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>
-      </div>`
-  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
-}
-
 // ── DÉPÔT ──────────────────────────────────────────────────────────────────
 function setDepotTab(tab) {
   depot_tab = tab
-  ;['grossiste','labo','rfa'].forEach(t => {
+  ;['grossiste','labo'].forEach(t => {
     document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
   })
 }
@@ -4301,7 +4265,7 @@ async function exportPDFGen() {
 
 // ── LOCKED ─────────────────────────────────────────────────────────────────
 function lockedHTML(module) {
-  const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur', rfa:'RFA' }
+  const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur' }
   return `<div class="locked-module"><div class="locked-icon">🔒</div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
 }
 
