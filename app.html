@@ -4056,30 +4056,58 @@ function voirMoleculesPerdues(label) {
   const molecules = offre.molecules_non_couvertes_top || []
   const labo = offre.params.labo
 
-  const rows = molecules.map(m => `
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 10px;font-size:12px">${m.molecule || m.famille || '—'}</td>
-      <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(m.ca)}</td>
-      <td style="padding:6px 10px;text-align:center;font-size:11px;color:var(--sub)">${m.nb_lignes}</td>
-      <td style="padding:6px 10px;font-size:10px;color:var(--sub)">${(m.labos_utilises||[]).join(', ')}</td>
-    </tr>
-  `).join('')
+  // Pour chaque molécule, on va lister ses CIP et permettre de marquer chaque CIP comme princeps
+  const rows = molecules.map((m, idxMol) => {
+    const cips = (m.cips || [])
+    const cipsListe = cips.map((cip, i) => {
+      // Nom du produit depuis les détails si dispo
+      const detail = (m.lignes_details || []).find(d => d.cip13 === cip) || {}
+      const nomProduit = detail.nom || m.molecule || m.famille || ''
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;color:var(--sub);border-top:${i===0?'1px dashed var(--border)':'none'};margin-top:${i===0?'4px':'0'};padding-top:${i===0?'4px':'3px'}">
+          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${nomProduit.replace(/"/g,'&quot;')}">
+            <span style="font-family:'DM Mono',monospace">${cip}</span>
+            ${nomProduit ? ` · <span style="color:var(--text)">${nomProduit.substring(0,50)}</span>` : ''}
+          </div>
+          <button onclick="marquerCIPPrinceps('${cip}','${nomProduit.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${label}')" 
+                  style="padding:2px 8px;font-size:10px;background:#FEF3C7;border:1px solid #D97706;color:#92400E;border-radius:4px;cursor:pointer;white-space:nowrap;margin-left:6px">
+            ⚠️ Princeps
+          </button>
+        </div>`
+    }).join('')
 
-  // Afficher dans une popup simple
+    return `
+      <tr style="border-bottom:1px solid var(--border);vertical-align:top">
+        <td style="padding:6px 10px;font-size:12px">
+          <div style="font-weight:500">${m.molecule || m.famille || '—'}</div>
+          <div style="margin-top:4px">${cipsListe}</div>
+        </td>
+        <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(m.ca)}</td>
+        <td style="padding:6px 10px;text-align:center;font-size:11px;color:var(--sub)">${m.nb_lignes}</td>
+        <td style="padding:6px 10px;font-size:10px;color:var(--sub)">${(m.labos_utilises||[]).join(', ')}</td>
+      </tr>
+    `
+  }).join('')
+
   const popup = `
     <div id="popup-molecules-perdues" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target.id==='popup-molecules-perdues')document.getElementById('popup-molecules-perdues').remove()">
-      <div style="background:white;border-radius:12px;padding:20px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto">
+      <div style="background:white;border-radius:12px;padding:20px;max-width:850px;width:95%;max-height:85vh;overflow-y:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div>
             <div style="font-size:16px;font-weight:700">Molécules perdues chez ${labo}</div>
-            <div style="font-size:12px;color:var(--sub)">Top 20 par CA — PDF complet disponible via "📄 Export PDF"</div>
+            <div style="font-size:11px;color:var(--sub);margin-top:2px">
+              Top 20 par CA • Clique sur <strong style="color:#92400E">⚠️ Princeps</strong> si un produit n'est pas un vrai générique
+            </div>
           </div>
           <button onclick="document.getElementById('popup-molecules-perdues').remove()" class="btn btn-outline btn-sm">✕</button>
+        </div>
+        <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;border-left:3px solid #D97706;font-size:11px;color:#92400E;margin-bottom:10px">
+          💡 <strong>Les princeps fausssent le calcul.</strong> Si tu vois un produit qui n'est pas un vrai générique (ex: Spasfon, Creon, Lamaline), clique sur ⚠️ Princeps pour l'exclure définitivement du comparateur.
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
-              <th style="padding:6px 10px;text-align:left">Molécule</th>
+              <th style="padding:6px 10px;text-align:left">Molécule / CIP</th>
               <th style="padding:6px 10px;text-align:right">CA perdu</th>
               <th style="padding:6px 10px;text-align:center">Lignes</th>
               <th style="padding:6px 10px;text-align:left">Labos utilisés</th>
@@ -4093,6 +4121,32 @@ function voirMoleculesPerdues(label) {
   const existing = document.getElementById('popup-molecules-perdues')
   if (existing) existing.remove()
   document.body.insertAdjacentHTML('beforeend', popup)
+}
+
+async function marquerCIPPrinceps(cip13, nom, label) {
+  if (!confirm(`Marquer ce CIP comme princeps ?\n\nCIP : ${cip13}\n${nom || ''}\n\nIl sera exclu définitivement du comparateur génériqueur et du dashboard.`)) return
+  try {
+    // Auto-migration de l'enum la 1ère fois (idempotent)
+    if (!window._PRINCEPS_ENUM_MIGRATED) {
+      await fetch(`${API}/generiqueur/admin/migrate-princeps-enum`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + TOKEN }
+      }).catch(() => {})
+      window._PRINCEPS_ENUM_MIGRATED = true
+    }
+    const r = await fetch(`${API}/generiqueur/princeps/marquer`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cip13, nom: nom || '', labo: '' })
+    })
+    if (!r.ok) { toast('Erreur', 'red'); return }
+    toast('⚠️ Marqué comme princeps', 'green')
+    // Fermer popup et refaire la comparaison
+    document.getElementById('popup-molecules-perdues')?.remove()
+    lancerComparaisonGeneriqueur()
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+  }
 }
 
 async function exportPDFGen() {
