@@ -2879,11 +2879,15 @@ function renderComparateurPage() {
   const tabs = `
     <div style="display:flex;gap:6px;margin-bottom:16px">
       <button class="btn ${_CMP_MODE==='grossiste'?'btn-green':'btn-outline'} btn-sm" onclick="_CMP_MODE='grossiste';renderComparateurPage()">⚖️ Grossistes</button>
-      <button class="btn ${_CMP_MODE==='generiqueur'?'btn-green':'btn-outline'} btn-sm" onclick="toast('Comparateur génériqueur : disponible prochainement', 'orange')">💊 Génériqueurs (bientôt)</button>
+      <button class="btn ${_CMP_MODE==='generiqueur'?'btn-green':'btn-outline'} btn-sm" onclick="switchToGeneriqueur()">💊 Génériqueurs</button>
     </div>`
 
   if (_CMP_MODE === 'grossiste') {
     el.innerHTML = tabs + renderCompareGrossiste()
+    return
+  }
+  if (_CMP_MODE === 'generiqueur') {
+    el.innerHTML = tabs + renderCompareGeneriqueur()
     return
   }
 }
@@ -3233,6 +3237,431 @@ function formatPeriode(p) {
   const d2 = new Date(p.fin)
   const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.']
   return `${mois[d1.getMonth()]} ${d1.getFullYear()} → ${mois[d2.getMonth()]} ${d2.getFullYear()}`
+}
+
+// ── COMPARATEUR GÉNÉRIQUEUR ────────────────────────────────────────────────
+let _CMP_GEN_OFFRE_A = null
+let _CMP_GEN_OFFRE_B = null
+let _CMP_GEN_LABOS_DISPO = []
+let _CMP_GEN_RESULT = null  // dernier résultat de comparaison
+
+const LABOS_GEN = ['Biogaran', 'Viatris', 'Teva', 'Sandoz', 'Arrow', 'EG Labo', 'Cristers', 'Zentiva', 'Almus', 'Krka', 'Zydus']
+
+async function switchToGeneriqueur() {
+  _CMP_MODE = 'generiqueur'
+
+  // Initialiser les offres si pas encore fait
+  if (!_CMP_GEN_OFFRE_A) {
+    _CMP_GEN_OFFRE_A = {
+      labo: 'Biogaran',
+      taux_facture_pct: 0,
+      taux_contrat_pct: 0,
+      regles_categorie: [],
+      regles_molecule: [],
+      biogaran_rdp_active: false,
+      biogaran_rdp_pct: 10,
+    }
+  }
+  if (!_CMP_GEN_OFFRE_B) {
+    _CMP_GEN_OFFRE_B = {
+      labo: 'Teva',
+      taux_facture_pct: 0,
+      taux_contrat_pct: 0,
+      regles_categorie: [],
+      regles_molecule: [],
+      biogaran_rdp_active: false,
+      biogaran_rdp_pct: 10,
+    }
+  }
+
+  renderComparateurPage()
+
+  // Charger l'offre actuelle depuis la config
+  try {
+    const data = await apiGet('/comparateur/generiqueur/offre-actuelle')
+    _CMP_GEN_OFFRE_A = {
+      labo: data.labo || 'Biogaran',
+      taux_facture_pct: data.taux_facture_pct || 0,
+      taux_contrat_pct: data.taux_contrat_pct || 0,
+      regles_categorie: data.regles_categorie || [],
+      regles_molecule: data.regles_molecule || [],
+      biogaran_rdp_active: data.biogaran_rdp_active || false,
+      biogaran_rdp_pct: data.biogaran_rdp_pct || 10,
+    }
+    renderComparateurPage()
+  } catch(e) {
+    // Offre par défaut si pas de config
+  }
+}
+
+function renderCompareGeneriqueur() {
+  return `
+    <div class="card">
+      <div class="card-title">💊 Comparateur génériqueur</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+        Simule 2 offres de labos génériqueurs sur ton potentiel générique réel (12 derniers mois). Prend en compte la couverture catalogue, la remise sur facture, la remise contrat et la RDP Biogaran.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Période</label>
+          <div style="display:flex;gap:6px">
+            <input type="month" value="${_CMP_DATE_DEBUT ? _CMP_DATE_DEBUT.substring(0,7) : ''}" onchange="_CMP_DATE_DEBUT=this.value+'-01'" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+            <span style="align-self:center;color:var(--sub);font-size:12px">→</span>
+            <input type="month" value="${_CMP_DATE_FIN ? _CMP_DATE_FIN.substring(0,7) : ''}" onchange="_CMP_DATE_FIN=lastDayOfMonth(this.value)" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+          </div>
+        </div>
+        <div style="display:flex;align-items:end;gap:6px">
+          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGeneriqueur()" style="flex:1">🔄 Calculer la comparaison</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${renderOffreGeneriqueur('A', _CMP_GEN_OFFRE_A)}
+        ${renderOffreGeneriqueur('B', _CMP_GEN_OFFRE_B)}
+      </div>
+    </div>
+
+    <div id="cmp-gen-result-card"></div>`
+}
+
+function renderOffreGeneriqueur(label, offre) {
+  const isA = (label === 'A')
+  const couleur = isA ? '#1D9E75' : '#D97706'
+  const titreLabel = isA ? 'Offre A (actuelle)' : 'Offre B (challenger)'
+
+  // Liste des labos disponibles (sélection)
+  const labosOptions = LABOS_GEN.map(l => `<option value="${l}" ${offre.labo===l?'selected':''}>${l}</option>`).join('')
+
+  const isBiogaran = offre.labo === 'Biogaran'
+
+  return `
+    <div style="border:1px solid ${couleur};border-radius:10px;padding:14px;background:white">
+      <div style="font-weight:700;color:${couleur};margin-bottom:10px">${titreLabel}</div>
+
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Laboratoire</label>
+        <select onchange="setLaboOffreGen('${label}',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          ${labosOptions}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise facture %</label>
+          <input type="number" step="0.1" value="${offre.taux_facture_pct}" onchange="setChampOffreGen('${label}','taux_facture_pct',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace"/>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise contrat %</label>
+          <input type="number" step="0.1" value="${offre.taux_contrat_pct}" onchange="setChampOffreGen('${label}','taux_contrat_pct',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace"/>
+        </div>
+      </div>
+
+      ${isBiogaran ? `
+        <div style="padding:8px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" ${offre.biogaran_rdp_active?'checked':''} onchange="setChampOffreGen('${label}','biogaran_rdp_active',this.checked)" style="accent-color:${couleur}"/>
+            <span style="font-weight:600;color:#92400E">Activer la RDP Biogaran</span>
+          </label>
+          <div style="display:${offre.biogaran_rdp_active?'flex':'none'};align-items:center;gap:6px;margin-top:6px;margin-left:22px">
+            <span style="font-size:11px;color:#92400E">Taux RDP :</span>
+            <input type="number" step="0.5" value="${offre.biogaran_rdp_pct}" onchange="setChampOffreGen('${label}','biogaran_rdp_pct',this.value)" style="width:70px;padding:3px 6px;border:1px solid #FCD34D;border-radius:4px;font-size:12px"/>
+            <span style="font-size:11px;color:#92400E">%</span>
+          </div>
+        </div>
+      ` : ''}
+
+      ${(offre.regles_categorie && offre.regles_categorie.length > 0) || (offre.regles_molecule && offre.regles_molecule.length > 0) ? `
+        <div style="padding:6px 10px;background:#F8FAFC;border-radius:6px;margin-bottom:10px">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">
+            ⚙️ Règles particulières : 
+            ${(offre.regles_categorie||[]).length} par catégorie, 
+            ${(offre.regles_molecule||[]).length} par molécule
+          </div>
+        </div>
+      ` : ''}
+    </div>`
+}
+
+function setLaboOffreGen(label, val) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  offre.labo = val
+  renderComparateurPage()
+}
+
+function setChampOffreGen(label, key, val) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (key === 'biogaran_rdp_active') {
+    offre[key] = !!val
+    renderComparateurPage()
+  } else if (key === 'biogaran_rdp_pct' || key === 'taux_facture_pct' || key === 'taux_contrat_pct') {
+    offre[key] = parseFloat(val) || 0
+  }
+}
+
+async function lancerComparaisonGeneriqueur() {
+  if (!_CMP_DATE_DEBUT || !_CMP_DATE_FIN) {
+    toast('Choisis une période', 'red')
+    return
+  }
+  if (_CMP_GEN_OFFRE_A.labo === _CMP_GEN_OFFRE_B.labo) {
+    toast('Les deux offres doivent être sur des labos différents', 'orange')
+    return
+  }
+
+  const resultCard = document.getElementById('cmp-gen-result-card')
+  resultCard.innerHTML = '<div class="loading-center"><div class="spinner"></div> Analyse du potentiel générique...</div>'
+
+  try {
+    const r = await fetch(`${API}/comparateur/generiqueur/comparer`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date_debut: _CMP_DATE_DEBUT,
+        date_fin: _CMP_DATE_FIN,
+        offre_a: _CMP_GEN_OFFRE_A,
+        offre_b: _CMP_GEN_OFFRE_B,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      resultCard.innerHTML = `<div class="card" style="color:var(--red)">Erreur : ${err.detail || r.status}</div>`
+      return
+    }
+    const data = await r.json()
+    _CMP_GEN_RESULT = data
+    afficherResultatComparaisonGen(data)
+  } catch(e) {
+    resultCard.innerHTML = `<div class="card" style="color:var(--red)">Erreur réseau</div>`
+  }
+}
+
+function afficherResultatComparaisonGen(data) {
+  const pot = data.potentiel_global
+  const rA = data.offre_a.calcul
+  const rB = data.offre_b.calcul
+  const covA = data.offre_a.couverture
+  const covB = data.offre_b.couverture
+  const prmA = data.offre_a.params
+  const prmB = data.offre_b.params
+  const ecart = data.ecart.ecart_e
+
+  // Verdict
+  let verdictColor, verdictBg, verdictTxt, verdictIcon
+  if (Math.abs(ecart) < 1) {
+    verdictColor = '#475569'; verdictBg = '#F1F5F9'
+    verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = '⚖️'
+  } else if (ecart > 0) {
+    verdictColor = '#D97706'; verdictBg = '#FEF3C7'
+    verdictTxt = `L'offre B rapporte ${eur(Math.abs(ecart))} de plus sur la période`
+    verdictIcon = '🔄'
+  } else {
+    verdictColor = '#1D9E75'; verdictBg = '#D1FAE5'
+    verdictTxt = `Garde l'offre A — elle rapporte ${eur(Math.abs(ecart))} de plus`
+    verdictIcon = '✅'
+  }
+
+  const resultCard = document.getElementById('cmp-gen-result-card')
+  resultCard.innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title" style="margin:0">📊 Résultat de la comparaison</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="exportPDFGen()">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Potentiel global (au milieu) -->
+      <div style="padding:16px;background:#F0FDF4;border-radius:10px;border:2px solid #1D9E75;margin-bottom:16px;text-align:center">
+        <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">Potentiel global générique</div>
+        <div style="font-size:28px;font-weight:700;color:#1D9E75;font-family:'DM Mono',monospace;margin:4px 0">${eur(pot.total_ca_ht)}</div>
+        <div style="font-size:11px;color:var(--sub)">${pot.nb_molecules} molécules distinctes • ${formatPeriode(data.periode)}</div>
+      </div>
+
+      <!-- Verdict -->
+      <div style="padding:14px;background:${verdictBg};border-radius:10px;border-left:4px solid ${verdictColor};margin-bottom:16px">
+        <div style="font-size:18px;font-weight:700;color:${verdictColor}">${verdictIcon} ${verdictTxt}</div>
+      </div>
+
+      <!-- Comparaison 2 colonnes -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        ${renderCarteGenResult('A', prmA, covA, rA, '#1D9E75')}
+        ${renderCarteGenResult('B', prmB, covB, rB, '#D97706')}
+      </div>
+
+      <!-- Tableau récap ligne par ligne -->
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#F8FAFC">
+              <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--sub);text-transform:uppercase">Critère</th>
+              <th style="padding:8px 10px;text-align:right;color:#1D9E75">A : ${prmA.labo}</th>
+              <th style="padding:8px 10px;text-align:right;color:#D97706">B : ${prmB.labo}</th>
+              <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--sub);text-transform:uppercase">Écart</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ligneCompGen('Couverture catalogue', covA.pct_couverture, covB.pct_couverture, 'pct', covA.ca_couvert, covB.ca_couvert)}
+            ${ligneCompGen('Molécules non couvertes', covA.nb_molecules_non_couvertes, covB.nb_molecules_non_couvertes, 'n', covA.ca_non_couvert, covB.ca_non_couvert, true)}
+            ${ligneCompGen('Remise sur facture', rA.remise_facture_e, rB.remise_facture_e, 'e')}
+            ${rA.rdp_e > 0 || rB.rdp_e > 0 ? ligneCompGen('RDP Biogaran', rA.rdp_e, rB.rdp_e, 'e') : ''}
+            ${ligneCompGen('Remise contrat', rA.remise_contrat_e, rB.remise_contrat_e, 'e')}
+            <tr style="background:#F0FDF4;font-weight:700">
+              <td style="padding:10px;color:#1D9E75">💰 Remise totale</td>
+              <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:#1D9E75">${eur(rA.remise_totale_e)}</td>
+              <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:#1D9E75">${eur(rB.remise_totale_e)}</td>
+              <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:${ecart>0?'#D97706':(ecart<0?'#1D9E75':'var(--sub)')}">${ecart>0?'+':''}${eur(ecart)}</td>
+            </tr>
+            ${ligneCompGen('% pondéré réel', rA.pct_pondere_reel, rB.pct_pondere_reel, 'pct')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bouton voir molécules perdues -->
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:center">
+        ${covA.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('A')">📋 Molécules perdues chez ${prmA.labo} (${covA.nb_molecules_non_couvertes})</button>` : ''}
+        ${covB.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('B')">📋 Molécules perdues chez ${prmB.labo} (${covB.nb_molecules_non_couvertes})</button>` : ''}
+      </div>
+    </div>`
+}
+
+function renderCarteGenResult(label, params, cov, calc, couleur) {
+  const isA = label === 'A'
+  return `
+    <div style="border:1px solid ${couleur};border-radius:10px;padding:14px;background:white">
+      <div style="font-weight:700;color:${couleur};margin-bottom:8px">${isA?'A':'B'} : ${params.labo}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase">CA couvert</div>
+          <div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace">${eur(cov.ca_couvert)}</div>
+          <div style="font-size:10px;color:var(--sub)">${cov.pct_couverture.toFixed(1)}% de couverture</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Mol. non couvertes</div>
+          <div style="font-size:16px;font-weight:600;color:#DC2626;font-family:'DM Mono',monospace">${cov.nb_molecules_non_couvertes}</div>
+          <div style="font-size:10px;color:var(--sub)">= ${eur(cov.ca_non_couvert)} perdus</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span>Facture ${calc.taux_facture_pct}%</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--green)">${eur(calc.remise_facture_e)}</span>
+        </div>
+        ${calc.rdp_e > 0 ? `
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span>RDP Biogaran</span>
+            <span style="font-family:'DM Mono',monospace;color:#2563EB">${eur(calc.rdp_e)}</span>
+          </div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span>Contrat ${calc.taux_contrat_pct}%</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--green)">${eur(calc.remise_contrat_e)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+          <span>Total</span>
+          <span style="font-family:'DM Mono',monospace;color:${couleur}">${eur(calc.remise_totale_e)}</span>
+        </div>
+      </div>
+    </div>`
+}
+
+function ligneCompGen(label, a, b, mode, subA, subB, reverseBetter) {
+  // mode: 'e' €, 'pct' %, 'n' nombre
+  const fmt = (v) => mode === 'e' ? eur(v) : (mode === 'pct' ? v.toFixed(2)+'%' : v)
+  let aBetter = reverseBetter ? (a < b) : (a > b)
+  const colA = (a !== b) ? (aBetter ? 'color:#1D9E75;font-weight:600' : '') : ''
+  const colB = (a !== b) ? (!aBetter ? 'color:#1D9E75;font-weight:600' : '') : ''
+  const ecart = b - a
+  const ecartSign = ecart > 0 ? '+' : ''
+  const ecartFmt = mode === 'e' ? (ecartSign + eur(ecart)) : (mode === 'pct' ? (ecartSign + ecart.toFixed(2) + '%') : (ecartSign + ecart))
+  const subTxt = (subA !== undefined && subB !== undefined) ? `<br><span style="font-size:10px;color:var(--sub)">${eur(subA)} / ${eur(subB)}</span>` : ''
+  return `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 10px;font-size:12px;color:var(--sub)">${label}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:13px;${colA}">${fmt(a)}${mode==='n'?subTxt:''}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:13px;${colB}">${fmt(b)}${mode==='n'?subTxt:''}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:${Math.abs(ecart)<0.01?'var(--sub)':(ecart>0?'#D97706':'#1D9E75')}">${ecartFmt}</td>
+    </tr>`
+}
+
+function voirMoleculesPerdues(label) {
+  const data = _CMP_GEN_RESULT
+  if (!data) return
+  const offre = label === 'A' ? data.offre_a : data.offre_b
+  const molecules = offre.molecules_non_couvertes_top || []
+  const labo = offre.params.labo
+
+  const rows = molecules.map(m => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;font-size:12px">${m.famille}</td>
+      <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(m.ca)}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:11px;color:var(--sub)">${m.nb_lignes}</td>
+      <td style="padding:6px 10px;font-size:10px;color:var(--sub)">${(m.labos_utilises||[]).join(', ')}</td>
+    </tr>
+  `).join('')
+
+  // Afficher dans une popup simple
+  const popup = `
+    <div id="popup-molecules-perdues" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target.id==='popup-molecules-perdues')document.getElementById('popup-molecules-perdues').remove()">
+      <div style="background:white;border-radius:12px;padding:20px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700">Molécules perdues chez ${labo}</div>
+            <div style="font-size:12px;color:var(--sub)">Top 20 par CA — PDF complet disponible via "📄 Export PDF"</div>
+          </div>
+          <button onclick="document.getElementById('popup-molecules-perdues').remove()" class="btn btn-outline btn-sm">✕</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
+              <th style="padding:6px 10px;text-align:left">Molécule</th>
+              <th style="padding:6px 10px;text-align:right">CA perdu</th>
+              <th style="padding:6px 10px;text-align:center">Lignes</th>
+              <th style="padding:6px 10px;text-align:left">Labos utilisés</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`
+
+  const existing = document.getElementById('popup-molecules-perdues')
+  if (existing) existing.remove()
+  document.body.insertAdjacentHTML('beforeend', popup)
+}
+
+async function exportPDFGen() {
+  if (!_CMP_DATE_DEBUT || !_CMP_DATE_FIN) {
+    toast('Choisis une période', 'red')
+    return
+  }
+  toast('Génération du PDF...')
+  try {
+    const r = await fetch(`${API}/comparateur/generiqueur/export-pdf`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date_debut: _CMP_DATE_DEBUT,
+        date_fin: _CMP_DATE_FIN,
+        offre_a: _CMP_GEN_OFFRE_A,
+        offre_b: _CMP_GEN_OFFRE_B,
+      }),
+    })
+    if (!r.ok) { toast('Erreur export PDF', 'red'); return }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `comparateur_generiqueur_${_CMP_GEN_OFFRE_A.labo}_vs_${_CMP_GEN_OFFRE_B.labo}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast('✅ PDF téléchargé', 'green')
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+  }
 }
 
 // ── LOCKED ─────────────────────────────────────────────────────────────────
