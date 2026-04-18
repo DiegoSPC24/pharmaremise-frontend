@@ -672,6 +672,25 @@ function renderAccueilPage() {
   const tot = data.totaux
   const subLabel = formatPeriodeAccueil(dateDebut, dateFin)
 
+  // Recap sous chaque camembert
+  const gp = data.grossiste_prio
+  const recapGrossiste = gp ? `
+    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#F8FAFC;border-radius:8px;margin-top:10px">
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;text-align:center">${gp.label} — contrat ${gp.taux_remise_pct}% + ${gp.forfait_cher}€/boîte&gt;${gp.seuil_cher}€</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA total</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gp.ca_total)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA éligible</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gp.ca_eligible)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid #E5E7EB;padding-top:6px"><span style="color:var(--sub)">Remise contrat</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${eur(gp.remise_contrat)}</span></div>
+    </div>` : `<div style="padding:10px;color:var(--sub);font-size:11px;text-align:center;background:#F8FAFC;border-radius:8px;margin-top:10px">Aucun grossiste prioritaire<br><span style="font-size:10px">Config requise : remise % ET forfait/boîte produit cher</span></div>`
+
+  const gn = data.generiqueur_prio
+  const recapGen = gn ? `
+    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#F8FAFC;border-radius:8px;margin-top:10px">
+      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;text-align:center">Génériqueur n°1 : ${gn.name} — contrat ${gn.contrat_pct}%</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA générique total</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gn.ca_total)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA chez ${gn.name}</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gn.ca_eligible)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid #E5E7EB;padding-top:6px"><span style="color:var(--sub)">Remise contrat</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${eur(gn.remise_contrat)}</span></div>
+    </div>` : `<div style="padding:10px;color:var(--sub);font-size:11px;text-align:center;background:#F8FAFC;border-radius:8px;margin-top:10px">Aucun génériqueur configuré</div>`
+
   el.innerHTML = `
     <!-- Toggle Période / Année civile -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -682,14 +701,13 @@ function renderAccueilPage() {
       </div>
     </div>
 
-    <!-- 3 camemberts côte à côte -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;margin-bottom:20px">
-      ${renderCamembertCard('camem1', '🏷️ Remise sur facture', data.camembert_remise_facture, 'remise-facture', COULEURS_CAM_REMISE)}
-      ${renderCamembertCard('camem2', '📦 Catégories d\'achats', data.camembert_categories, 'categories', COULEURS_CAM_CAT)}
-      ${renderCamembertCard('camem3', '💊 Par génériqueur', data.camembert_labos_generiques, 'generiqueurs', COULEURS_CAM_LABOS)}
+    <!-- 2 camemberts côte à côte -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;margin-bottom:20px">
+      ${renderCamembertCard('camem1', '🏬 Répartition grossistes', data.camembert_grossistes, 'grossistes', COULEURS_CAM_GROSSISTES, recapGrossiste, 'grossiste')}
+      ${renderCamembertCard('camem2', '💊 Par génériqueur', data.camembert_generiqueur_prio, 'generiqueurs', COULEURS_CAM_LABOS, recapGen, 'generiqueur')}
     </div>
 
-    <!-- KPIs en dessous -->
+    <!-- KPIs globaux -->
     <div class="kpi-grid" style="margin-bottom:16px">
       <div class="kpi-card">
         <div class="kpi-lbl">CA total HT</div>
@@ -717,25 +735,25 @@ function renderAccueilPage() {
     <div style="display:flex;justify-content:center;margin-bottom:16px">
       <button class="btn btn-green" onclick="exportPDFAccueil('complet')" style="padding:10px 20px">📄 Exporter tout le dashboard en PDF</button>
     </div>
+
+    <!-- Tooltip global pour les camemberts -->
+    <div id="pie-tooltip" style="position:fixed;display:none;background:#1F2937;color:white;padding:8px 12px;border-radius:6px;font-size:12px;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);white-space:nowrap"></div>
   `
 
   // Dessiner les camemberts une fois le HTML en place
   setTimeout(() => {
-    drawPie('camem1', data.camembert_remise_facture, COULEURS_CAM_REMISE)
-    drawPie('camem2', data.camembert_categories, COULEURS_CAM_CAT)
-    drawPie('camem3', data.camembert_labos_generiques, COULEURS_CAM_LABOS)
+    drawPie('camem1', data.camembert_grossistes, COULEURS_CAM_GROSSISTES, 'grossiste')
+    drawPie('camem2', data.camembert_generiqueur_prio, COULEURS_CAM_LABOS, 'generiqueur')
   }, 50)
 }
 
-const COULEURS_CAM_REMISE = {
-  'Remisé sur facture': '#1D9E75',
-  'Non remisé': '#94a3b8',
-}
-const COULEURS_CAM_CAT = {
-  'Générique': '#1D9E75',
-  'Biosimilaire': '#2563EB',
-  'OTC / Parapharmacie': '#D97706',
-  'TVA 20%': '#9333EA',
+// Couleurs demandées : Alliance=bleu, OCP=vert, CERP=orange
+const COULEURS_CAM_GROSSISTES = {
+  'Alliance': '#2563EB',
+  'OCP': '#1D9E75',
+  'CERP': '#F59E0B',
+  'Direct': '#94a3b8',
+  'Manuel': '#94a3b8',
   'Autre': '#94a3b8',
 }
 const COULEURS_CAM_LABOS = {
@@ -751,8 +769,29 @@ const COULEURS_CAM_LABOS = {
   'Krka': '#14B8A6',
   'Zydus': '#F97316',
 }
+// Legacy (PDF compat)
+const COULEURS_CAM_REMISE = {
+  'Remisé sur facture': '#1D9E75',
+  'Non remisé': '#94a3b8',
+}
+const COULEURS_CAM_CAT = {
+  'Générique': '#1D9E75',
+  'Biosimilaire': '#2563EB',
+  'OTC / Parapharmacie': '#D97706',
+  'TVA 20%': '#9333EA',
+  'Autre': '#94a3b8',
+}
 
-function renderCamembertCard(cardId, titre, data, pdfCat, couleursMap) {
+// Navigation au clic sur un camembert
+function naviguerAccueil(cible) {
+  // cible : 'grossiste' | 'generiqueur'
+  const navBtn = document.querySelector(`.nav-item[onclick*="'${cible}'"]`)
+  if (typeof goTo === 'function') {
+    goTo(cible, navBtn)
+  }
+}
+
+function renderCamembertCard(cardId, titre, data, pdfCat, couleursMap, recapHtml, cibleNav) {
   const legend = (data || []).map(d => {
     const col = couleursMap[d.label] || '#94a3b8'
     return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px">
@@ -763,63 +802,111 @@ function renderCamembertCard(cardId, titre, data, pdfCat, couleursMap) {
     </div>`
   }).join('')
 
+  const clickHint = cibleNav
+    ? `<div style="font-size:10px;color:var(--sub);text-align:center;margin-top:-4px;font-style:italic">👆 Cliquer pour voir le détail</div>`
+    : ''
+
   return `
     <div class="card" style="margin-bottom:0">
       <div class="card-title" style="font-size:14px">${titre}</div>
-      <div style="display:flex;flex-direction:column;align-items:center;padding:8px 0">
-        <svg id="${cardId}" width="180" height="180" viewBox="0 0 180 180">
-          <text x="90" y="95" text-anchor="middle" font-size="11" fill="#94a3b8">Aucune donnée</text>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:8px 0;cursor:${cibleNav ? 'pointer' : 'default'}" ${cibleNav ? `onclick="naviguerAccueil('${cibleNav}')"` : ''}>
+        <svg id="${cardId}" width="220" height="220" viewBox="0 0 220 220">
+          <text x="110" y="115" text-anchor="middle" font-size="11" fill="#94a3b8">Aucune donnée</text>
         </svg>
+        ${clickHint}
       </div>
       <div style="margin-top:8px;max-height:140px;overflow-y:auto">${legend || '<div style="text-align:center;color:var(--sub);font-size:11px;padding:10px">Aucune donnée</div>'}</div>
+      ${recapHtml || ''}
       <div style="display:flex;justify-content:center;margin-top:10px">
         <button class="btn btn-outline btn-sm" onclick="exportPDFAccueil('${pdfCat}')" style="font-size:11px;padding:5px 10px">📄 Télécharger PDF</button>
       </div>
     </div>`
 }
 
-function drawPie(svgId, data, couleursMap) {
+function drawPie(svgId, data, couleursMap, cibleNav) {
   const svg = document.getElementById(svgId)
   if (!svg) return
   if (!data || data.length === 0) return
 
-  const cx = 90, cy = 90, r = 75
+  const cx = 110, cy = 110, r = 90, rHover = 98
   const total = data.reduce((s, d) => s + d.ca, 0)
   if (total === 0) return
 
   svg.innerHTML = ''
 
-  let startAngle = -Math.PI / 2  // commencer en haut
+  const tooltip = document.getElementById('pie-tooltip')
+
+  function showTip(evt, d) {
+    if (!tooltip) return
+    tooltip.innerHTML = `<div style="font-weight:600;margin-bottom:2px">${d.label}</div>
+      <div>${eur(d.ca)} <span style="color:#9CA3AF">•</span> <b>${d.pct}%</b></div>`
+    tooltip.style.display = 'block'
+    const x = evt.clientX + 12
+    const y = evt.clientY + 12
+    tooltip.style.left = x + 'px'
+    tooltip.style.top = y + 'px'
+  }
+  function moveTip(evt) {
+    if (!tooltip || tooltip.style.display === 'none') return
+    tooltip.style.left = (evt.clientX + 12) + 'px'
+    tooltip.style.top = (evt.clientY + 12) + 'px'
+  }
+  function hideTip() {
+    if (tooltip) tooltip.style.display = 'none'
+  }
+
+  let startAngle = -Math.PI / 2
   data.forEach(d => {
     const angle = (d.ca / total) * 2 * Math.PI
     const endAngle = startAngle + angle
-    const x1 = cx + r * Math.cos(startAngle)
-    const y1 = cy + r * Math.sin(startAngle)
-    const x2 = cx + r * Math.cos(endAngle)
-    const y2 = cy + r * Math.sin(endAngle)
-    const largeArc = angle > Math.PI ? 1 : 0
-
     const col = couleursMap[d.label] || '#94a3b8'
 
+    // Position de l'arc "expansé" au hover : on décale légèrement vers l'extérieur
+    const midAngle = (startAngle + endAngle) / 2
+    const pushX = Math.cos(midAngle) * 5
+    const pushY = Math.sin(midAngle) * 5
+
+    let shape
     if (data.length === 1) {
-      // Un seul segment → cercle complet
-      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-      c.setAttribute('cx', cx)
-      c.setAttribute('cy', cy)
-      c.setAttribute('r', r)
-      c.setAttribute('fill', col)
-      c.setAttribute('stroke', 'white')
-      c.setAttribute('stroke-width', '2')
-      svg.appendChild(c)
+      shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      shape.setAttribute('cx', cx)
+      shape.setAttribute('cy', cy)
+      shape.setAttribute('r', r)
     } else {
+      const x1 = cx + r * Math.cos(startAngle)
+      const y1 = cy + r * Math.sin(startAngle)
+      const x2 = cx + r * Math.cos(endAngle)
+      const y2 = cy + r * Math.sin(endAngle)
+      const largeArc = angle > Math.PI ? 1 : 0
       const pathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-      path.setAttribute('d', pathD)
-      path.setAttribute('fill', col)
-      path.setAttribute('stroke', 'white')
-      path.setAttribute('stroke-width', '2')
-      svg.appendChild(path)
+      shape = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      shape.setAttribute('d', pathD)
     }
+    shape.setAttribute('fill', col)
+    shape.setAttribute('stroke', 'white')
+    shape.setAttribute('stroke-width', '2')
+    shape.style.transition = 'transform 0.15s ease-out, filter 0.15s ease-out'
+    shape.style.transformOrigin = `${cx}px ${cy}px`
+    shape.style.cursor = cibleNav ? 'pointer' : 'default'
+
+    // Captures
+    const snap = { ...d }
+    shape.addEventListener('mouseenter', (e) => {
+      shape.style.transform = `translate(${pushX}px, ${pushY}px) scale(1.06)`
+      shape.style.filter = 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))'
+      showTip(e, snap)
+    })
+    shape.addEventListener('mousemove', moveTip)
+    shape.addEventListener('mouseleave', () => {
+      shape.style.transform = ''
+      shape.style.filter = ''
+      hideTip()
+    })
+    if (cibleNav) {
+      shape.addEventListener('click', () => naviguerAccueil(cibleNav))
+    }
+
+    svg.appendChild(shape)
     startAngle = endAngle
   })
 }
