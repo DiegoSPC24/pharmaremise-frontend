@@ -685,7 +685,7 @@ function renderAccueilPage() {
     <!-- 3 camemberts côte à côte -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;margin-bottom:20px">
       ${renderCamembertCard('camem1', '🏷️ Remise sur facture', data.camembert_remise_facture, 'remise-facture', COULEURS_CAM_REMISE)}
-      ${renderCamembertCard('camem2', '📦 Catégories d\\'achats', data.camembert_categories, 'categories', COULEURS_CAM_CAT)}
+      ${renderCamembertCard('camem2', '📦 Catégories d\'achats', data.camembert_categories, 'categories', COULEURS_CAM_CAT)}
       ${renderCamembertCard('camem3', '💊 Par génériqueur', data.camembert_labos_generiques, 'generiqueurs', COULEURS_CAM_LABOS)}
     </div>
 
@@ -2650,7 +2650,7 @@ function renderGeneriqueurPage(synth) {
           <div style="font-size:40px">💊</div>
           <div style="margin-top:12px;font-size:14px">Aucun génériqueur à afficher ce mois</div>
           <div style="font-size:12px;margin-top:4px">Commence par configurer tes génériqueurs dans Paramètres, ou uploade des factures grossistes pour voir les achats.</div>
-          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="goTo('parametres', document.querySelector('[onclick*=\\'parametres\\']'))">⚙️ Aller aux Paramètres</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="goTo('parametres', document.querySelector('[onclick*=&apos;parametres&apos;]'))">⚙️ Aller aux Paramètres</button>
         </div>
       </div>`
     return
