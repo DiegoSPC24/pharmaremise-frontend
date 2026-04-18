@@ -3237,7 +3237,14 @@ function onFileDrop(event) {
 }
 function onFilesSelected(files) {
   if (!files || files.length === 0) return
-  Array.from(files).forEach(f => { if (f.type === 'application/pdf') uploadFactureAuto(f) })
+  Array.from(files).forEach(f => {
+    if (f.type !== 'application/pdf') return
+    if (depot_tab === 'labo') {
+      uploadLaboAuto(f)
+    } else {
+      uploadFactureAuto(f)
+    }
+  })
 }
 async function uploadFactureAuto(file) {
   const queue = document.getElementById('upload-queue')
@@ -3260,6 +3267,169 @@ async function uploadFactureAuto(file) {
     }
   } catch(e) {
     div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+  }
+}
+
+// ── UPLOAD LABO DIRECT (preview puis confirmation) ──────────────────────────
+async function uploadLaboAuto(file) {
+  const queue = document.getElementById('upload-queue')
+  const div = document.createElement('div')
+  div.className = 'alert alert-green'
+  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
+  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
+  queue.appendChild(div)
+
+  const fd = new FormData(); fd.append('file', file)
+  try {
+    const res = await fetch(`${API}/labo-direct/preview`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
+    })
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      const msg = data.erreur || data.detail || 'Format non reconnu'
+      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${msg}</span>`
+      return
+    }
+    // Tout OK : on met à jour le bandeau et on ouvre la modale de preview
+    div.innerHTML = `<span>👀</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.format_detecte} — ${data.nb_lignes} lignes</span>`
+    openLaboPreview(data, div)
+  } catch(e) {
+    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+  }
+}
+
+function openLaboPreview(data, bandeau) {
+  // Modale dynamique
+  let modal = document.getElementById('modal-labo-preview')
+  if (!modal) {
+    modal = document.createElement('div')
+    modal.id = 'modal-labo-preview'
+    modal.className = 'modal-overlay'
+    modal.innerHTML = `<div class="modal-box" id="modal-labo-preview-box" style="max-width:900px;max-height:85vh;overflow-y:auto"></div>`
+    document.body.appendChild(modal)
+  }
+  const box = document.getElementById('modal-labo-preview-box')
+
+  const warn = data.warning ? `
+    <div class="alert alert-amber" style="margin:10px 0;padding:8px 12px;font-size:12px">
+      ⚠️ ${data.warning}
+    </div>` : ''
+
+  const lignesRows = (data.lignes||[]).map(l => `
+    <tr>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${l.cip13||'—'}</td>
+      <td style="font-size:12px">${l.designation||''}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${l.qte}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${(l.pu_ht_brut||0).toFixed(2)}€</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${(l.remise_pct||0).toFixed(1)}%</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:500">${(l.montant_ht||0).toFixed(2)}€</td>
+    </tr>`).join('')
+
+  box.innerHTML = `
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px">✅ Format détecté : ${data.format_detecte}</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+      Vérifie les données extraites puis clique sur <strong>Enregistrer</strong> pour valider.
+    </div>
+
+    <div class="three-col" style="margin-bottom:12px;gap:10px">
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Laboratoire</div>
+        <div style="font-size:14px;font-weight:600">${data.labo||'—'}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">N° Facture</div>
+        <div style="font-size:14px;font-weight:600;font-family:'DM Mono',monospace">${data.num_facture||'—'}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Date</div>
+        <div style="font-size:14px;font-weight:600">${data.date||'—'}</div>
+      </div>
+    </div>
+
+    <div class="three-col" style="margin-bottom:12px;gap:10px">
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Total HT</div>
+        <div style="font-size:14px;font-weight:600">${eur(data.total_ht||0)}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Total TTC</div>
+        <div style="font-size:14px;font-weight:600">${eur(data.total_ttc||0)}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Somme lignes</div>
+        <div style="font-size:14px;font-weight:600">${eur(data.total_calcule_lignes||0)}</div>
+      </div>
+    </div>
+
+    ${warn}
+
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px">Lignes détectées (${data.nb_lignes}) :</div>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:12px">
+        <thead style="position:sticky;top:0;background:var(--card)">
+          <tr>
+            <th style="text-align:left">CIP13</th>
+            <th style="text-align:left">Désignation</th>
+            <th style="text-align:right">Qté</th>
+            <th style="text-align:right">PU HT</th>
+            <th style="text-align:right">Remise</th>
+            <th style="text-align:right">Montant HT</th>
+          </tr>
+        </thead>
+        <tbody>${lignesRows}</tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeLaboPreview()">Annuler</button>
+      <button class="btn btn-green" id="btn-labo-confirm">✓ Enregistrer</button>
+    </div>
+  `
+
+  modal.classList.add('active')
+  document.getElementById('btn-labo-confirm').onclick = () => confirmLaboPreview(data, bandeau)
+}
+
+function closeLaboPreview() {
+  const modal = document.getElementById('modal-labo-preview')
+  if (modal) modal.classList.remove('active')
+}
+
+async function confirmLaboPreview(data, bandeau) {
+  const btn = document.getElementById('btn-labo-confirm')
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Enregistrement...' }
+
+  const payload = {
+    filename: data.filename,
+    labo: data.labo,
+    num_facture: data.num_facture,
+    date: data.date,
+    mois: CURRENT_MOIS,
+    annee: CURRENT_ANNEE,
+    total_ht: data.total_ht,
+    lignes: data.lignes,
+  }
+
+  try {
+    const res = await fetch(`${API}/labo-direct/confirmer`, {
+      method: 'POST',
+      headers: { 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const resp = await res.json()
+    if (res.ok && resp.ok) {
+      if (bandeau) {
+        bandeau.innerHTML = `<span>✅</span><span>${data.filename}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.labo} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
+      }
+      closeLaboPreview()
+      toast('Facture enregistrée', 'green')
+    } else {
+      if (btn) { btn.disabled = false; btn.innerHTML = '✓ Enregistrer' }
+      toast(resp.detail || 'Erreur lors de l\'enregistrement', 'red')
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '✓ Enregistrer' }
+    toast('Erreur réseau', 'red')
   }
 }
 
