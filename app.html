@@ -1370,6 +1370,39 @@ async function viderReferentiel(labo) {
   } catch(e) { toast('Erreur réseau', 'red') }
 }
 
+async function lancerMigrationGen() {
+  if (!confirm('Lancer la migration ?\n\nCela ajoute les colonnes, recalcule les molécules et charge les RDP Biogaran. Pas de risque, c\'est idempotent.')) return
+
+  const res = document.getElementById('migration-gen-result')
+  res.innerHTML = '⏳ Migration en cours...'
+
+  try {
+    const r = await fetch(`${API}/generiqueur/admin/migrate-fix`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (!r.ok) {
+      res.innerHTML = '❌ Erreur ' + r.status
+      return
+    }
+    const data = await r.json()
+    let html = '✅ Migration terminée<br>'
+    for (const step of data.steps || []) {
+      const icon = step.ok ? '✓' : '✗'
+      let detail = step.step
+      if (step.molecules_calculees !== undefined) detail += ` : ${step.molecules_calculees}/${step.total_cip} molécules`
+      if (step.lignes_mises_a_jour !== undefined) detail += ` : ${step.lignes_mises_a_jour} RDP chargées`
+      if (step.error) detail += ` — ${step.error}`
+      html += `${icon} ${detail}<br>`
+    }
+    res.innerHTML = html
+    toast('✅ Migration OK', 'green')
+  } catch(e) {
+    res.innerHTML = '❌ Erreur réseau'
+    toast('Erreur réseau', 'red')
+  }
+}
+
 // ── MODIFICATIONS PINCEAU (OVERRIDES) ──────────────────────────────────────
 async function chargerListeOverrides() {
   const el = document.getElementById('overrides-liste')
@@ -2123,6 +2156,16 @@ function _renderParametres() {
         <a href="${API}/generiqueur/referentiels/template" target="_blank" style="color:var(--green);text-decoration:underline;margin-left:4px">Télécharger le modèle Excel</a>
       </div>
       <div id="referentiels-grid"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
+
+      <!-- Migration one-shot : à faire 1 fois après déploiement du fix -->
+      <div style="margin-top:16px;padding:12px;background:#FEF3C7;border-radius:8px;border-left:3px solid #D97706">
+        <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">🔧 Migration référentiels (à faire 1 fois)</div>
+        <div style="font-size:11px;color:#92400E;margin-bottom:8px">
+          Recalcule les noms de molécules (corrige les "par", "pellicule"...) et charge les RDP Biogaran depuis le bon de commande.
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="lancerMigrationGen()" style="font-size:11px">▶ Lancer la migration</button>
+        <div id="migration-gen-result" style="margin-top:8px;font-size:11px;font-family:'DM Mono',monospace"></div>
+      </div>
     </div>` : ''}
     <div class="card">
       <div class="card-title">Mon compte</div>
@@ -3358,29 +3401,137 @@ function renderOffreGeneriqueur(label, offre) {
       </div>
 
       ${isBiogaran ? `
-        <div style="padding:8px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
-            <input type="checkbox" ${offre.biogaran_rdp_active?'checked':''} onchange="setChampOffreGen('${label}','biogaran_rdp_active',this.checked)" style="accent-color:${couleur}"/>
-            <span style="font-weight:600;color:#92400E">Activer la RDP Biogaran</span>
-          </label>
-          <div style="display:${offre.biogaran_rdp_active?'flex':'none'};align-items:center;gap:6px;margin-top:6px;margin-left:22px">
-            <span style="font-size:11px;color:#92400E">Taux RDP :</span>
-            <input type="number" step="0.5" value="${offre.biogaran_rdp_pct}" onchange="setChampOffreGen('${label}','biogaran_rdp_pct',this.value)" style="width:70px;padding:3px 6px;border:1px solid #FCD34D;border-radius:4px;font-size:12px"/>
-            <span style="font-size:11px;color:#92400E">%</span>
+        <div style="padding:8px;background:#EFF6FF;border-radius:6px;margin-bottom:10px;border-left:3px solid #2563EB">
+          <div style="font-size:12px;color:#1E40AF">
+            🔵 <strong>RDP Biogaran :</strong> calculée automatiquement depuis le référentiel (10%, 20%, 27,5% selon CIP) si les conditions mensuelles (≥ 75 réfs + ≥ 3 750€) sont atteintes.
           </div>
         </div>
       ` : ''}
 
-      ${(offre.regles_categorie && offre.regles_categorie.length > 0) || (offre.regles_molecule && offre.regles_molecule.length > 0) ? `
-        <div style="padding:6px 10px;background:#F8FAFC;border-radius:6px;margin-bottom:10px">
-          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">
-            ⚙️ Règles particulières : 
-            ${(offre.regles_categorie||[]).length} par catégorie, 
-            ${(offre.regles_molecule||[]).length} par molécule
-          </div>
+      <!-- Règles particulières -->
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">⚙️ Règles particulières</div>
+          ${isA ? `<button class="btn btn-outline btn-sm" onclick="copierReglesParametrage('${label}')" style="font-size:10px;padding:3px 8px">📋 Copier depuis Paramètres</button>` : ''}
         </div>
-      ` : ''}
+
+        <!-- Règles par catégorie -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">Par catégorie de remise</div>
+          <div id="cmpgen-regles-cat-${label}" style="background:#F8FAFC;border-radius:6px;padding:6px">
+            ${renderReglesCategorieCmp(label, offre.regles_categorie || [])}
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="addRegleCategorieCmp('${label}')" style="font-size:10px;padding:2px 8px;margin-top:4px">+ Catégorie</button>
+        </div>
+
+        <!-- Règles par molécule -->
+        <div>
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">Par molécule</div>
+          <div id="cmpgen-regles-mol-${label}" style="background:#F8FAFC;border-radius:6px;padding:6px">
+            ${renderReglesMoleculeCmp(label, offre.regles_molecule || [])}
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="addRegleMoleculeCmp('${label}')" style="font-size:10px;padding:2px 8px;margin-top:4px">+ Molécule</button>
+        </div>
+      </div>
     </div>`
+}
+
+function renderReglesCategorieCmp(label, regles) {
+  if (!regles || regles.length === 0) {
+    return '<div style="font-size:11px;color:var(--sub);padding:4px">Aucune règle</div>'
+  }
+  return regles.map((r, i) => `
+    <div style="display:grid;grid-template-columns:auto 1fr auto 1fr auto;gap:4px;align-items:center;margin-bottom:4px;font-size:11px">
+      <span>Si catégorie</span>
+      <input type="number" step="0.1" value="${r.categorie_remise}" onchange="setRegleCatCmp('${label}',${i},'categorie_remise',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
+      <span>% → taux</span>
+      <input type="number" step="0.1" value="${r.taux_applique}" onchange="setRegleCatCmp('${label}',${i},'taux_applique',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
+      <button onclick="removeRegleCatCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px">🗑️</button>
+    </div>
+  `).join('')
+}
+
+function renderReglesMoleculeCmp(label, regles) {
+  if (!regles || regles.length === 0) {
+    return '<div style="font-size:11px;color:var(--sub);padding:4px">Aucune règle</div>'
+  }
+  return regles.map((r, i) => `
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:4px;align-items:center;margin-bottom:4px;font-size:11px">
+      <input type="text" value="${r.molecule || ''}" onchange="setRegleMolCmp('${label}',${i},'molecule',this.value)" placeholder="Molécule (ex: Amlodipine)" list="moleculesdatalist-${label}" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px"/>
+      <span>→ taux</span>
+      <input type="number" step="0.1" value="${r.taux_applique}" onchange="setRegleMolCmp('${label}',${i},'taux_applique',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
+      <button onclick="removeRegleMolCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px">🗑️</button>
+    </div>
+  `).join('') + `<datalist id="moleculesdatalist-${label}">${(_CMP_GEN_MOLECULES_AUTOCOMPLETE[label] || []).map(m => `<option value="${m}">`).join('')}</datalist>`
+}
+
+// Cache des molécules pour l'autocomplétion par labo
+let _CMP_GEN_MOLECULES_AUTOCOMPLETE = { A: [], B: [] }
+
+async function loadMoleculesForLabo(label) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (!offre.labo) return
+  try {
+    const data = await apiGet(`/generiqueur/molecules/${encodeURIComponent(offre.labo)}`)
+    _CMP_GEN_MOLECULES_AUTOCOMPLETE[label] = data.molecules || []
+  } catch(e) {
+    _CMP_GEN_MOLECULES_AUTOCOMPLETE[label] = []
+  }
+}
+
+function addRegleCategorieCmp(label) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (!offre.regles_categorie) offre.regles_categorie = []
+  offre.regles_categorie.push({ categorie_remise: 10, taux_applique: 0 })
+  renderComparateurPage()
+}
+
+function setRegleCatCmp(label, idx, key, val) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (!offre.regles_categorie[idx]) return
+  offre.regles_categorie[idx][key] = parseFloat(val) || 0
+}
+
+function removeRegleCatCmp(label, idx) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  offre.regles_categorie.splice(idx, 1)
+  renderComparateurPage()
+}
+
+function addRegleMoleculeCmp(label) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (!offre.regles_molecule) offre.regles_molecule = []
+  offre.regles_molecule.push({ molecule: '', taux_applique: 0 })
+  loadMoleculesForLabo(label).then(() => renderComparateurPage())
+}
+
+function setRegleMolCmp(label, idx, key, val) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  if (!offre.regles_molecule[idx]) return
+  if (key === 'molecule') {
+    offre.regles_molecule[idx].molecule = val
+  } else {
+    offre.regles_molecule[idx][key] = parseFloat(val) || 0
+  }
+}
+
+function removeRegleMolCmp(label, idx) {
+  const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+  offre.regles_molecule.splice(idx, 1)
+  renderComparateurPage()
+}
+
+async function copierReglesParametrage(label) {
+  try {
+    const data = await apiGet('/comparateur/generiqueur/offre-actuelle')
+    const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
+    offre.regles_categorie = data.regles_categorie || []
+    offre.regles_molecule = data.regles_molecule || []
+    toast('✅ Règles copiées depuis Mes génériqueurs', 'green')
+    renderComparateurPage()
+  } catch(e) {
+    toast('Erreur lors de la copie', 'red')
+  }
 }
 
 function setLaboOffreGen(label, val) {
