@@ -269,23 +269,7 @@
     </div>
 
     <div id="screen-comparateur" class="screen">
-      <div class="card">
-        <div class="card-title">Comparateur d'offres</div>
-        <div class="two-col">
-          <div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--green)">Offre actuelle</div>
-            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-a" value="6.97" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-a" value="9.0" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-          </div>
-          <div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--amber)">Offre challenger</div>
-            <div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise pondérée (%)</label><input type="number" id="cmp-pond-b" placeholder="ex: 20" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-            <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux contrat annuel (%)</label><input type="number" id="cmp-ctr-b" placeholder="ex: 8" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-          </div>
-        </div>
-        <button class="btn btn-green" style="margin-top:16px" onclick="calculerComparateur()">Calculer →</button>
-        <div id="cmp-result" style="margin-top:16px"></div>
-      </div>
+      <div id="comparateur-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
     </div>
 
     <div id="screen-parametres" class="screen"><div id="parametres-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
@@ -555,6 +539,7 @@ function goTo(screen, btn) {
   if (screen === 'generiqueur') loadGeneriqueur()
   if (screen === 'rfa')         loadRFA()
   if (screen === 'parametres')  loadParametres()
+  if (screen === 'comparateur') loadComparateur()
 }
 
 function onMoisChange() {
@@ -2842,24 +2827,412 @@ async function uploadFactureAuto(file) {
 }
 
 // ── COMPARATEUR ────────────────────────────────────────────────────────────
-async function calculerComparateur() {
-  const pond_a = parseFloat(document.getElementById('cmp-pond-a').value)||0
-  const ctr_a  = parseFloat(document.getElementById('cmp-ctr-a').value)||0
-  const pond_b = parseFloat(document.getElementById('cmp-pond-b').value)||0
-  const ctr_b  = parseFloat(document.getElementById('cmp-ctr-b').value)||0
-  if (!pond_b && !ctr_b) { toast("Remplissez les taux de l'offre challenger", 'red'); return }
-  let ca = 0
-  if (MODULES.includes('generiqueur')) { const s = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`); ca = s.totaux?.ca_total || 0 }
-  if (!ca) ca = 10000
-  const rem_a = ca*(pond_a+ctr_a)/100, rem_b = ca*(pond_b+ctr_b)/100
-  const diff = rem_b - rem_a, winner = diff > 0 ? 'B' : 'A'
-  document.getElementById('cmp-result').innerHTML = `
-    <div class="alert ${winner==='A'?'alert-amber':'alert-green'}">
-      <span>${winner==='A'?'✓':'→'}</span>
-      <div><strong>${winner==='A'?"Maintenir l'offre actuelle":"L'offre challenger est meilleure"}</strong><br/>
-      Différence : <strong>${eur(Math.abs(diff))}</strong> sur un CA de ${eur(ca)}
-      (Offre A : ${eur(rem_a)} — Offre B : ${eur(rem_b)})</div>
+let _CMP_MODE = 'grossiste'  // 'grossiste' ou 'generiqueur'
+let _CMP_OFFRE_A = null
+let _CMP_OFFRE_B = null
+let _CMP_MIX = null
+let _CMP_DATE_DEBUT = null  // YYYY-MM-DD
+let _CMP_DATE_FIN = null
+
+async function loadComparateur() {
+  const el = document.getElementById('comparateur-content')
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+
+  // Période par défaut : 12 derniers mois glissants
+  const today = new Date()
+  const fin = new Date(today.getFullYear(), today.getMonth(), 1)
+  const debut = new Date(today.getFullYear() - 1, today.getMonth(), 1)
+  _CMP_DATE_DEBUT = toISODate(debut)
+  _CMP_DATE_FIN = toISODate(new Date(fin.getFullYear(), fin.getMonth() + 1, 0))  // dernier jour du mois
+
+  // Offres par défaut
+  _CMP_OFFRE_A = {
+    source: 'cerp',
+    taux_pct: 4,
+    exclusions: ['tva_20'],
+    tranches_prix: [{ min: 465, max: null, action: 'forfait', forfait_e: 10 }],
+  }
+  _CMP_OFFRE_B = {
+    taux_pct: 0,
+    exclusions: ['tva_20'],
+    tranches_prix: [{ min: 465, max: null, action: 'forfait', forfait_e: 10 }],
+  }
+
+  renderComparateurPage()
+
+  // Charger l'offre actuelle depuis CERP par défaut
+  await chargerOffreActuelle('cerp')
+  renderComparateurPage()
+}
+
+function toISODate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const j = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${j}`
+}
+
+function renderComparateurPage() {
+  const el = document.getElementById('comparateur-content')
+
+  // Tabs
+  const tabs = `
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <button class="btn ${_CMP_MODE==='grossiste'?'btn-green':'btn-outline'} btn-sm" onclick="_CMP_MODE='grossiste';renderComparateurPage()">⚖️ Grossistes</button>
+      <button class="btn ${_CMP_MODE==='generiqueur'?'btn-green':'btn-outline'} btn-sm" onclick="toast('Comparateur génériqueur : disponible prochainement', 'orange')">💊 Génériqueurs (bientôt)</button>
     </div>`
+
+  if (_CMP_MODE === 'grossiste') {
+    el.innerHTML = tabs + renderCompareGrossiste()
+    return
+  }
+}
+
+function renderCompareGrossiste() {
+  return `
+    <div class="card">
+      <div class="card-title">⚖️ Comparateur grossiste</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+        Simule 2 offres grossistes sur ton vrai mix produit. Pré-remplis l'offre A avec ton contrat actuel, et saisis l'offre challenger à droite.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Période du mix produit</label>
+          <div style="display:flex;gap:6px">
+            <input type="month" id="cmp-debut" value="${_CMP_DATE_DEBUT ? _CMP_DATE_DEBUT.substring(0,7) : ''}" onchange="_CMP_DATE_DEBUT=this.value+'-01'" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+            <span style="align-self:center;color:var(--sub);font-size:12px">→</span>
+            <input type="month" id="cmp-fin" value="${_CMP_DATE_FIN ? _CMP_DATE_FIN.substring(0,7) : ''}" onchange="_CMP_DATE_FIN=lastDayOfMonth(this.value)" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+          </div>
+        </div>
+        <div style="display:flex;align-items:end;gap:6px">
+          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGrossiste()" style="flex:1">🔄 Calculer la comparaison</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${renderOffreGrossiste('A', _CMP_OFFRE_A)}
+        ${renderOffreGrossiste('B', _CMP_OFFRE_B)}
+      </div>
+    </div>
+
+    <div id="cmp-result-card"></div>`
+}
+
+function lastDayOfMonth(ym) {
+  // ym = "2026-03"
+  if (!ym) return null
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m, 0)
+  return toISODate(d)
+}
+
+function renderOffreGrossiste(label, offre) {
+  const isA = (label === 'A')
+  const couleur = isA ? '#1D9E75' : '#D97706'
+  const titreLabel = isA ? 'Offre A (actuelle)' : 'Offre B (challenger)'
+
+  // Sélecteur de source (pour offre A uniquement)
+  const selectSource = isA ? `
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Pré-remplir depuis</label>
+      <select onchange="chargerOffreActuelleEtRender(this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
+        <option value="cerp" ${offre.source==='cerp'?'selected':''}>CERP</option>
+        <option value="alliance" ${offre.source==='alliance'?'selected':''}>Alliance</option>
+        <option value="ocp" ${offre.source==='ocp'?'selected':''}>OCP</option>
+      </select>
+    </div>` : ''
+
+  const exclusions = [
+    { key: 'tva_2_1', label: 'TVA 2,1%' },
+    { key: 'tva_5_5', label: 'TVA 5,5%' },
+    { key: 'tva_10', label: 'TVA 10%' },
+    { key: 'tva_20', label: 'TVA 20%' },
+    { key: 'biosimilaire', label: 'Biosimilaires' },
+    { key: 'frigo', label: 'Frigo' },
+    { key: 'stupefiant', label: 'Stupéfiants' },
+  ]
+
+  const exclusionsHtml = exclusions.map(e => {
+    const checked = (offre.exclusions || []).includes(e.key)
+    return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:12px">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleExclusion('${label}','${e.key}',this.checked)" style="accent-color:${couleur}"/>
+      ${e.label}
+    </label>`
+  }).join('')
+
+  // Tranches de produits chers
+  const tranchesHtml = (offre.tranches_prix || []).map((t, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:4px;margin-bottom:4px;align-items:center">
+      <input type="number" value="${t.min||0}" onchange="setTranche('${label}',${i},'min',this.value)" placeholder="Min €" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px"/>
+      <input type="number" value="${t.max||''}" onchange="setTranche('${label}',${i},'max',this.value)" placeholder="Max (∞ si vide)" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px"/>
+      <select onchange="setTranche('${label}',${i},'action',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px">
+        <option value="forfait" ${t.action==='forfait'?'selected':''}>Forfait</option>
+        <option value="exclu" ${t.action==='exclu'?'selected':''}>Exclu</option>
+      </select>
+      <input type="number" value="${t.forfait_e||0}" onchange="setTranche('${label}',${i},'forfait_e',this.value)" placeholder="€/bte" ${t.action==='exclu'?'disabled':''} style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;${t.action==='exclu'?'background:#F3F4F6':''}"/>
+      <button class="btn btn-outline btn-sm" onclick="removeTranche('${label}',${i})" style="color:var(--red);border-color:var(--red);padding:2px 6px;font-size:11px">🗑️</button>
+    </div>
+  `).join('')
+
+  return `
+    <div style="border:1px solid ${couleur};border-radius:10px;padding:14px;background:white">
+      <div style="font-weight:700;color:${couleur};margin-bottom:10px">${titreLabel}</div>
+
+      ${selectSource}
+
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Taux de remise (%)</label>
+        <input type="number" step="0.1" value="${offre.taux_pct}" onchange="setTauxOffre('${label}',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace"/>
+      </div>
+
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:4px">Exclusions optionnelles</div>
+        <div style="background:#F8FAFC;border-radius:6px;padding:4px">
+          ${exclusionsHtml}
+        </div>
+        <div style="font-size:10px;color:var(--sub);margin-top:4px">🔒 Génériques et produits déjà remisés sont toujours exclus (automatique).</div>
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:11px;color:var(--sub)">Tranches produits chers</div>
+          <button class="btn btn-outline btn-sm" onclick="addTranche('${label}')" style="padding:2px 8px;font-size:10px">+ Ajouter</button>
+        </div>
+        <div style="background:#F8FAFC;border-radius:6px;padding:6px">
+          ${tranchesHtml || '<div style="font-size:11px;color:var(--sub);padding:4px">Aucune tranche</div>'}
+        </div>
+        <div style="font-size:10px;color:var(--sub);margin-top:4px">PPHT > min et ≤ max → forfait €/bte OU exclu</div>
+      </div>
+    </div>`
+}
+
+function toggleExclusion(label, key, checked) {
+  const offre = (label === 'A') ? _CMP_OFFRE_A : _CMP_OFFRE_B
+  if (!offre.exclusions) offre.exclusions = []
+  if (checked) {
+    if (!offre.exclusions.includes(key)) offre.exclusions.push(key)
+  } else {
+    offre.exclusions = offre.exclusions.filter(x => x !== key)
+  }
+}
+
+function setTauxOffre(label, val) {
+  const offre = (label === 'A') ? _CMP_OFFRE_A : _CMP_OFFRE_B
+  offre.taux_pct = parseFloat(val) || 0
+}
+
+function setTranche(label, idx, key, val) {
+  const offre = (label === 'A') ? _CMP_OFFRE_A : _CMP_OFFRE_B
+  if (!offre.tranches_prix[idx]) return
+  if (key === 'max' && val === '') {
+    offre.tranches_prix[idx].max = null
+  } else if (key === 'action') {
+    offre.tranches_prix[idx].action = val
+    renderComparateurPage()
+  } else {
+    offre.tranches_prix[idx][key] = parseFloat(val) || 0
+  }
+}
+
+function addTranche(label) {
+  const offre = (label === 'A') ? _CMP_OFFRE_A : _CMP_OFFRE_B
+  offre.tranches_prix.push({ min: 0, max: null, action: 'forfait', forfait_e: 10 })
+  renderComparateurPage()
+}
+
+function removeTranche(label, idx) {
+  const offre = (label === 'A') ? _CMP_OFFRE_A : _CMP_OFFRE_B
+  offre.tranches_prix.splice(idx, 1)
+  renderComparateurPage()
+}
+
+async function chargerOffreActuelle(source) {
+  try {
+    const data = await apiGet(`/comparateur/grossiste/offre-actuelle/${source}`)
+    _CMP_OFFRE_A = {
+      source: source,
+      taux_pct: data.taux_pct || 0,
+      exclusions: data.exclusions || [],
+      tranches_prix: data.tranches_prix || [],
+    }
+  } catch(e) {
+    // En cas d'erreur, on garde les valeurs par défaut
+  }
+}
+
+async function chargerOffreActuelleEtRender(source) {
+  await chargerOffreActuelle(source)
+  renderComparateurPage()
+}
+
+async function lancerComparaisonGrossiste() {
+  if (!_CMP_DATE_DEBUT || !_CMP_DATE_FIN) {
+    toast('Choisis une période de début et de fin', 'red')
+    return
+  }
+
+  const resultCard = document.getElementById('cmp-result-card')
+  resultCard.innerHTML = '<div class="loading-center"><div class="spinner"></div> Calcul en cours...</div>'
+
+  try {
+    const r = await fetch(`${API}/comparateur/grossiste/comparer`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date_debut: _CMP_DATE_DEBUT,
+        date_fin: _CMP_DATE_FIN,
+        offre_a: _CMP_OFFRE_A,
+        offre_b: _CMP_OFFRE_B,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      resultCard.innerHTML = `<div class="card" style="color:var(--red)">Erreur : ${err.detail || r.status}</div>`
+      return
+    }
+    const data = await r.json()
+    afficherResultatComparaisonGrossiste(data)
+  } catch(e) {
+    resultCard.innerHTML = `<div class="card" style="color:var(--red)">Erreur réseau</div>`
+  }
+}
+
+function afficherResultatComparaisonGrossiste(data) {
+  const ecart = data.ecart
+  const rA = data.offre_a.resultat
+  const rB = data.offre_b.resultat
+  const mix = data.mix
+
+  // Couleurs du verdict
+  let verdictColor, verdictBg, verdictTxt, verdictIcon
+  if (Math.abs(ecart.ecart_e) < 1) {
+    verdictColor = '#475569'; verdictBg = '#F1F5F9'; verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = '⚖️'
+  } else if (ecart.ecart_e > 0) {
+    verdictColor = '#D97706'; verdictBg = '#FEF3C7'
+    verdictTxt = `Offre B meilleure de ${eur(Math.abs(ecart.ecart_e))} (sur la période)`
+    verdictIcon = '🔄'
+  } else {
+    verdictColor = '#1D9E75'; verdictBg = '#D1FAE5'
+    verdictTxt = `Garde l'offre A — elle rapporte ${eur(Math.abs(ecart.ecart_e))} de plus (sur la période)`
+    verdictIcon = '✅'
+  }
+
+  // Tableau de comparaison ligne par ligne
+  const ligne = (label, a, b, eMode='e', highlightBetter=true) => {
+    const fmt = (v) => eMode === 'e' ? eur(v) : (eMode === 'pct' ? v.toFixed(2)+'%' : v)
+    let colA = '', colB = ''
+    if (highlightBetter && a !== b) {
+      const aBetter = (eMode === 'e' || eMode === 'pct') ? a > b : false
+      colA = aBetter ? 'color:#1D9E75;font-weight:600' : ''
+      colB = !aBetter ? 'color:#1D9E75;font-weight:600' : ''
+    }
+    return `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px;font-size:12px;color:var(--sub)">${label}</td>
+        <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:13px;${colA}">${fmt(a)}</td>
+        <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:13px;${colB}">${fmt(b)}</td>
+      </tr>`
+  }
+
+  // Détail des exclusions par catégorie
+  const catLabels = {
+    'generique': '💊 Générique (auto)',
+    'remise_facture': '🏷️ Déjà remisé (auto)',
+    'tva_2_1': 'TVA 2,1%',
+    'tva_5_5': 'TVA 5,5%',
+    'tva_10': 'TVA 10%',
+    'tva_20': 'TVA 20%',
+    'biosimilaire': 'Biosimilaires',
+    'frigo': 'Frigo',
+    'stupefiant': 'Stupéfiants',
+  }
+
+  const catRows = Object.entries(mix.categories || {})
+    .filter(([k, v]) => v.ca > 0 && k !== 'eligible')
+    .sort((a,b) => b[1].ca - a[1].ca)
+    .map(([k, v]) => {
+      const exclA = (data.offre_a.params.exclusions || []).includes(k) || k==='generique' || k==='remise_facture'
+      const exclB = (data.offre_b.params.exclusions || []).includes(k) || k==='generique' || k==='remise_facture'
+      return `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 10px;font-size:12px">${catLabels[k] || k}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(v.ca)}</td>
+          <td style="padding:6px 10px;text-align:right;font-size:11px">${v.nb_lignes} lignes</td>
+          <td style="padding:6px 10px;text-align:center">${exclA ? '❌' : '✓'}</td>
+          <td style="padding:6px 10px;text-align:center">${exclB ? '❌' : '✓'}</td>
+        </tr>`
+    }).join('')
+
+  const resultCard = document.getElementById('cmp-result-card')
+  resultCard.innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title" style="margin:0">📊 Résultat de la comparaison</div>
+        <div style="font-size:11px;color:var(--sub)">Période : ${formatPeriode(mix.periode)}</div>
+      </div>
+
+      <!-- Verdict -->
+      <div style="padding:14px;background:${verdictBg};border-radius:10px;border-left:4px solid ${verdictColor};margin-bottom:16px">
+        <div style="font-size:20px;font-weight:700;color:${verdictColor};display:flex;align-items:center;gap:8px">
+          ${verdictIcon} ${verdictTxt}
+        </div>
+        <div style="font-size:12px;color:var(--sub);margin-top:4px">
+          CA total analysé : ${eur(mix.total_ca_ht)} (${mix.total_lignes} lignes)
+        </div>
+      </div>
+
+      <!-- Tableau comparatif -->
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#F8FAFC">
+              <th style="padding:10px;text-align:left;font-size:11px;color:var(--sub);text-transform:uppercase">Métrique</th>
+              <th style="padding:10px;text-align:right;color:#1D9E75;font-size:12px">Offre A${_CMP_OFFRE_A.source ? ' ('+_CMP_OFFRE_A.source.toUpperCase()+')' : ''}</th>
+              <th style="padding:10px;text-align:right;color:#D97706;font-size:12px">Offre B</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ligne('Taux de remise', data.offre_a.params.taux_pct, data.offre_b.params.taux_pct, 'pct')}
+            ${ligne('Nb exclusions (hors auto)', (data.offre_a.params.exclusions||[]).length, (data.offre_b.params.exclusions||[]).length, 'n', false)}
+            ${ligne('CA éligible', rA.ca_eligible, rB.ca_eligible, 'e')}
+            ${ligne('CA exclu', rA.ca_exclu, rB.ca_exclu, 'e', false)}
+            ${ligne('💰 Remise totale', rA.remise_totale_e, rB.remise_totale_e, 'e')}
+            ${ligne('% pondéré réel', rA.remise_pct_reel, rB.remise_pct_reel, 'pct')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Détail par catégorie -->
+      ${catRows ? `
+        <div style="margin-top:20px">
+          <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px">Détail par catégorie</div>
+          <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
+                  <th style="padding:6px 10px;text-align:left">Catégorie</th>
+                  <th style="padding:6px 10px;text-align:right">CA</th>
+                  <th style="padding:6px 10px;text-align:right">Lignes</th>
+                  <th style="padding:6px 10px;text-align:center">Offre A</th>
+                  <th style="padding:6px 10px;text-align:center">Offre B</th>
+                </tr>
+              </thead>
+              <tbody>${catRows}</tbody>
+            </table>
+          </div>
+          <div style="font-size:10px;color:var(--sub);margin-top:6px">❌ = exclu de la remise • ✓ = inclus dans la remise</div>
+        </div>
+      ` : ''}
+    </div>`
+}
+
+function formatPeriode(p) {
+  if (!p) return '—'
+  const d1 = new Date(p.debut)
+  const d2 = new Date(p.fin)
+  const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.']
+  return `${mois[d1.getMonth()]} ${d1.getFullYear()} → ${mois[d2.getMonth()]} ${d2.getFullYear()}`
 }
 
 // ── LOCKED ─────────────────────────────────────────────────────────────────
