@@ -1423,6 +1423,37 @@ async function viderReferentiel(labo) {
   } catch(e) { toast('Erreur réseau', 'red') }
 }
 
+async function lancerDiagnosticCouverture() {
+  const res = document.getElementById('migration-gen-result')
+  res.innerHTML = '⏳ Analyse des référentiels...'
+  try {
+    const r = await fetch(`${API}/generiqueur/admin/diagnose-couverture`, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (!r.ok) { res.innerHTML = '❌ Erreur ' + r.status; return }
+    const data = await r.json()
+
+    let html = '<div style="font-size:10px;margin-top:4px"><strong>Diagnostic des référentiels :</strong></div>'
+    html += '<table style="width:100%;font-size:10px;margin-top:6px;border-collapse:collapse">'
+    html += '<tr style="background:#F8FAFC;font-weight:600"><td>Labo</td><td style="text-align:right">generiques_cip</td><td style="text-align:right">tarifs_labos</td><td style="text-align:right">Croisement</td><td style="text-align:right">%</td><td style="text-align:right">Mol. dans gen_cip</td></tr>'
+    for (const d of data.diagnostics) {
+      const color = d.pct_croisement > 80 ? '#1D9E75' : (d.pct_croisement > 50 ? '#D97706' : '#DC2626')
+      html += `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:3px 4px;font-weight:600">${d.labo}</td>
+        <td style="padding:3px 4px;text-align:right">${d.nb_cip_generiques_cip}</td>
+        <td style="padding:3px 4px;text-align:right">${d.nb_cip_tarifs_labos}</td>
+        <td style="padding:3px 4px;text-align:right">${d.nb_cip_croisement}</td>
+        <td style="padding:3px 4px;text-align:right;color:${color};font-weight:600">${d.pct_croisement}%</td>
+        <td style="padding:3px 4px;text-align:right;color:var(--sub)">${d.nb_molecules_distinctes_dans_gencip}</td>
+      </tr>`
+    }
+    html += '</table>'
+    res.innerHTML = html
+  } catch(e) {
+    res.innerHTML = '❌ Erreur réseau'
+  }
+}
+
 async function lancerMigrationGen() {
   if (!confirm('Lancer la migration ?\n\nCela ajoute les colonnes, recalcule les molécules et charge les RDP Biogaran. Pas de risque, c\'est idempotent.')) return
 
@@ -2217,6 +2248,7 @@ function _renderParametres() {
           Recalcule les noms de molécules (corrige les "par", "pellicule"...) et charge les RDP Biogaran depuis le bon de commande.
         </div>
         <button class="btn btn-outline btn-sm" onclick="lancerMigrationGen()" style="font-size:11px">▶ Lancer la migration</button>
+        <button class="btn btn-outline btn-sm" onclick="lancerDiagnosticCouverture()" style="font-size:11px;margin-left:6px">🔍 Diagnostic couverture</button>
         <div id="migration-gen-result" style="margin-top:8px;font-size:11px;font-family:'DM Mono',monospace"></div>
       </div>
     </div>` : ''}
