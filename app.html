@@ -603,6 +603,32 @@ function onPeriodeChange() {
   if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
   else loadAccueil()
 }
+
+// Helper pour construire les paramètres d'URL selon le mode
+function urlParamsMoisOuPeriode() {
+  if (_PERIODE_MODE && _PERIODE_DEBUT && _PERIODE_FIN) {
+    return {
+      mode: 'periode',
+      params: `debut_mois=${_PERIODE_DEBUT.mois}&debut_annee=${_PERIODE_DEBUT.annee}&fin_mois=${_PERIODE_FIN.mois}&fin_annee=${_PERIODE_FIN.annee}`,
+      label: formatPeriodeCourante(),
+    }
+  }
+  return {
+    mode: 'mois',
+    params: `mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`,
+    label: nomMoisAnnee(CURRENT_MOIS, CURRENT_ANNEE),
+  }
+}
+
+function formatPeriodeCourante() {
+  if (!_PERIODE_DEBUT || !_PERIODE_FIN) return '—'
+  return `${nomMoisAnnee(_PERIODE_DEBUT.mois, _PERIODE_DEBUT.annee)} → ${nomMoisAnnee(_PERIODE_FIN.mois, _PERIODE_FIN.annee)}`
+}
+
+function nomMoisAnnee(m, a) {
+  const mois = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc']
+  return `${mois[m-1]} ${a}`
+}
 function refreshData() { goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active')); toast('Données actualisées', 'green') }
 
 // ── ACCUEIL ────────────────────────────────────────────────────────────────
@@ -610,16 +636,24 @@ async function loadAccueil() {
   const el = document.getElementById('accueil-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   try {
+    const p = urlParamsMoisOuPeriode()
+    const isPeriode = p.mode === 'periode'
+    const urlGr = isPeriode ? `/grossiste/synthese-periode?${p.params}` : `/grossiste/synthese?${p.params}`
+    const urlGe = isPeriode ? `/generiqueur/synthese-periode?${p.params}` : `/generiqueur/synthese?${p.params}`
+
     let synthGr = null, synthGe = null
-    if (MODULES.includes('grossiste')) synthGr = await apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    if (MODULES.includes('generiqueur')) synthGe = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
-    const ca_gr = synthGr ? synthGr.ca_total : 0, rem_gr = synthGr ? synthGr.remise_totale : 0
-    const ca_ge = synthGe ? synthGe.totaux?.ca_total : 0, rem_ge = synthGe ? synthGe.totaux?.contrat_total : 0
+    if (MODULES.includes('grossiste')) synthGr = await apiGet(urlGr).catch(() => null)
+    if (MODULES.includes('generiqueur')) synthGe = await apiGet(urlGe).catch(() => null)
+    const ca_gr = synthGr ? (synthGr.ca_total || 0) : 0
+    const rem_gr = synthGr ? (synthGr.remise_totale || 0) : 0
+    const ca_ge = synthGe ? (synthGe.totaux?.ca_total || synthGe.totaux?.ca_total_ht || 0) : 0
+    const rem_ge = synthGe ? (synthGe.totaux?.contrat_total || synthGe.totaux?.remise_contrat_e || 0) : 0
+    const subLabel = isPeriode ? p.label : 'Ce mois'
     el.innerHTML = `
       <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">${subLabel}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Tous grossistes</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">Ce mois</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">${subLabel}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val blue">${eur(rem_ge)}</div><div class="kpi-sub">Génériqueurs</div></div>
       </div>
       ${synthGr && synthGr.par_grossiste?.length ? renderParGrossiste(synthGr.par_grossiste) : ''}
@@ -666,9 +700,13 @@ async function loadGrossiste() {
   const el = document.getElementById('grossiste-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   try {
+    const p = urlParamsMoisOuPeriode()
+    const isPeriode = p.mode === 'periode'
+    const urlSynth = isPeriode ? `/grossiste/synthese-periode?${p.params}` : `/grossiste/synthese?${p.params}`
+    const urlFact = isPeriode ? `/grossiste/factures-periode?${p.params}` : `/grossiste/factures?${p.params}`
     const [synth, factures] = await Promise.all([
-      apiGet(`/grossiste/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
-      apiGet(`/grossiste/factures?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`),
+      apiGet(urlSynth),
+      apiGet(urlFact),
     ])
 
     // Grouper les factures par source
@@ -2396,7 +2434,10 @@ async function loadGeneriqueur() {
   const el = document.getElementById('generiqueur-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   try {
-    const synth = await apiGet(`/generiqueur/synthese?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`)
+    const p = urlParamsMoisOuPeriode()
+    const isPeriode = p.mode === 'periode'
+    const url = isPeriode ? `/generiqueur/synthese-periode?${p.params}` : `/generiqueur/synthese?${p.params}`
+    const synth = await apiGet(url)
     renderGeneriqueurPage(synth)
   } catch(e) {
     el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
