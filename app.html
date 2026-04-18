@@ -150,94 +150,24 @@
 <div class="main">
   <div class="topbar">
     <div class="topbar-title" id="topbar-title">Accueil</div>
-    <div class="topbar-mois">
+    <div class="topbar-mois" id="topbar-date-picker">
       <span>📅</span>
-      <select id="sel-mois" onchange="onMoisChange()">
-        <option value="1-2024">Janvier 2024</option>
-        <option value="2-2024">Février 2024</option>
-        <option value="3-2024">Mars 2024</option>
-        <option value="4-2024">Avril 2024</option>
-        <option value="5-2024">Mai 2024</option>
-        <option value="6-2024">Juin 2024</option>
-        <option value="7-2024">Juillet 2024</option>
-        <option value="8-2024">Août 2024</option>
-        <option value="9-2024">Septembre 2024</option>
-        <option value="10-2024">Octobre 2024</option>
-        <option value="11-2024">Novembre 2024</option>
-        <option value="12-2024">Décembre 2024</option>
-        <option value="1-2025">Janvier 2025</option>
-        <option value="2-2025">Février 2025</option>
-        <option value="3-2025">Mars 2025</option>
-        <option value="4-2025">Avril 2025</option>
-        <option value="5-2025">Mai 2025</option>
-        <option value="6-2025">Juin 2025</option>
-        <option value="7-2025">Juillet 2025</option>
-        <option value="8-2025">Août 2025</option>
-        <option value="9-2025">Septembre 2025</option>
-        <option value="10-2025">Octobre 2025</option>
-        <option value="11-2025">Novembre 2025</option>
-        <option value="12-2025">Décembre 2025</option>
-        <option value="1-2026">Janvier 2026</option>
-        <option value="2-2026">Février 2026</option>
-        <option value="3-2026" selected>Mars 2026</option>
-        <option value="4-2026">Avril 2026</option>
-        <option value="5-2026">Mai 2026</option>
-        <option value="6-2026">Juin 2026</option>
-        <option value="7-2026">Juillet 2026</option>
-        <option value="8-2026">Août 2026</option>
-        <option value="9-2026">Septembre 2026</option>
-        <option value="10-2026">Octobre 2026</option>
-        <option value="11-2026">Novembre 2026</option>
-        <option value="12-2026">Décembre 2026</option>
-        <option value="1-2027">Janvier 2027</option>
-        <option value="2-2027">Février 2027</option>
-        <option value="3-2027">Mars 2027</option>
-        <option value="4-2027">Avril 2027</option>
-        <option value="5-2027">Mai 2027</option>
-        <option value="6-2027">Juin 2027</option>
-        <option value="7-2027">Juillet 2027</option>
-        <option value="8-2027">Août 2027</option>
-        <option value="9-2027">Septembre 2027</option>
-        <option value="10-2027">Octobre 2027</option>
-        <option value="11-2027">Novembre 2027</option>
-        <option value="12-2027">Décembre 2027</option>
-        <option value="1-2028">Janvier 2028</option>
-        <option value="2-2028">Février 2028</option>
-        <option value="3-2028">Mars 2028</option>
-        <option value="4-2028">Avril 2028</option>
-        <option value="5-2028">Mai 2028</option>
-        <option value="6-2028">Juin 2028</option>
-        <option value="7-2028">Juillet 2028</option>
-        <option value="8-2028">Août 2028</option>
-        <option value="9-2028">Septembre 2028</option>
-        <option value="10-2028">Octobre 2028</option>
-        <option value="11-2028">Novembre 2028</option>
-        <option value="12-2028">Décembre 2028</option>
-        <option value="1-2029">Janvier 2029</option>
-        <option value="2-2029">Février 2029</option>
-        <option value="3-2029">Mars 2029</option>
-        <option value="4-2029">Avril 2029</option>
-        <option value="5-2029">Mai 2029</option>
-        <option value="6-2029">Juin 2029</option>
-        <option value="7-2029">Juillet 2029</option>
-        <option value="8-2029">Août 2029</option>
-        <option value="9-2029">Septembre 2029</option>
-        <option value="10-2029">Octobre 2029</option>
-        <option value="11-2029">Novembre 2029</option>
-        <option value="12-2029">Décembre 2029</option>
-        <option value="1-2030">Janvier 2030</option>
-        <option value="2-2030">Février 2030</option>
-        <option value="3-2030">Mars 2030</option>
-        <option value="4-2030">Avril 2030</option>
-        <option value="5-2030">Mai 2030</option>
-        <option value="6-2030">Juin 2030</option>
-        <option value="7-2030">Juillet 2030</option>
-        <option value="8-2030">Août 2030</option>
-        <option value="9-2030">Septembre 2030</option>
-        <option value="10-2030">Octobre 2030</option>
-        <option value="11-2030">Novembre 2030</option>
-        <option value="12-2030">Décembre 2030</option>
+      <select id="sel-mois-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+        <option value="1">Janvier</option>
+        <option value="2">Février</option>
+        <option value="3">Mars</option>
+        <option value="4">Avril</option>
+        <option value="5">Mai</option>
+        <option value="6">Juin</option>
+        <option value="7">Juillet</option>
+        <option value="8">Août</option>
+        <option value="9">Septembre</option>
+        <option value="10">Octobre</option>
+        <option value="11">Novembre</option>
+        <option value="12">Décembre</option>
       </select>
+      <select id="sel-annee-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;margin-left:4px"></select>
+      <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px">📆 Période</button>
     </div>
     <button class="btn btn-outline btn-sm" onclick="refreshData()">↻ Actualiser</button>
   </div>
@@ -522,6 +452,8 @@ async function init() {
       }
     }
     loadAccueil()
+    // Remplir le sélecteur d'années dynamique
+    remplirAnneesSelect()
   } catch(e) { console.error(e); toast('Erreur de chargement', 'red') }
 }
 
@@ -543,10 +475,131 @@ function goTo(screen, btn) {
 }
 
 function onMoisChange() {
-  const val = document.getElementById('sel-mois').value
+  // Fallback pour l'ancien select (compat) — ne devrait plus être appelé
+  const el = document.getElementById('sel-mois')
+  if (!el) return
+  const val = el.value
   const parts = val.split('-')
   CURRENT_MOIS = parseInt(parts[0])
   if (parts.length > 1) CURRENT_ANNEE = parseInt(parts[1])
+  if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
+  else loadAccueil()
+}
+
+function onMoisAnneeChange() {
+  const moisEl = document.getElementById('sel-mois-num')
+  const anneeEl = document.getElementById('sel-annee-num')
+  if (!moisEl || !anneeEl) return
+  CURRENT_MOIS = parseInt(moisEl.value)
+  CURRENT_ANNEE = parseInt(anneeEl.value)
+  if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
+  else loadAccueil()
+}
+
+function remplirAnneesSelect() {
+  const sel = document.getElementById('sel-annee-num')
+  if (!sel) return
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  // 5 ans avant → 3 ans après (suffisant et personnalisable)
+  sel.innerHTML = ''
+  for (let y = currentYear - 5; y <= currentYear + 3; y++) {
+    const opt = document.createElement('option')
+    opt.value = y
+    opt.textContent = y
+    if (y === CURRENT_ANNEE) opt.selected = true
+    sel.appendChild(opt)
+  }
+  // Sélectionner aussi le mois
+  const moisEl = document.getElementById('sel-mois-num')
+  if (moisEl) moisEl.value = String(CURRENT_MOIS)
+}
+
+// === MODE PÉRIODE ===
+let _PERIODE_MODE = false
+let _PERIODE_DEBUT = null  // { mois, annee }
+let _PERIODE_FIN = null
+
+function togglePeriodeMode() {
+  if (!_PERIODE_MODE) {
+    activerPeriodeMode()
+  } else {
+    desactiverPeriodeMode()
+  }
+}
+
+function activerPeriodeMode() {
+  _PERIODE_MODE = true
+  // Par défaut : du même mois de l'année précédente → mois courant
+  _PERIODE_DEBUT = { mois: CURRENT_MOIS, annee: CURRENT_ANNEE - 1 }
+  _PERIODE_FIN = { mois: CURRENT_MOIS, annee: CURRENT_ANNEE }
+
+  const container = document.getElementById('topbar-date-picker')
+  if (!container) return
+  const today = new Date()
+  const yearsOptions = []
+  for (let y = today.getFullYear() - 5; y <= today.getFullYear() + 3; y++) yearsOptions.push(y)
+
+  container.innerHTML = `
+    <span>📆</span>
+    <span style="font-size:11px;color:var(--sub)">Du</span>
+    <select id="per-m1" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px">
+      ${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i+1===_PERIODE_DEBUT.mois?'selected':''}>${['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][i]}</option>`).join('')}
+    </select>
+    <select id="per-y1" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Mono',monospace">
+      ${yearsOptions.map(y=>`<option value="${y}" ${y===_PERIODE_DEBUT.annee?'selected':''}>${y}</option>`).join('')}
+    </select>
+    <span style="font-size:11px;color:var(--sub)">au</span>
+    <select id="per-m2" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px">
+      ${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i+1===_PERIODE_FIN.mois?'selected':''}>${['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][i]}</option>`).join('')}
+    </select>
+    <select id="per-y2" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Mono',monospace">
+      ${yearsOptions.map(y=>`<option value="${y}" ${y===_PERIODE_FIN.annee?'selected':''}>${y}</option>`).join('')}
+    </select>
+    <button onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Revenir au mode mois" style="padding:5px 10px;margin-left:6px;font-size:11px">📅 Mois</button>
+  `
+  onPeriodeChange()
+}
+
+function desactiverPeriodeMode() {
+  _PERIODE_MODE = false
+  _PERIODE_DEBUT = null
+  _PERIODE_FIN = null
+  // Rebuild la topbar en mode mois
+  const container = document.getElementById('topbar-date-picker')
+  if (!container) return
+  container.innerHTML = `
+    <span>📅</span>
+    <select id="sel-mois-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+      <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option><option value="4">Avril</option>
+      <option value="5">Mai</option><option value="6">Juin</option><option value="7">Juillet</option><option value="8">Août</option>
+      <option value="9">Septembre</option><option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+    </select>
+    <select id="sel-annee-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;margin-left:4px"></select>
+    <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px">📆 Période</button>
+  `
+  remplirAnneesSelect()
+  if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
+  else loadAccueil()
+}
+
+function onPeriodeChange() {
+  const m1 = parseInt(document.getElementById('per-m1').value)
+  const y1 = parseInt(document.getElementById('per-y1').value)
+  const m2 = parseInt(document.getElementById('per-m2').value)
+  const y2 = parseInt(document.getElementById('per-y2').value)
+
+  // Vérifier que fin >= début
+  if (y2 < y1 || (y2 === y1 && m2 < m1)) {
+    toast('La date de fin doit être après la date de début', 'red')
+    return
+  }
+
+  _PERIODE_DEBUT = { mois: m1, annee: y1 }
+  _PERIODE_FIN = { mois: m2, annee: y2 }
+  // Pour les écrans qui ne supportent pas encore la période, on utilise le mois de FIN
+  CURRENT_MOIS = m2
+  CURRENT_ANNEE = y2
   if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
   else loadAccueil()
 }
