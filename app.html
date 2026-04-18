@@ -3745,7 +3745,7 @@ function voirMoleculesPerdues(label) {
 
   const rows = molecules.map(m => `
     <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 10px;font-size:12px">${m.famille}</td>
+      <td style="padding:6px 10px;font-size:12px">${m.molecule || m.famille || '—'}</td>
       <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(m.ca)}</td>
       <td style="padding:6px 10px;text-align:center;font-size:11px;color:var(--sub)">${m.nb_lignes}</td>
       <td style="padding:6px 10px;font-size:10px;color:var(--sub)">${(m.labos_utilises||[]).join(', ')}</td>
