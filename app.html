@@ -672,24 +672,77 @@ function renderAccueilPage() {
   const tot = data.totaux
   const subLabel = formatPeriodeAccueil(dateDebut, dateFin)
 
-  // Recap sous chaque camembert
+  // ==== BLOC KPIs GROSSISTE PRIO (3 bulles) ====
   const gp = data.grossiste_prio
-  const recapGrossiste = gp ? `
-    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#F8FAFC;border-radius:8px;margin-top:10px">
-      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;text-align:center">${gp.label} — contrat ${gp.taux_remise_pct}% + ${gp.forfait_cher}€/boîte&gt;${gp.seuil_cher}€</div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA total</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gp.ca_total)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA éligible</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gp.ca_eligible)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid #E5E7EB;padding-top:6px"><span style="color:var(--sub)">Remise contrat</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${eur(gp.remise_contrat)}</span></div>
-    </div>` : `<div style="padding:10px;color:var(--sub);font-size:11px;text-align:center;background:#F8FAFC;border-radius:8px;margin-top:10px">Aucun grossiste prioritaire<br><span style="font-size:10px">Config requise : remise % ET forfait/boîte produit cher</span></div>`
+  const blocGrossisteKpi = gp ? `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;padding:0 4px">
+        <span style="font-size:13px;font-weight:700;color:var(--blue)">🏬 Grossiste prioritaire : ${gp.label}</span>
+        <span style="font-size:11px;color:var(--sub)">contrat ${gp.taux_remise_pct}% + ${gp.forfait_cher}€/boîte &gt; ${gp.seuil_cher}€</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <div class="kpi-card">
+          <div class="kpi-lbl">CA Total HT</div>
+          <div class="kpi-val">${eur(gp.ca_total)}</div>
+          <div class="kpi-sub">Chez ${gp.label}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-lbl">CA Éligible</div>
+          <div class="kpi-val green">${eur(gp.ca_eligible)}</div>
+          <div class="kpi-sub">Hors produits déjà remisés</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-lbl">Remise arrière</div>
+          <div class="kpi-val green">${eur(gp.remise_contrat)}</div>
+          <div class="kpi-sub">Contrat ${gp.taux_remise_pct}% (mensuelle)</div>
+        </div>
+      </div>
+    </div>
+  ` : `
+    <div style="margin-bottom:16px;padding:14px;background:#FEF3C7;border-radius:10px;text-align:center;color:#92400E;font-size:13px">
+      ⚠️ Aucun grossiste prioritaire détecté — configure une remise % ET un forfait/boîte produit cher dans Paramètres &gt; Grossistes
+    </div>
+  `
 
+  // ==== BLOC KPIs GÉNÉRIQUEUR PRIO (3 ou 4 bulles) ====
   const gn = data.generiqueur_prio
-  const recapGen = gn ? `
-    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#F8FAFC;border-radius:8px;margin-top:10px">
-      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;text-align:center">Génériqueur n°1 : ${gn.name} — contrat ${gn.contrat_pct}%</div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA générique total</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gn.ca_total)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--sub)">CA chez ${gn.name}</span><span style="font-family:'DM Mono',monospace;font-weight:600">${eur(gn.ca_eligible)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid #E5E7EB;padding-top:6px"><span style="color:var(--sub)">Remise contrat</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${eur(gn.remise_contrat)}</span></div>
-    </div>` : `<div style="padding:10px;color:var(--sub);font-size:11px;text-align:center;background:#F8FAFC;border-radius:8px;margin-top:10px">Aucun génériqueur configuré</div>`
+  const isBiogaranPrio = gn && gn.is_biogaran
+  const nbBullesGen = isBiogaranPrio ? 4 : 3
+  const blocGenKpi = gn ? `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;padding:0 4px">
+        <span style="font-size:13px;font-weight:700;color:var(--green)">💊 Génériqueur n°1 : ${gn.name}</span>
+        <span style="font-size:11px;color:var(--sub)">contrat ${gn.contrat_pct}%</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(${nbBullesGen},1fr);gap:14px">
+        <div class="kpi-card">
+          <div class="kpi-lbl">CA Total chez ${gn.name}</div>
+          <div class="kpi-val">${eur(gn.ca_eligible)}</div>
+          <div class="kpi-sub">Sur ${eur(gn.ca_total)} de génériques au total</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-lbl">Remise pondérée sur facture</div>
+          <div class="kpi-val blue">${eur(gn.remise_grossiste_e || 0)}</div>
+          <div class="kpi-sub">Remise grossiste appliquée</div>
+        </div>
+        ${isBiogaranPrio ? `
+        <div class="kpi-card">
+          <div class="kpi-lbl">RDP</div>
+          <div class="kpi-val blue">${eur(gn.rdp_e || 0)}</div>
+          <div class="kpi-sub">Remise de palier Biogaran</div>
+        </div>` : ''}
+        <div class="kpi-card">
+          <div class="kpi-lbl">Contrat</div>
+          <div class="kpi-val green">${eur(gn.remise_contrat)}</div>
+          <div class="kpi-sub">Remise contrat ${gn.contrat_pct}%</div>
+        </div>
+      </div>
+    </div>
+  ` : `
+    <div style="margin-bottom:16px;padding:14px;background:#FEF3C7;border-radius:10px;text-align:center;color:#92400E;font-size:13px">
+      ⚠️ Aucun génériqueur prioritaire — configure ton labo n°1 dans Paramètres &gt; Génériqueur
+    </div>
+  `
 
   el.innerHTML = `
     <!-- Toggle Période / Année civile -->
@@ -703,33 +756,15 @@ function renderAccueilPage() {
 
     <!-- 2 camemberts côte à côte -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;margin-bottom:20px">
-      ${renderCamembertCard('camem1', '🏬 Répartition grossistes', data.camembert_grossistes, 'grossistes', COULEURS_CAM_GROSSISTES, recapGrossiste, 'grossiste')}
-      ${renderCamembertCard('camem2', '💊 Par génériqueur', data.camembert_generiqueur_prio, 'generiqueurs', COULEURS_CAM_LABOS, recapGen, 'generiqueur')}
+      ${renderCamembertCard('camem1', '🏬 Répartition grossistes', data.camembert_grossistes, 'grossistes', COULEURS_CAM_GROSSISTES, '', 'grossiste')}
+      ${renderCamembertCard('camem2', '💊 Par génériqueur', data.camembert_generiqueur_prio, 'generiqueurs', COULEURS_CAM_LABOS, '', 'generiqueur')}
     </div>
 
-    <!-- KPIs globaux -->
-    <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi-card">
-        <div class="kpi-lbl">CA total HT</div>
-        <div class="kpi-val">${eur(tot.ca_total_ht)}</div>
-        <div class="kpi-sub">${tot.nb_lignes} ligne${tot.nb_lignes>1?'s':''} / ${tot.nb_factures} facture${tot.nb_factures>1?'s':''}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-lbl">CA éligible à la remise</div>
-        <div class="kpi-val green">${eur(tot.ca_eligible_ht)}</div>
-        <div class="kpi-sub">Hors produits déjà remisés</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-lbl">Remise déjà appliquée</div>
-        <div class="kpi-val blue">${eur(tot.ca_remise_sur_facture_e)}</div>
-        <div class="kpi-sub">Sur facture grossiste</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-lbl">Remise contrat calculée</div>
-        <div class="kpi-val green">${eur(tot.remise_appliquee_e)}</div>
-        <div class="kpi-sub">Tous grossistes</div>
-      </div>
-    </div>
+    <!-- Bloc KPIs Grossiste prio (3 bulles) -->
+    ${blocGrossisteKpi}
+
+    <!-- Bloc KPIs Génériqueur n°1 (3-4 bulles) -->
+    ${blocGenKpi}
 
     <!-- Bouton PDF tout en un -->
     <div style="display:flex;justify-content:center;margin-bottom:16px">
