@@ -631,41 +631,228 @@ function nomMoisAnnee(m, a) {
 }
 function refreshData() { goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active')); toast('Données actualisées', 'green') }
 
-// ── ACCUEIL ────────────────────────────────────────────────────────────────
+// ── ACCUEIL (Dashboard avec camemberts) ─────────────────────────────────────
+let _ACCUEIL_MODE = 'periode'  // 'periode' ou 'annee'
+let _ACCUEIL_DATA = null
+
 async function loadAccueil() {
   const el = document.getElementById('accueil-content')
-  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
-  try {
-    const p = urlParamsMoisOuPeriode()
-    const isPeriode = p.mode === 'periode'
-    const urlGr = isPeriode ? `/grossiste/synthese-periode?${p.params}` : `/grossiste/synthese?${p.params}`
-    const urlGe = isPeriode ? `/generiqueur/synthese-periode?${p.params}` : `/generiqueur/synthese?${p.params}`
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement dashboard...</div>'
 
-    let synthGr = null, synthGe = null
-    if (MODULES.includes('grossiste')) synthGr = await apiGet(urlGr).catch(() => null)
-    if (MODULES.includes('generiqueur')) synthGe = await apiGet(urlGe).catch(() => null)
-    const ca_gr = synthGr ? (synthGr.ca_total || 0) : 0
-    const rem_gr = synthGr ? (synthGr.remise_totale || 0) : 0
-    const ca_ge = synthGe ? (synthGe.totaux?.ca_total || synthGe.totaux?.ca_total_ht || 0) : 0
-    const rem_ge = synthGe ? (synthGe.totaux?.contrat_total || synthGe.totaux?.remise_contrat_e || 0) : 0
-    const subLabel = isPeriode ? p.label : 'Ce mois'
-    el.innerHTML = `
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-lbl">CA Grossiste</div><div class="kpi-val">${eur(ca_gr)}</div><div class="kpi-sub">${subLabel}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green">${eur(rem_gr)}</div><div class="kpi-sub">Tous grossistes</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">CA Génériqueurs</div><div class="kpi-val">${eur(ca_ge)}</div><div class="kpi-sub">${subLabel}</div></div>
-        <div class="kpi-card"><div class="kpi-lbl">Contrats attendus</div><div class="kpi-val blue">${eur(rem_ge)}</div><div class="kpi-sub">Génériqueurs</div></div>
+  // Déterminer les dates selon le mode
+  let dateDebut, dateFin
+  if (_ACCUEIL_MODE === 'annee') {
+    const y = new Date().getFullYear()
+    dateDebut = `${y}-01-01`
+    dateFin = `${y}-12-31`
+  } else if (_PERIODE_MODE && _PERIODE_DEBUT && _PERIODE_FIN) {
+    dateDebut = `${_PERIODE_DEBUT.annee}-${String(_PERIODE_DEBUT.mois).padStart(2,'0')}-01`
+    const lastDay = new Date(_PERIODE_FIN.annee, _PERIODE_FIN.mois, 0).getDate()
+    dateFin = `${_PERIODE_FIN.annee}-${String(_PERIODE_FIN.mois).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+  } else {
+    dateDebut = `${CURRENT_ANNEE}-${String(CURRENT_MOIS).padStart(2,'0')}-01`
+    const lastDay = new Date(CURRENT_ANNEE, CURRENT_MOIS, 0).getDate()
+    dateFin = `${CURRENT_ANNEE}-${String(CURRENT_MOIS).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+  }
+
+  try {
+    const data = await apiGet(`/accueil/dashboard?date_debut=${dateDebut}&date_fin=${dateFin}`)
+    _ACCUEIL_DATA = { data, dateDebut, dateFin }
+    renderAccueilPage()
+  } catch(e) {
+    el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement du dashboard</div>'
+  }
+}
+
+function renderAccueilPage() {
+  if (!_ACCUEIL_DATA) return
+  const { data, dateDebut, dateFin } = _ACCUEIL_DATA
+  const el = document.getElementById('accueil-content')
+
+  const tot = data.totaux
+  const subLabel = formatPeriodeAccueil(dateDebut, dateFin)
+
+  el.innerHTML = `
+    <!-- Toggle Période / Année civile -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:12px;color:var(--sub)">📅 ${subLabel}</div>
+      <div style="display:flex;gap:4px;background:#F3F4F6;padding:3px;border-radius:8px">
+        <button onclick="_ACCUEIL_MODE='periode';loadAccueil()" class="${_ACCUEIL_MODE==='periode'?'btn btn-green btn-sm':'btn btn-outline btn-sm'}" style="padding:5px 12px;font-size:11px;border:none;background:${_ACCUEIL_MODE==='periode'?'#1D9E75':'transparent'};color:${_ACCUEIL_MODE==='periode'?'white':'var(--sub)'}">Période sélectionnée</button>
+        <button onclick="_ACCUEIL_MODE='annee';loadAccueil()" class="${_ACCUEIL_MODE==='annee'?'btn btn-green btn-sm':'btn btn-outline btn-sm'}" style="padding:5px 12px;font-size:11px;border:none;background:${_ACCUEIL_MODE==='annee'?'#1D9E75':'transparent'};color:${_ACCUEIL_MODE==='annee'?'white':'var(--sub)'}">Année civile ${new Date().getFullYear()}</button>
       </div>
-      ${synthGr && synthGr.par_grossiste?.length ? renderParGrossiste(synthGr.par_grossiste) : ''}
-      <div class="card">
-        <div class="card-title">Accès rapides</div>
-        <div class="three-col">
-          ${MODULES.includes('grossiste') ? `<button class="btn btn-outline" onclick="goTo('depot',document.getElementById('nav-grossiste'))" style="justify-content:center">📄 Déposer une facture</button>` : ''}
-          ${MODULES.includes('generiqueur') ? `<button class="btn btn-outline" onclick="goTo('generiqueur',document.getElementById('nav-generiqueur'))" style="justify-content:center">💊 Voir génériqueurs</button>` : ''}
-          ${MODULES.includes('rfa') ? `<button class="btn btn-outline" onclick="goTo('rfa',document.getElementById('nav-rfa'))" style="justify-content:center">📋 Contrôle RFA</button>` : ''}
-        </div>
-      </div>`
-  } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>' }
+    </div>
+
+    <!-- 3 camemberts côte à côte -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;margin-bottom:20px">
+      ${renderCamembertCard('camem1', '🏷️ Remise sur facture', data.camembert_remise_facture, 'remise-facture', COULEURS_CAM_REMISE)}
+      ${renderCamembertCard('camem2', '📦 Catégories d\\'achats', data.camembert_categories, 'categories', COULEURS_CAM_CAT)}
+      ${renderCamembertCard('camem3', '💊 Par génériqueur', data.camembert_labos_generiques, 'generiqueurs', COULEURS_CAM_LABOS)}
+    </div>
+
+    <!-- KPIs en dessous -->
+    <div class="kpi-grid" style="margin-bottom:16px">
+      <div class="kpi-card">
+        <div class="kpi-lbl">CA total HT</div>
+        <div class="kpi-val">${eur(tot.ca_total_ht)}</div>
+        <div class="kpi-sub">${tot.nb_lignes} ligne${tot.nb_lignes>1?'s':''} / ${tot.nb_factures} facture${tot.nb_factures>1?'s':''}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">CA éligible à la remise</div>
+        <div class="kpi-val green">${eur(tot.ca_eligible_ht)}</div>
+        <div class="kpi-sub">Hors produits déjà remisés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Remise déjà appliquée</div>
+        <div class="kpi-val blue">${eur(tot.ca_remise_sur_facture_e)}</div>
+        <div class="kpi-sub">Sur facture grossiste</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Remise contrat calculée</div>
+        <div class="kpi-val green">${eur(tot.remise_appliquee_e)}</div>
+        <div class="kpi-sub">Tous grossistes</div>
+      </div>
+    </div>
+
+    <!-- Bouton PDF tout en un -->
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <button class="btn btn-green" onclick="exportPDFAccueil('complet')" style="padding:10px 20px">📄 Exporter tout le dashboard en PDF</button>
+    </div>
+  `
+
+  // Dessiner les camemberts une fois le HTML en place
+  setTimeout(() => {
+    drawPie('camem1', data.camembert_remise_facture, COULEURS_CAM_REMISE)
+    drawPie('camem2', data.camembert_categories, COULEURS_CAM_CAT)
+    drawPie('camem3', data.camembert_labos_generiques, COULEURS_CAM_LABOS)
+  }, 50)
+}
+
+const COULEURS_CAM_REMISE = {
+  'Remisé sur facture': '#1D9E75',
+  'Non remisé': '#94a3b8',
+}
+const COULEURS_CAM_CAT = {
+  'Générique': '#1D9E75',
+  'Biosimilaire': '#2563EB',
+  'OTC / Parapharmacie': '#D97706',
+  'TVA 20%': '#9333EA',
+  'Autre': '#94a3b8',
+}
+const COULEURS_CAM_LABOS = {
+  'Biogaran': '#1D9E75',
+  'Viatris': '#2563EB',
+  'Teva': '#D97706',
+  'Sandoz': '#DC2626',
+  'Arrow': '#9333EA',
+  'EG Labo': '#EC4899',
+  'Cristers': '#F59E0B',
+  'Zentiva': '#10B981',
+  'Almus': '#6366F1',
+  'Krka': '#14B8A6',
+  'Zydus': '#F97316',
+}
+
+function renderCamembertCard(cardId, titre, data, pdfCat, couleursMap) {
+  const legend = (data || []).map(d => {
+    const col = couleursMap[d.label] || '#94a3b8'
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px">
+      <span style="width:10px;height:10px;background:${col};border-radius:2px;flex-shrink:0"></span>
+      <span style="flex:1">${d.label}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--sub)">${eur(d.ca)}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:600;min-width:40px;text-align:right">${d.pct}%</span>
+    </div>`
+  }).join('')
+
+  return `
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title" style="font-size:14px">${titre}</div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:8px 0">
+        <svg id="${cardId}" width="180" height="180" viewBox="0 0 180 180">
+          <text x="90" y="95" text-anchor="middle" font-size="11" fill="#94a3b8">Aucune donnée</text>
+        </svg>
+      </div>
+      <div style="margin-top:8px;max-height:140px;overflow-y:auto">${legend || '<div style="text-align:center;color:var(--sub);font-size:11px;padding:10px">Aucune donnée</div>'}</div>
+      <div style="display:flex;justify-content:center;margin-top:10px">
+        <button class="btn btn-outline btn-sm" onclick="exportPDFAccueil('${pdfCat}')" style="font-size:11px;padding:5px 10px">📄 Télécharger PDF</button>
+      </div>
+    </div>`
+}
+
+function drawPie(svgId, data, couleursMap) {
+  const svg = document.getElementById(svgId)
+  if (!svg) return
+  if (!data || data.length === 0) return
+
+  const cx = 90, cy = 90, r = 75
+  const total = data.reduce((s, d) => s + d.ca, 0)
+  if (total === 0) return
+
+  svg.innerHTML = ''
+
+  let startAngle = -Math.PI / 2  // commencer en haut
+  data.forEach(d => {
+    const angle = (d.ca / total) * 2 * Math.PI
+    const endAngle = startAngle + angle
+    const x1 = cx + r * Math.cos(startAngle)
+    const y1 = cy + r * Math.sin(startAngle)
+    const x2 = cx + r * Math.cos(endAngle)
+    const y2 = cy + r * Math.sin(endAngle)
+    const largeArc = angle > Math.PI ? 1 : 0
+
+    const col = couleursMap[d.label] || '#94a3b8'
+
+    if (data.length === 1) {
+      // Un seul segment → cercle complet
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      c.setAttribute('cx', cx)
+      c.setAttribute('cy', cy)
+      c.setAttribute('r', r)
+      c.setAttribute('fill', col)
+      c.setAttribute('stroke', 'white')
+      c.setAttribute('stroke-width', '2')
+      svg.appendChild(c)
+    } else {
+      const pathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('d', pathD)
+      path.setAttribute('fill', col)
+      path.setAttribute('stroke', 'white')
+      path.setAttribute('stroke-width', '2')
+      svg.appendChild(path)
+    }
+    startAngle = endAngle
+  })
+}
+
+function formatPeriodeAccueil(dd, df) {
+  try {
+    const d1 = new Date(dd)
+    const d2 = new Date(df)
+    const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.']
+    return `${mois[d1.getMonth()]} ${d1.getFullYear()} → ${mois[d2.getMonth()]} ${d2.getFullYear()}`
+  } catch(e) { return '—' }
+}
+
+async function exportPDFAccueil(categorie) {
+  if (!_ACCUEIL_DATA) { toast('Attends le chargement du dashboard', 'red'); return }
+  const { dateDebut, dateFin } = _ACCUEIL_DATA
+  toast('Génération du PDF...')
+  try {
+    const r = await fetch(`${API}/accueil/pdf/${encodeURIComponent(categorie)}?date_debut=${dateDebut}&date_fin=${dateFin}`, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (!r.ok) { toast('Erreur PDF', 'red'); return }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `accueil_${categorie}_${dateDebut}_${dateFin}.pdf`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast('✅ PDF téléchargé', 'green')
+  } catch(e) {
+    toast('Erreur réseau', 'red')
+  }
 }
 
 function renderParGrossiste(parGrossiste) {
