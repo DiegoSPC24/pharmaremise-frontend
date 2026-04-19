@@ -426,7 +426,7 @@ function toast(msg, type='') {
 function eur(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €' }
 function pct(n) { return (parseFloat(n||0)).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%' }
 
-const SOURCE_LABELS = { cerp:'CERP', alliance:'Alliance', ocp:'OCP' }
+const SOURCE_LABELS = { cerp:'CERP', alliance:'Alliance', ocp:'OCP', labo_direct:'Labo direct' }
 const SOURCE_COLORS = { cerp:'var(--green)', alliance:'var(--blue)', ocp:'var(--amber)' }
 const SOURCE_RANG   = { cerp:'Gé1', alliance:'Gé2', ocp:'Gé3' }
 
@@ -2771,11 +2771,7 @@ function renderGeneriqueurPage(synth) {
       <div class="kpi-card"><div class="kpi-lbl">CA total génériques</div><div class="kpi-val">${eur(totaux.ca_total_ht||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val green">${eur(totaux.remise_grossiste_e||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise contrat</div><div class="kpi-val green">${eur(totaux.remise_contrat_e||0)}</div></div>
-      <div class="kpi-card">
-        <div class="kpi-lbl">RDP Biogaran ${(totaux.rdp_e||0) > 0 ? '✅' : '⏳'}</div>
-        <div class="kpi-val ${(totaux.rdp_e||0) > 0 ? 'green' : 'blue'}">${eur((totaux.rdp_e||0) > 0 ? totaux.rdp_e : (totaux.rdp_potentielle_e||0))}</div>
-        <div style="font-size:10px;color:var(--sub);margin-top:2px">${(totaux.rdp_e||0) > 0 ? 'Atteinte' : 'Potentielle sur la période'}</div>
-      </div>
+      <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(totaux.rdp_e||0)}</div></div>
     </div>`
 
   // Sections labos
@@ -2951,30 +2947,23 @@ function renderMetriquesLabo(l, isPrio) {
   let colRDP = ''
   if (isBiogaran) {
     const rdp = l.rdp_details
-    // Mode mois : rdp_details présent → on utilise conditions_atteintes + rdp_potentielle_e dedans
-    // Mode période : rdp_details = null → on cumule depuis les champs labo (l.rdp_e, l.rdp_potentielle_e)
-    const atteint = rdp ? rdp.conditions_atteintes : (l.rdp_e || 0) > 0
+    const atteint = rdp && rdp.conditions_atteintes
     const rdpEffective = l.rdp_e || 0
-    const rdpPotentielle = rdp && rdp.rdp_potentielle_e
-      ? rdp.rdp_potentielle_e
-      : (l.rdp_potentielle_e || 0)
-    const sousTitre = rdp
-      ? (atteint ? '✅ Conditions atteintes (10%)' : '⏳ potentielle (si atteint)')
-      : (atteint ? '✅ Cumul période' : '⏳ potentielle cumulée période')
+    const rdpPotentielle = rdp && rdp.rdp_potentielle_e ? rdp.rdp_potentielle_e : 0
 
     if (atteint) {
       colRDP = `
         <div>
           <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
           <div style="font-size:18px;font-weight:600;color:#2563EB;font-family:'DM Mono',monospace">${eur(rdpEffective)}</div>
-          <div style="font-size:10px;color:#2563EB;margin-top:2px">${sousTitre}</div>
+          <div style="font-size:10px;color:#2563EB;margin-top:2px">✅ Conditions atteintes (10%)</div>
         </div>`
     } else {
       colRDP = `
         <div>
           <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
           <div style="font-size:18px;font-weight:600;color:var(--sub);font-family:'DM Mono',monospace">${eur(rdpPotentielle)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">${sousTitre}</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">⏳ potentielle (si atteint)</div>
         </div>`
     }
   }
@@ -3248,7 +3237,14 @@ function onFileDrop(event) {
 }
 function onFilesSelected(files) {
   if (!files || files.length === 0) return
-  Array.from(files).forEach(f => { if (f.type === 'application/pdf') uploadFactureAuto(f) })
+  Array.from(files).forEach(f => {
+    if (f.type !== 'application/pdf') return
+    if (depot_tab === 'labo') {
+      uploadLaboIA(f)
+    } else {
+      uploadFactureAuto(f)
+    }
+  })
 }
 async function uploadFactureAuto(file) {
   const queue = document.getElementById('upload-queue')
@@ -3271,6 +3267,196 @@ async function uploadFactureAuto(file) {
     }
   } catch(e) {
     div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+  }
+}
+
+// ── UPLOAD LABO DIRECT via IA (Claude) + preview ─────────────────────────────
+async function uploadLaboIA(file) {
+  const queue = document.getElementById('upload-queue')
+  const div = document.createElement('div')
+  div.className = 'alert alert-green'
+  div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
+  div.innerHTML = `<span>🤖</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse IA en cours (5-10 sec)...</span>`
+  queue.appendChild(div)
+
+  const fd = new FormData(); fd.append('file', file)
+  try {
+    const res = await fetch(`${API}/labo-direct/preview`, {
+      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
+    })
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      const msg = data.erreur || data.detail || 'Extraction impossible'
+      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${msg}</span>`
+      return
+    }
+    const stats = data.stats || {}
+    div.innerHTML = `<span>👀</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
+    openLaboPreview(data, div)
+  } catch(e) {
+    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${e.message}</span>`
+  }
+}
+
+function openLaboPreview(data, bandeau) {
+  let modal = document.getElementById('modal-labo-preview')
+  if (!modal) {
+    modal = document.createElement('div')
+    modal.id = 'modal-labo-preview'
+    modal.className = 'modal-overlay'
+    modal.innerHTML = `<div class="modal-box" id="modal-labo-preview-box" style="max-width:1100px;max-height:90vh;overflow-y:auto"></div>`
+    document.body.appendChild(modal)
+  }
+  const box = document.getElementById('modal-labo-preview-box')
+
+  const statutBadges = {
+    generique:    { label:'Générique',    bg:'#E5E7EB', color:'#111827', icon:'⚪' },
+    biosimilaire: { label:'Biosimilaire', bg:'#EDE9FE', color:'#6B21A8', icon:'🟣' },
+    autre:        { label:'Autre',        bg:'#F3F4F6', color:'#6B7280', icon:'•'  },
+  }
+
+  const stats = data.stats || {}
+  const confColor = data.confiance === 'haute' ? 'var(--green)' : data.confiance === 'moyenne' ? '#F59E0B' : '#DC2626'
+  const confEmoji = data.confiance === 'haute' ? '✅' : data.confiance === 'moyenne' ? '⚠️' : '🔴'
+
+  const anomalies = (data.anomalies || []).length > 0 ? `
+    <div class="alert alert-amber" style="margin:10px 0;padding:10px 14px;font-size:12px">
+      <strong>⚠️ Anomalies détectées :</strong>
+      <ul style="margin:6px 0 0 18px;padding:0">
+        ${data.anomalies.map(a => `<li>${a}</li>`).join('')}
+      </ul>
+    </div>` : ''
+
+  const lignesRows = (data.lignes || []).map(l => {
+    const badge = statutBadges[l.statut] || statutBadges.autre
+    const laboGen = l.labo_genrq ? ` <span style="font-size:10px;color:var(--sub)">(${l.labo_genrq})</span>` : ''
+    return `
+      <tr>
+        <td style="font-family:'DM Mono',monospace;font-size:11px">${l.cip13 || '—'}</td>
+        <td style="font-size:12px">${l.designation || ''}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${l.qte}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${(l.pu_ht_brut||0).toFixed(2)}€</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${(l.remise_pct||0).toFixed(1)}%</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:500">${(l.montant_ht||0).toFixed(2)}€</td>
+        <td>
+          <span style="padding:2px 8px;border-radius:6px;background:${badge.bg};color:${badge.color};font-size:11px">
+            ${badge.icon} ${badge.label}
+          </span>${laboGen}
+        </td>
+      </tr>`
+  }).join('')
+
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+      <div>
+        <div style="font-size:16px;font-weight:600">🤖 Preview IA — ${data.fournisseur}</div>
+        <div style="font-size:12px;color:var(--sub)">Extrait par ${data.model_utilise || 'Claude'} — vérifie avant d'enregistrer</div>
+      </div>
+      <div style="padding:6px 12px;background:${confColor}22;color:${confColor};border-radius:6px;font-size:12px;font-weight:600">
+        ${confEmoji} Confiance ${data.confiance}
+      </div>
+    </div>
+
+    <div class="three-col" style="margin-bottom:10px;gap:8px">
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">N° Facture</div>
+        <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${data.num_facture || '—'}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Date</div>
+        <div style="font-size:13px;font-weight:600">${data.date || '—'}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Total HT</div>
+        <div style="font-size:13px;font-weight:600">${eur(data.total_ht||0)}</div>
+      </div>
+    </div>
+
+    <div class="three-col" style="margin-bottom:10px;gap:8px">
+      <div style="padding:8px 12px;background:#E5E7EB;border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">⚪ Génériques</div>
+        <div style="font-size:14px;font-weight:600">${stats.nb_generiques || 0}</div>
+      </div>
+      <div style="padding:8px 12px;background:#EDE9FE;border-radius:8px">
+        <div style="font-size:10px;color:#6B21A8;text-transform:uppercase">🟣 Biosimilaires</div>
+        <div style="font-size:14px;font-weight:600;color:#6B21A8">${stats.nb_biosimilaires || 0}</div>
+      </div>
+      <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">• Autres</div>
+        <div style="font-size:14px;font-weight:600">${stats.nb_autres || 0}</div>
+      </div>
+    </div>
+
+    ${anomalies}
+
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px">Lignes détectées (${data.nb_lignes}) — classification via référentiel pharmacie :</div>
+    <div style="max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:12px">
+        <thead style="position:sticky;top:0;background:var(--card);z-index:1">
+          <tr>
+            <th style="text-align:left;padding:6px">CIP13</th>
+            <th style="text-align:left;padding:6px">Désignation</th>
+            <th style="text-align:right;padding:6px">Qté</th>
+            <th style="text-align:right;padding:6px">PU HT</th>
+            <th style="text-align:right;padding:6px">Remise</th>
+            <th style="text-align:right;padding:6px">Montant HT</th>
+            <th style="text-align:left;padding:6px">Classification</th>
+          </tr>
+        </thead>
+        <tbody>${lignesRows}</tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeLaboPreview()">Annuler</button>
+      <button class="btn btn-green" id="btn-labo-confirm">✓ Enregistrer cette facture</button>
+    </div>
+  `
+
+  modal.classList.add('active')
+  document.getElementById('btn-labo-confirm').onclick = () => confirmLaboPreview(data, bandeau)
+}
+
+function closeLaboPreview() {
+  const m = document.getElementById('modal-labo-preview')
+  if (m) m.classList.remove('active')
+}
+
+async function confirmLaboPreview(data, bandeau) {
+  const btn = document.getElementById('btn-labo-confirm')
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Enregistrement...' }
+
+  const payload = {
+    filename:    data.filename,
+    fournisseur: data.fournisseur,
+    num_facture: data.num_facture,
+    date:        data.date,
+    mois:        CURRENT_MOIS,
+    annee:       CURRENT_ANNEE,
+    total_ht:    data.total_ht,
+    lignes:      data.lignes,
+  }
+
+  try {
+    const res = await fetch(`${API}/labo-direct/confirmer`, {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const resp = await res.json()
+    if (res.ok && resp.ok) {
+      if (bandeau) {
+        bandeau.innerHTML = `<span>✅</span><span>${data.filename}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
+      }
+      closeLaboPreview()
+      toast('Facture enregistrée', 'green')
+    } else {
+      if (btn) { btn.disabled = false; btn.innerHTML = '✓ Enregistrer cette facture' }
+      toast(resp.detail || 'Erreur lors de l\'enregistrement', 'red')
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '✓ Enregistrer cette facture' }
+    toast('Erreur réseau : ' + e.message, 'red')
   }
 }
 
