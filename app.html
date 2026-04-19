@@ -2771,7 +2771,11 @@ function renderGeneriqueurPage(synth) {
       <div class="kpi-card"><div class="kpi-lbl">CA total génériques</div><div class="kpi-val">${eur(totaux.ca_total_ht||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val green">${eur(totaux.remise_grossiste_e||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise contrat</div><div class="kpi-val green">${eur(totaux.remise_contrat_e||0)}</div></div>
-      <div class="kpi-card"><div class="kpi-lbl">RDP Biogaran</div><div class="kpi-val blue">${eur(totaux.rdp_e||0)}</div></div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">RDP Biogaran ${(totaux.rdp_e||0) > 0 ? '✅' : '⏳'}</div>
+        <div class="kpi-val ${(totaux.rdp_e||0) > 0 ? 'green' : 'blue'}">${eur((totaux.rdp_e||0) > 0 ? totaux.rdp_e : (totaux.rdp_potentielle_e||0))}</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:2px">${(totaux.rdp_e||0) > 0 ? 'Atteinte' : 'Potentielle sur la période'}</div>
+      </div>
     </div>`
 
   // Sections labos
@@ -2947,23 +2951,30 @@ function renderMetriquesLabo(l, isPrio) {
   let colRDP = ''
   if (isBiogaran) {
     const rdp = l.rdp_details
-    const atteint = rdp && rdp.conditions_atteintes
+    // Mode mois : rdp_details présent → on utilise conditions_atteintes + rdp_potentielle_e dedans
+    // Mode période : rdp_details = null → on cumule depuis les champs labo (l.rdp_e, l.rdp_potentielle_e)
+    const atteint = rdp ? rdp.conditions_atteintes : (l.rdp_e || 0) > 0
     const rdpEffective = l.rdp_e || 0
-    const rdpPotentielle = rdp && rdp.rdp_potentielle_e ? rdp.rdp_potentielle_e : 0
+    const rdpPotentielle = rdp && rdp.rdp_potentielle_e
+      ? rdp.rdp_potentielle_e
+      : (l.rdp_potentielle_e || 0)
+    const sousTitre = rdp
+      ? (atteint ? '✅ Conditions atteintes (10%)' : '⏳ potentielle (si atteint)')
+      : (atteint ? '✅ Cumul période' : '⏳ potentielle cumulée période')
 
     if (atteint) {
       colRDP = `
         <div>
           <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
           <div style="font-size:18px;font-weight:600;color:#2563EB;font-family:'DM Mono',monospace">${eur(rdpEffective)}</div>
-          <div style="font-size:10px;color:#2563EB;margin-top:2px">✅ Conditions atteintes (10%)</div>
+          <div style="font-size:10px;color:#2563EB;margin-top:2px">${sousTitre}</div>
         </div>`
     } else {
       colRDP = `
         <div>
           <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
           <div style="font-size:18px;font-weight:600;color:var(--sub);font-family:'DM Mono',monospace">${eur(rdpPotentielle)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">⏳ potentielle (si atteint)</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">${sousTitre}</div>
         </div>`
     }
   }
