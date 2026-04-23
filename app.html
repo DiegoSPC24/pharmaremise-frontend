@@ -119,7 +119,118 @@
     .grossiste-card { border-left:4px solid var(--green); }
     .grossiste-card.g2 { border-left-color:var(--blue); }
     .grossiste-card.g3 { border-left-color:var(--amber); }
-  </style>
+  
+
+/* === ADMIN_CSS_INJECTED_MARKER === */
+/* ============================================================
+   Admin — Styles ajoutés (v2.6.0)
+   ============================================================ */
+
+/* KPI cards admin (même style que le reste) */
+.admin-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+.admin-kpi-card { background:var(--white); border:0.5px solid var(--border); border-radius:12px; padding:18px 20px; }
+.admin-kpi-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--sub); margin-bottom:8px; font-weight:500; }
+.admin-kpi-value { font-size:28px; font-weight:600; font-family:'DM Serif Display',serif; color:var(--text); }
+.admin-kpi-sub { font-size:12px; color:var(--sub); margin-top:4px; }
+.admin-kpi-card.green .admin-kpi-value { color:var(--green); }
+.admin-kpi-card.blue .admin-kpi-value { color:var(--blue); }
+.admin-kpi-card.amber .admin-kpi-value { color:var(--amber); }
+.admin-kpi-card.purple .admin-kpi-value { color:var(--purple); }
+
+/* Table admin (liste pharmacies, classifications, etc.) */
+.admin-section { background:var(--white); border:0.5px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:20px; }
+.admin-section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
+.admin-section-title { font-size:16px; font-weight:600; color:var(--text); }
+.admin-section-sub { font-size:12px; color:var(--sub); }
+
+.admin-search { background:var(--bg); border:0.5px solid var(--border); border-radius:8px; padding:7px 12px; font-size:13px; font-family:'DM Sans',sans-serif; color:var(--text); min-width:240px; outline:none; }
+.admin-search:focus { border-color:var(--green); }
+
+.admin-btn { background:var(--green); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; transition:background .15s; }
+.admin-btn:hover { background:var(--green-d); }
+.admin-btn.secondary { background:var(--bg); color:var(--text); border:0.5px solid var(--border); }
+.admin-btn.secondary:hover { background:var(--bg2); }
+.admin-btn.danger { background:var(--red); }
+.admin-btn.danger:hover { background:#c13a39; }
+.admin-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+.admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+.admin-table thead th { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); color:var(--sub); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+.admin-table tbody td { padding:12px; border-bottom:0.5px solid var(--border); }
+.admin-table tbody tr { cursor:pointer; transition:background .15s; }
+.admin-table tbody tr:hover { background:var(--bg); }
+.admin-table tbody tr.no-hover { cursor:default; }
+.admin-table tbody tr.no-hover:hover { background:transparent; }
+
+.badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:500; }
+.badge.green  { background:var(--green-l);  color:var(--green-d); }
+.badge.blue   { background:var(--blue-l);   color:var(--blue); }
+.badge.amber  { background:var(--amber-l);  color:var(--amber); }
+.badge.red    { background:var(--red-l);    color:var(--red); }
+.badge.purple { background:var(--purple-l); color:var(--purple); }
+.badge.gray   { background:var(--bg2);      color:var(--sub); }
+
+/* Classifications : accordéons par catégorie */
+.classif-category { margin-bottom:16px; border:0.5px solid var(--border); border-radius:12px; background:var(--white); overflow:hidden; }
+.classif-category-header { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; transition:background .15s; }
+.classif-category-header:hover { background:var(--bg); }
+.classif-category-header h3 { font-size:14px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:10px; }
+.classif-category-header .count { background:var(--bg2); color:var(--sub); padding:2px 10px; border-radius:10px; font-size:12px; font-weight:500; }
+.classif-category-header .chevron { font-size:12px; color:var(--sub); transition:transform .2s; }
+.classif-category.open .chevron { transform:rotate(90deg); }
+.classif-category-body { display:none; border-top:0.5px solid var(--border); }
+.classif-category.open .classif-category-body { display:block; }
+
+.classif-row { display:grid; grid-template-columns:140px 1fr 110px 40px; gap:12px; padding:10px 18px; border-bottom:0.5px solid var(--border); align-items:center; font-size:13px; transition:background .15s; }
+.classif-row:last-child { border-bottom:none; }
+.classif-row:hover { background:var(--bg); }
+.classif-cip { font-family:'DM Mono',monospace; color:var(--sub); font-size:12px; }
+.classif-nom { color:var(--text); }
+.classif-status { font-size:11px; text-align:center; }
+.classif-edit-btn { background:none; border:none; cursor:pointer; font-size:16px; color:var(--sub); padding:4px 8px; border-radius:6px; transition:all .15s; }
+.classif-edit-btn:hover { background:var(--green-l); color:var(--green-d); }
+
+.classif-row.forced { background:linear-gradient(90deg, var(--amber-l) 0%, transparent 80%); }
+.classif-forced-tag { font-size:10px; color:var(--amber); font-weight:500; margin-left:6px; }
+
+/* Modal admin */
+.admin-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; animation:fade-in .15s; }
+.admin-modal-overlay.open { display:flex; }
+.admin-modal { background:var(--white); border-radius:14px; padding:24px 28px; width:min(500px, 92vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.admin-modal-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.admin-modal-title { font-size:18px; font-weight:600; font-family:'DM Serif Display',serif; }
+.admin-modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--sub); line-height:1; padding:0 4px; }
+.admin-modal-close:hover { color:var(--text); }
+.admin-modal-body { margin-bottom:20px; }
+.admin-modal-footer { display:flex; gap:10px; justify-content:flex-end; }
+
+.admin-form-group { margin-bottom:14px; }
+.admin-form-label { display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+.admin-form-input, .admin-form-select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--white); font-size:14px; font-family:inherit; color:var(--text); outline:none; }
+.admin-form-input:focus, .admin-form-select:focus { border-color:var(--green); }
+.admin-form-input:disabled { background:var(--bg); color:var(--sub); }
+
+@keyframes fade-in { from { opacity:0; } to { opacity:1; } }
+
+/* Tabs fiche pharmacie */
+.admin-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; padding-left:2px; }
+.admin-tab { background:none; border:none; padding:10px 16px; font-size:13px; font-weight:500; color:var(--sub); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; transition:all .15s; }
+.admin-tab:hover { color:var(--text); }
+.admin-tab.active { color:var(--green); border-bottom-color:var(--green); }
+
+.admin-tab-content { display:none; }
+.admin-tab-content.active { display:block; }
+
+.back-link { display:inline-flex; align-items:center; gap:6px; color:var(--sub); font-size:13px; cursor:pointer; margin-bottom:16px; transition:color .15s; }
+.back-link:hover { color:var(--green); }
+
+/* Infos grid (fiche pharmacie) */
+.info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:20px; }
+.info-field { }
+.info-field-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--sub); margin-bottom:4px; }
+.info-field-value { font-size:14px; color:var(--text); font-weight:500; }
+
+</style>
 </head>
 <body>
 
@@ -133,6 +244,8 @@
     <button class="nav-item" onclick="goTo('depot',this)"><span class="icon">📁</span> Dépôt factures</button>
     <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon">⚖️</span> Comparateur</button>
     <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon">⚙️</span> Paramètres</button>
+    <!-- === ADMIN_NAV_INJECTED_MARKER === -->
+    <button class="nav-item" id="nav-admin" style="display:none" onclick="adminGoTo('dashboard')"><span class="icon">👑</span> Admin</button>
   </nav>
   <div class="sidebar-bottom">
     <div class="sidebar-user">
@@ -200,6 +313,88 @@
     </div>
 
     <div id="screen-parametres" class="screen"><div id="parametres-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+
+    <!-- === ADMIN_HTML_INJECTED_MARKER === -->
+<!-- ============================================================
+     Admin — Sections HTML (injectées dans .content)
+     ============================================================ -->
+
+<!-- ADMIN — Dashboard -->
+<div id="screen-admin-dashboard" class="screen">
+  <div id="admin-dashboard-content">
+    <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+  </div>
+</div>
+
+<!-- ADMIN — Liste pharmacies -->
+<div id="screen-admin-pharmacies" class="screen">
+  <div id="admin-pharmacies-content">
+    <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+  </div>
+</div>
+
+<!-- ADMIN — Fiche pharmacie (détail) -->
+<div id="screen-admin-pharmacie-detail" class="screen">
+  <div id="admin-pharmacie-detail-content">
+    <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+  </div>
+</div>
+
+<!-- ADMIN — Classifications -->
+<div id="screen-admin-classifications" class="screen">
+  <div id="admin-classifications-content">
+    <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+  </div>
+</div>
+
+<!-- MODAL — Édition classification -->
+<div id="admin-classif-modal" class="admin-modal-overlay" onclick="if(event.target===this)closeClassifModal()">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <div class="admin-modal-title">Modifier la classification</div>
+      <button class="admin-modal-close" onclick="closeClassifModal()">✕</button>
+    </div>
+    <div class="admin-modal-body">
+      <div class="admin-form-group">
+        <label class="admin-form-label">CIP 13</label>
+        <input type="text" id="modal-classif-cip" class="admin-form-input" disabled />
+      </div>
+      <div class="admin-form-group">
+        <label class="admin-form-label">Nom du produit</label>
+        <input type="text" id="modal-classif-nom" class="admin-form-input" disabled />
+      </div>
+      <div class="admin-form-group">
+        <label class="admin-form-label">Classification actuelle</label>
+        <input type="text" id="modal-classif-original" class="admin-form-input" disabled />
+      </div>
+      <div class="admin-form-group">
+        <label class="admin-form-label">Nouvelle classification</label>
+        <select id="modal-classif-new" class="admin-form-select">
+          <option value="eligible">Éligible</option>
+          <option value="generique">Générique</option>
+          <option value="biosimilaire">Biosimilaire</option>
+          <option value="tva_20">TVA 20%</option>
+          <option value="tva_5_5">TVA 5.5%</option>
+          <option value="tva_10">TVA 10%</option>
+          <option value="remise_facture">Remise sur facture</option>
+          <option value="produit_cher">Produit cher</option>
+          <option value="princeps">Princeps</option>
+          <option value="frigo">Frigo</option>
+          <option value="stupefiants">Stupéfiants</option>
+        </select>
+      </div>
+      <div id="modal-classif-forced-note" style="display:none; font-size:12px; color:var(--amber); margin-top:8px;">
+        ⚠️ Ce CIP a déjà une correction manuelle active.
+      </div>
+    </div>
+    <div class="admin-modal-footer">
+      <button id="modal-classif-delete" class="admin-btn danger" style="display:none;" onclick="deleteClassifCorrection()">Retirer correction</button>
+      <button class="admin-btn secondary" onclick="closeClassifModal()">Annuler</button>
+      <button class="admin-btn" onclick="saveClassifCorrection()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
   </div>
 </div>
 
@@ -4481,6 +4676,574 @@ function lockedHTML(module) {
 
 setDepotTab('grossiste')
 init()
+
+
+// === ADMIN_JS_INJECTED_MARKER ===
+// ============================================================
+// Admin — Module complet (v2.6.0)
+// ============================================================
+
+let IS_ADMIN = false;
+let CURRENT_PHARMACIE_ID = null;
+let CURRENT_CLASSIF_EDIT = null;
+
+// Au startup, vérifier si l'utilisateur est admin
+async function checkIsAdmin() {
+  try {
+    const r = await fetch(`${API}/admin/me`, {
+      headers: { Authorization: `Bearer ${TOKEN}` }
+    });
+    if (r.ok) {
+      IS_ADMIN = true;
+      const nav = document.getElementById('nav-admin');
+      if (nav) nav.style.display = 'flex';
+    }
+  } catch (e) {
+    IS_ADMIN = false;
+  }
+}
+
+// ------------------------------------------------------------
+// ADMIN — DASHBOARD
+// ------------------------------------------------------------
+async function loadAdminDashboard() {
+  const el = document.getElementById('admin-dashboard-content');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const [commerce, metier] = await Promise.all([
+      apiGet('/admin/stats/commerce'),
+      apiGet('/admin/stats/metier'),
+    ]);
+
+    const ph   = commerce.pharmacies || {};
+    const ca   = commerce.ca || {};
+    const abo  = commerce.abonnements || {};
+    const glob = metier.global || {};
+
+    el.innerHTML = `
+      <div class="admin-kpi-grid">
+        <div class="admin-kpi-card green">
+          <div class="admin-kpi-label">CA mensuel (abonnements)</div>
+          <div class="admin-kpi-value">${fmtEur(ca.mensuel || 0)}</div>
+          <div class="admin-kpi-sub">Actifs uniquement</div>
+        </div>
+        <div class="admin-kpi-card blue">
+          <div class="admin-kpi-label">Pharmacies</div>
+          <div class="admin-kpi-value">${ph.total || 0}</div>
+          <div class="admin-kpi-sub">${ph.actives || 0} actives · ${ph.essai || 0} essai</div>
+        </div>
+        <div class="admin-kpi-card amber">
+          <div class="admin-kpi-label">Factures traitées</div>
+          <div class="admin-kpi-value">${glob.nb_factures || 0}</div>
+          <div class="admin-kpi-sub">Tout historique</div>
+        </div>
+        <div class="admin-kpi-card purple">
+          <div class="admin-kpi-label">CA traité</div>
+          <div class="admin-kpi-value">${fmtEur(glob.ca_total || 0)}</div>
+          <div class="admin-kpi-sub">Tous clients</div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div>
+            <div class="admin-section-title">État des abonnements</div>
+            <div class="admin-section-sub">Répartition par statut</div>
+          </div>
+        </div>
+        ${renderStatutsAbonnements(abo.par_statut || {})}
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div>
+            <div class="admin-section-title">Navigation rapide</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur chargement : ${e.message}</div>`;
+  }
+}
+
+function renderStatutsAbonnements(parStatut) {
+  if (!parStatut || Object.keys(parStatut).length === 0) {
+    return '<div style="color:var(--sub); font-size:13px;">Aucun abonnement actif dans le nouveau système.</div>';
+  }
+  const rows = Object.entries(parStatut).map(([s, n]) =>
+    `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:0.5px solid var(--border);">
+       <span>${labelStatut(s)}</span>
+       <span style="font-weight:600;">${n}</span>
+     </div>`
+  ).join('');
+  return rows;
+}
+
+function labelStatut(s) {
+  const labels = {
+    essai: 'En essai', actif: 'Actif', suspendu: 'Suspendu',
+    impaye: 'Impayé', resilie: 'Résilié',
+  };
+  return labels[s] || s;
+}
+
+// ------------------------------------------------------------
+// ADMIN — LISTE PHARMACIES
+// ------------------------------------------------------------
+let _ADMIN_PHARMS_CACHE = [];
+
+async function loadAdminPharmacies() {
+  const el = document.getElementById('admin-pharmacies-content');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const data = await apiGet('/admin/pharmacies/');
+    _ADMIN_PHARMS_CACHE = data.items || [];
+
+    el.innerHTML = `
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div>
+            <div class="admin-section-title">Pharmacies clientes</div>
+            <div class="admin-section-sub">${data.total || 0} pharmacie(s) enregistrée(s)</div>
+          </div>
+          <input type="text" class="admin-search" id="admin-pharm-search" placeholder="🔍 Rechercher par nom, email, FINESS..." oninput="filterAdminPharmacies()" />
+        </div>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Email</th>
+              <th>Statut</th>
+              <th>Modules</th>
+              <th>Tarif</th>
+            </tr>
+          </thead>
+          <tbody id="admin-pharm-tbody">
+            ${renderAdminPharmsRows(_ADMIN_PHARMS_CACHE)}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderAdminPharmsRows(items) {
+  if (!items || items.length === 0) {
+    return '<tr class="no-hover"><td colspan="5" style="text-align:center; padding:20px; color:var(--sub);">Aucune pharmacie</td></tr>';
+  }
+  return items.map(p => {
+    const modules = (p.modules_actifs || []).map(m => `<span class="badge gray" style="margin-right:4px;">${m}</span>`).join('') || '—';
+    const badge = statutBadge(p.statut_global);
+    return `
+      <tr onclick="openPharmacieDetail('${p.id}')">
+        <td>${escapeHtml(p.nom || '—')}${p.is_admin ? ' <span class="badge purple">admin</span>' : ''}</td>
+        <td style="color:var(--sub);">${escapeHtml(p.email || '—')}</td>
+        <td>${badge}</td>
+        <td>${modules}</td>
+        <td>${p.tarif_mensuel ? fmtEur(p.tarif_mensuel) : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function statutBadge(s) {
+  const map = {
+    actif: ['green', 'Actif'],
+    essai: ['blue', 'En essai'],
+    suspendu: ['amber', 'Suspendu'],
+    impaye: ['red', 'Impayé'],
+    resilie: ['gray', 'Résilié'],
+    aucun: ['gray', 'Aucun'],
+  };
+  const [c, l] = map[s] || ['gray', s || '—'];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+
+function filterAdminPharmacies() {
+  const q = (document.getElementById('admin-pharm-search').value || '').toLowerCase();
+  const filtered = _ADMIN_PHARMS_CACHE.filter(p => {
+    const t = `${p.nom || ''} ${p.email || ''} ${p.finess || ''}`.toLowerCase();
+    return t.includes(q);
+  });
+  document.getElementById('admin-pharm-tbody').innerHTML = renderAdminPharmsRows(filtered);
+}
+
+// ------------------------------------------------------------
+// ADMIN — FICHE PHARMACIE
+// ------------------------------------------------------------
+async function openPharmacieDetail(id) {
+  CURRENT_PHARMACIE_ID = id;
+  const navBtn = document.getElementById('nav-admin');
+  // Simuler un goTo
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  if (navBtn) navBtn.classList.add('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-admin-pharmacie-detail').classList.add('active');
+  CURRENT_SCREEN = 'admin-pharmacie-detail';
+  document.getElementById('topbar-title').textContent = 'Fiche pharmacie';
+
+  const el = document.getElementById('admin-pharmacie-detail-content');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const p = await apiGet(`/admin/pharmacies/${id}`);
+    el.innerHTML = renderPharmacieDetail(p);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderPharmacieDetail(p) {
+  const abos = p.abonnements || [];
+  return `
+    <a class="back-link" onclick="adminGoTo('pharmacies')">← Retour à la liste</a>
+
+    <div class="admin-section">
+      <div class="admin-section-header">
+        <div>
+          <div class="admin-section-title">${escapeHtml(p.nom || '—')} ${p.is_admin ? '<span class="badge purple">admin</span>' : ''}</div>
+          <div class="admin-section-sub">${escapeHtml(p.email || '—')} · ${statutBadge(p.statut_global)}</div>
+        </div>
+      </div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchPharmacieTab(event, 'profil')">Profil</button>
+        <button class="admin-tab" onclick="switchPharmacieTab(event, 'abonnements')">Abonnements (${abos.length})</button>
+        <button class="admin-tab" onclick="switchPharmacieTab(event, 'stats')">Statistiques</button>
+      </div>
+
+      <div id="tab-profil" class="admin-tab-content active">
+        <div class="info-grid">
+          <div class="info-field"><div class="info-field-label">Nom</div><div class="info-field-value">${escapeHtml(p.nom || '—')}</div></div>
+          <div class="info-field"><div class="info-field-label">Email</div><div class="info-field-value">${escapeHtml(p.email || '—')}</div></div>
+          <div class="info-field"><div class="info-field-label">FINESS</div><div class="info-field-value">${escapeHtml(p.finess || '—')}</div></div>
+          <div class="info-field"><div class="info-field-label">Téléphone</div><div class="info-field-value">${escapeHtml(p.telephone || '—')}</div></div>
+          <div class="info-field" style="grid-column:1/-1;"><div class="info-field-label">Adresse</div><div class="info-field-value">${escapeHtml(p.adresse || '—')}</div></div>
+          <div class="info-field"><div class="info-field-label">Statut compte</div><div class="info-field-value">${p.is_active ? '✅ Actif' : '❌ Désactivé'}</div></div>
+          <div class="info-field"><div class="info-field-label">Rôle</div><div class="info-field-value">${p.is_admin ? '👑 Admin' : 'Client'}</div></div>
+        </div>
+      </div>
+
+      <div id="tab-abonnements" class="admin-tab-content">
+        ${renderAbonnements(abos)}
+      </div>
+
+      <div id="tab-stats" class="admin-tab-content">
+        <div id="tab-stats-content">
+          <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function switchPharmacieTab(event, tab) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'stats') {
+    loadStatsPharmacie(CURRENT_PHARMACIE_ID);
+  }
+}
+
+function renderAbonnements(abos) {
+  if (!abos || abos.length === 0) {
+    return '<div style="color:var(--sub); padding:12px;">Aucun abonnement (nouveau système) pour cette pharmacie.</div>';
+  }
+  return `
+    <table class="admin-table">
+      <thead>
+        <tr><th>Module</th><th>Statut</th><th>Tarif</th><th>Début</th><th>Fin</th><th>Mode paiement</th></tr>
+      </thead>
+      <tbody>
+        ${abos.map(a => `
+          <tr class="no-hover">
+            <td><span class="badge blue">${a.module || '—'}</span></td>
+            <td>${statutBadge(a.statut)}</td>
+            <td>${a.tarif_mensuel ? fmtEur(a.tarif_mensuel) : '—'}</td>
+            <td style="color:var(--sub); font-size:12px;">${fmtDate(a.date_debut)}</td>
+            <td style="color:var(--sub); font-size:12px;">${fmtDate(a.date_fin) || '∞'}</td>
+            <td style="font-size:12px;">${a.mode_paiement || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function loadStatsPharmacie(id) {
+  const el = document.getElementById('tab-stats-content');
+  try {
+    const s = await apiGet(`/admin/stats/pharmacie/${id}`);
+    const glob = s.global || {};
+    el.innerHTML = `
+      <div class="admin-kpi-grid">
+        <div class="admin-kpi-card green"><div class="admin-kpi-label">Factures uploadées</div><div class="admin-kpi-value">${glob.nb_factures || 0}</div></div>
+        <div class="admin-kpi-card blue"><div class="admin-kpi-label">CA total</div><div class="admin-kpi-value">${fmtEur(glob.ca_total || 0)}</div></div>
+        <div class="admin-kpi-card amber"><div class="admin-kpi-label">Remise calculée</div><div class="admin-kpi-value">${fmtEur(glob.remise_total || 0)}</div></div>
+        <div class="admin-kpi-card purple"><div class="admin-kpi-label">Lignes traitées</div><div class="admin-kpi-value">${glob.nb_lignes || 0}</div></div>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red);">Erreur : ${e.message}</div>`;
+  }
+}
+
+// ------------------------------------------------------------
+// ADMIN — CLASSIFICATIONS 🎯
+// ------------------------------------------------------------
+let _CLASSIF_DATA = null;
+
+async function loadAdminClassifications() {
+  const el = document.getElementById('admin-classifications-content');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement des classifications...</div>';
+
+  try {
+    const data = await apiGet('/admin/classifications');
+    _CLASSIF_DATA = data;
+    renderClassificationsScreen(data);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderClassificationsScreen(data) {
+  const el = document.getElementById('admin-classifications-content');
+  const cats = data.categories || {};
+  const catEntries = Object.entries(cats);
+
+  el.innerHTML = `
+    <div class="admin-section">
+      <div class="admin-section-header">
+        <div>
+          <div class="admin-section-title">Classifications des produits</div>
+          <div class="admin-section-sub">
+            ${data.total_cips_uniques || 0} CIP uniques ·
+            <span style="color:var(--amber); font-weight:500;">${data.total_corrections_actives || 0} correction(s) active(s)</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" class="admin-search" id="classif-search" placeholder="🔍 CIP ou nom..." oninput="filterClassifications()" />
+          <button class="admin-btn" onclick="recalculerClassifications()">🔄 Recalculer toutes les factures</button>
+        </div>
+      </div>
+
+      <div style="font-size:12px; color:var(--sub); margin-bottom:12px; padding:10px 12px; background:var(--bg); border-radius:8px;">
+        💡 Cliquez sur ✏️ pour corriger la classification d'un produit.
+        Les corrections s'appliquent <strong>globalement</strong> à toutes les pharmacies et doivent être suivies d'un recalcul pour affecter les factures existantes.
+      </div>
+
+      <div id="classif-categories">
+        ${catEntries.map(([key, cat]) => renderClassifCategory(key, cat)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderClassifCategory(key, cat) {
+  const items = cat.items || [];
+  const preview = items.slice(0, 100);
+  return `
+    <div class="classif-category" data-cat="${key}">
+      <div class="classif-category-header" onclick="toggleClassifCategory(this)">
+        <h3><span class="chevron">▶</span> ${escapeHtml(cat.label)} <span class="count">${cat.count}</span></h3>
+        <div style="font-size:12px; color:var(--sub);">${items.some(i => i.est_force) ? `<span class="badge amber">${items.filter(i => i.est_force).length} forcé(s)</span>` : ''}</div>
+      </div>
+      <div class="classif-category-body">
+        ${preview.map(it => renderClassifRow(it, key)).join('')}
+        ${items.length > 100 ? `<div style="padding:10px 18px; color:var(--sub); font-size:12px;">... et ${items.length - 100} autres (utilisez la recherche pour les retrouver)</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderClassifRow(it, catKey) {
+  const forced = it.est_force;
+  return `
+    <div class="classif-row ${forced ? 'forced' : ''}" data-cip="${it.cip13}" data-nom="${escapeHtml((it.nom||'').toLowerCase())}">
+      <div class="classif-cip">${it.cip13}</div>
+      <div class="classif-nom">${escapeHtml(it.nom || '—')}${forced ? `<span class="classif-forced-tag">✓ corrigé (était ${labelCategory(it.statut_original)})</span>` : ''}</div>
+      <div class="classif-status"><span class="badge gray">${labelCategory(catKey)}</span></div>
+      <button class="classif-edit-btn" title="Modifier" onclick="openClassifModal('${it.cip13}', '${escapeAttr(it.nom || '')}', '${catKey}', '${it.statut_original || catKey}', ${forced})">✏️</button>
+    </div>
+  `;
+}
+
+function labelCategory(k) {
+  const labels = {
+    generique: 'Générique', biosimilaire: 'Biosimilaire',
+    tva_20: 'TVA 20%', tva_5_5: 'TVA 5.5%', tva_10: 'TVA 10%',
+    remise_facture: 'Remise facture', produit_cher: 'Produit cher',
+    princeps: 'Princeps', frigo: 'Frigo', stupefiants: 'Stupéfiants',
+    eligible: 'Éligible', unknown: 'Non classé',
+  };
+  return labels[k] || k;
+}
+
+function toggleClassifCategory(header) {
+  header.parentElement.classList.toggle('open');
+}
+
+function filterClassifications() {
+  const q = (document.getElementById('classif-search').value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('.classif-row');
+  const catOpenSet = new Set();
+
+  rows.forEach(row => {
+    const cip = row.getAttribute('data-cip') || '';
+    const nom = row.getAttribute('data-nom') || '';
+    const match = !q || cip.includes(q) || nom.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match && q) {
+      const cat = row.closest('.classif-category');
+      if (cat) catOpenSet.add(cat);
+    }
+  });
+
+  // Auto-open matching categories
+  document.querySelectorAll('.classif-category').forEach(cat => {
+    if (q && catOpenSet.has(cat)) cat.classList.add('open');
+  });
+}
+
+// --- Modal classification
+function openClassifModal(cip, nom, catCurrent, catOriginal, isForced) {
+  CURRENT_CLASSIF_EDIT = { cip, nom, catCurrent, catOriginal, isForced };
+  document.getElementById('modal-classif-cip').value = cip;
+  document.getElementById('modal-classif-nom').value = nom;
+  document.getElementById('modal-classif-original').value = labelCategory(catOriginal);
+  document.getElementById('modal-classif-new').value = catCurrent;
+  document.getElementById('modal-classif-forced-note').style.display = isForced ? 'block' : 'none';
+  document.getElementById('modal-classif-delete').style.display = isForced ? 'inline-block' : 'none';
+  document.getElementById('admin-classif-modal').classList.add('open');
+}
+
+function closeClassifModal() {
+  document.getElementById('admin-classif-modal').classList.remove('open');
+  CURRENT_CLASSIF_EDIT = null;
+}
+
+async function saveClassifCorrection() {
+  if (!CURRENT_CLASSIF_EDIT) return;
+  const newStatut = document.getElementById('modal-classif-new').value;
+
+  try {
+    await apiPost('/admin/classifications', {
+      cip13: CURRENT_CLASSIF_EDIT.cip,
+      nom: CURRENT_CLASSIF_EDIT.nom,
+      statut_force: newStatut,
+    });
+    toast('Classification enregistrée', 'green');
+    closeClassifModal();
+    await loadAdminClassifications();
+  } catch (e) {
+    toast('Erreur : ' + e.message, 'red');
+  }
+}
+
+async function deleteClassifCorrection() {
+  if (!CURRENT_CLASSIF_EDIT) return;
+  if (!confirm('Retirer la correction manuelle pour ce CIP ?')) return;
+
+  try {
+    const r = await fetch(`${API}/admin/classifications/${CURRENT_CLASSIF_EDIT.cip}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${TOKEN}` }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast('Correction retirée', 'green');
+    closeClassifModal();
+    await loadAdminClassifications();
+  } catch (e) {
+    toast('Erreur : ' + e.message, 'red');
+  }
+}
+
+async function recalculerClassifications() {
+  if (!confirm('Recalculer toutes les factures ? Cette action peut prendre plusieurs minutes.')) return;
+  toast('Recalcul en cours...', 'blue');
+  try {
+    const r = await apiPost('/admin/classifications/recalculer', {});
+    toast(`✅ ${r.nb_lignes_changees} lignes modifiées sur ${r.nb_lignes_traitees}`, 'green');
+    await loadAdminClassifications();
+  } catch (e) {
+    toast('Erreur : ' + e.message, 'red');
+  }
+}
+
+// ------------------------------------------------------------
+// Helpers admin
+// ------------------------------------------------------------
+function adminGoTo(section) {
+  const btn = document.getElementById('nav-admin');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+  let screenId, title, loader;
+  switch (section) {
+    case 'dashboard':
+      screenId = 'screen-admin-dashboard'; title = 'Admin — Tableau de bord'; loader = loadAdminDashboard; break;
+    case 'pharmacies':
+      screenId = 'screen-admin-pharmacies'; title = 'Admin — Pharmacies'; loader = loadAdminPharmacies; break;
+    case 'classifications':
+      screenId = 'screen-admin-classifications'; title = 'Admin — Classifications'; loader = loadAdminClassifications; break;
+    default:
+      screenId = 'screen-admin-dashboard'; title = 'Admin'; loader = loadAdminDashboard;
+  }
+  document.getElementById(screenId).classList.add('active');
+  CURRENT_SCREEN = 'admin-' + section;
+  document.getElementById('topbar-title').textContent = title;
+  loader();
+}
+
+// Escape HTML pour éviter XSS dans les noms de produits
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, "\\'");
+}
+
+function fmtEur(n) {
+  if (n == null || isNaN(n)) return '—';
+  const v = Number(n);
+  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('fr-FR') + ' €';
+  return v.toFixed(2).replace('.', ',') + ' €';
+}
+function fmtDate(s) {
+  if (!s) return null;
+  try {
+    const d = new Date(s);
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString('fr-FR');
+  } catch (e) { return s; }
+}
+
+
+/* === ADMIN_BOOTSTRAP_INJECTED_MARKER === */
+// Boot admin : tenter de détecter si l'utilisateur est admin (non bloquant)
+if (typeof checkIsAdmin === 'function') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { try { checkIsAdmin(); } catch (e) {} });
+  } else {
+    try { checkIsAdmin(); } catch (e) {}
+  }
+}
 </script>
 </body>
 </html>
