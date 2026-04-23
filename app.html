@@ -5244,6 +5244,280 @@ if (typeof checkIsAdmin === 'function') {
     try { checkIsAdmin(); } catch (e) {}
   }
 }
+
+
+// === ADMIN_STATS_METIER_INJECTED_MARKER ===
+// ============================================================
+// Admin — Stats Métier (Grossiste + Génériqueur) — v2.7.0
+// ============================================================
+
+// ------------------------------------------------------------
+// ADMIN DASHBOARD — Enrichi avec sections Grossiste + Génériqueur
+// ------------------------------------------------------------
+
+async function loadAdminDashboardWithMetier() {
+  const el = document.getElementById('admin-dashboard-content');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const [commerce, metier, grossisteGlobal, generiqueurGlobal] = await Promise.all([
+      apiGet('/admin/stats/commerce'),
+      apiGet('/admin/stats/metier'),
+      apiGet('/admin/stats/grossiste/global').catch(() => null),
+      apiGet('/admin/stats/generiqueur/global').catch(() => null),
+    ]);
+
+    const ph   = commerce.pharmacies || {};
+    const ca   = commerce.ca || {};
+    const abo  = commerce.abonnements || {};
+    const glob = metier.global || {};
+
+    let html = `
+      <div class="admin-kpi-grid">
+        <div class="admin-kpi-card green">
+          <div class="admin-kpi-label">CA mensuel (abonnements)</div>
+          <div class="admin-kpi-value">${fmtEur(ca.mensuel || 0)}</div>
+          <div class="admin-kpi-sub">Actifs uniquement</div>
+        </div>
+        <div class="admin-kpi-card blue">
+          <div class="admin-kpi-label">Pharmacies</div>
+          <div class="admin-kpi-value">${ph.total || 0}</div>
+          <div class="admin-kpi-sub">${ph.actives || 0} actives · ${ph.essai || 0} essai</div>
+        </div>
+        <div class="admin-kpi-card amber">
+          <div class="admin-kpi-label">Factures traitées</div>
+          <div class="admin-kpi-value">${glob.nb_factures || 0}</div>
+          <div class="admin-kpi-sub">Tout historique</div>
+        </div>
+        <div class="admin-kpi-card purple">
+          <div class="admin-kpi-label">CA traité</div>
+          <div class="admin-kpi-value">${fmtEur(glob.ca_total || 0)}</div>
+          <div class="admin-kpi-sub">Tous clients</div>
+        </div>
+      </div>
+    `;
+
+    // SECTION GROSSISTES
+    if (grossisteGlobal) {
+      html += renderGrossisteSection(grossisteGlobal, 'Stats Grossistes (global)');
+    }
+
+    // SECTION GENERIQUEURS
+    if (generiqueurGlobal) {
+      html += renderGeneriqueurSection(generiqueurGlobal, 'Stats Génériqueurs (global)');
+    }
+
+    // Nav rapide
+    html += `
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div><div class="admin-section-title">Navigation rapide</div></div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
+        </div>
+      </div>
+    `;
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur : ${e.message}</div>`;
+  }
+}
+
+// Override pour utiliser la nouvelle version enrichie
+window.loadAdminDashboard = loadAdminDashboardWithMetier;
+
+
+// ------------------------------------------------------------
+// Render : section grossiste
+// ------------------------------------------------------------
+function renderGrossisteSection(data, title) {
+  const meilleur = data.meilleur_grossiste;
+  const parGrossiste = data.par_grossiste || [];
+
+  if (!meilleur) {
+    return `
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div>
+            <div class="admin-section-title">📦 ${title}</div>
+            <div class="admin-section-sub">Aucune donnée grossiste disponible.</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="admin-section">
+      <div class="admin-section-header">
+        <div>
+          <div class="admin-section-title">📦 ${title}</div>
+          <div class="admin-section-sub">${data.nb_grossistes} grossiste(s) · ${fmtEur(data.ca_total)} de CA éligible</div>
+        </div>
+      </div>
+
+      <div class="admin-kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="admin-kpi-card green">
+          <div class="admin-kpi-label">Meilleur grossiste</div>
+          <div class="admin-kpi-value" style="font-size:20px;">${escapeHtml(meilleur.fournisseur)}</div>
+          <div class="admin-kpi-sub">${fmtEur(meilleur.ca_eligible)} de CA · ${meilleur.remise_pct}% de remise</div>
+        </div>
+        <div class="admin-kpi-card blue">
+          <div class="admin-kpi-label">Remise moyenne pondérée</div>
+          <div class="admin-kpi-value">${data.remise_moyenne_pct}%</div>
+          <div class="admin-kpi-sub">${fmtEur(data.remise_totale)} remises totales</div>
+        </div>
+        <div class="admin-kpi-card amber">
+          <div class="admin-kpi-label">CA éligible total</div>
+          <div class="admin-kpi-value">${fmtEur(data.ca_total)}</div>
+          <div class="admin-kpi-sub">sur ${data.nb_grossistes} grossistes</div>
+        </div>
+      </div>
+
+      <table class="admin-table" style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th>Grossiste</th>
+            <th style="text-align:right;">CA éligible</th>
+            <th style="text-align:right;">Remise calculée</th>
+            <th style="text-align:right;">Remise %</th>
+            <th style="text-align:right;">Nb factures</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${parGrossiste.map((g, i) => `
+            <tr class="no-hover">
+              <td>${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '&nbsp;&nbsp;'} ${escapeHtml(g.fournisseur)}</td>
+              <td style="text-align:right; font-weight:500;">${fmtEur(g.ca_eligible)}</td>
+              <td style="text-align:right; color:var(--green-d);">${fmtEur(g.remise_calculee)}</td>
+              <td style="text-align:right;"><span class="badge ${g.remise_pct >= 5 ? 'green' : g.remise_pct >= 2 ? 'blue' : 'gray'}">${g.remise_pct}%</span></td>
+              <td style="text-align:right; color:var(--sub);">${g.nb_factures}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------
+// Render : section génériqueur
+// ------------------------------------------------------------
+function renderGeneriqueurSection(data, title) {
+  const meilleur = data.meilleur_genrq;
+  const parLabo = data.par_labo || [];
+
+  if (!meilleur) {
+    return `
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div>
+            <div class="admin-section-title">💊 ${title}</div>
+            <div class="admin-section-sub">Aucune donnée génériqueur disponible (pas de lignes classées "générique" dans les factures).</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="admin-section">
+      <div class="admin-section-header">
+        <div>
+          <div class="admin-section-title">💊 ${title}</div>
+          <div class="admin-section-sub">${data.nb_labos} labo(s) · ${data.nb_molecules_distinctes} molécule(s) distinctes</div>
+        </div>
+      </div>
+
+      <div class="admin-kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="admin-kpi-card green">
+          <div class="admin-kpi-label">Meilleur génériqueur</div>
+          <div class="admin-kpi-value" style="font-size:18px;">${escapeHtml(meilleur.labo)}</div>
+          <div class="admin-kpi-sub">${fmtEur(meilleur.ca_ht)} · ${meilleur.remise_moyenne_pct}% remise moy.</div>
+        </div>
+        <div class="admin-kpi-card blue">
+          <div class="admin-kpi-label">% génériques / achats</div>
+          <div class="admin-kpi-value">${data.pct_generiques}%</div>
+          <div class="admin-kpi-sub">${fmtEur(data.ca_generique_total)} / ${fmtEur(data.ca_total_achat)}</div>
+        </div>
+        <div class="admin-kpi-card amber">
+          <div class="admin-kpi-label">CA générique total</div>
+          <div class="admin-kpi-value">${fmtEur(data.ca_generique_total)}</div>
+          <div class="admin-kpi-sub">${data.nb_labos} labos</div>
+        </div>
+        <div class="admin-kpi-card purple">
+          <div class="admin-kpi-label">Molécules</div>
+          <div class="admin-kpi-value">${data.nb_molecules_distinctes}</div>
+          <div class="admin-kpi-sub">distinctes commandées</div>
+        </div>
+      </div>
+
+      <table class="admin-table" style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th>Labo génériqueur</th>
+            <th style="text-align:right;">CA HT</th>
+            <th style="text-align:right;">Remise moy.</th>
+            <th style="text-align:right;">Molécules</th>
+            <th style="text-align:right;">Nb lignes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${parLabo.map((l, i) => `
+            <tr class="no-hover">
+              <td>${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '&nbsp;&nbsp;'} ${escapeHtml(l.labo)}</td>
+              <td style="text-align:right; font-weight:500;">${fmtEur(l.ca_ht)}</td>
+              <td style="text-align:right;"><span class="badge ${l.remise_moyenne_pct >= 20 ? 'green' : l.remise_moyenne_pct >= 10 ? 'blue' : 'gray'}">${l.remise_moyenne_pct}%</span></td>
+              <td style="text-align:right; color:var(--sub);">${l.nb_molecules}</td>
+              <td style="text-align:right; color:var(--sub);">${l.nb_lignes}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------
+// Stats par pharmacie — override du onglet Stats existant
+// ------------------------------------------------------------
+async function loadStatsPharmacieV2(id) {
+  const el = document.getElementById('tab-stats-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const [stats, grossiste, genrq] = await Promise.all([
+      apiGet(`/admin/stats/pharmacie/${id}`).catch(() => ({})),
+      apiGet(`/admin/stats/grossiste/pharmacie/${id}`).catch(() => null),
+      apiGet(`/admin/stats/generiqueur/pharmacie/${id}`).catch(() => null),
+    ]);
+
+    const glob = stats.global || {};
+    let html = `
+      <div class="admin-kpi-grid">
+        <div class="admin-kpi-card green"><div class="admin-kpi-label">Factures uploadées</div><div class="admin-kpi-value">${glob.nb_factures || 0}</div></div>
+        <div class="admin-kpi-card blue"><div class="admin-kpi-label">CA total</div><div class="admin-kpi-value">${fmtEur(glob.ca_total || 0)}</div></div>
+        <div class="admin-kpi-card amber"><div class="admin-kpi-label">Remise calculée</div><div class="admin-kpi-value">${fmtEur(glob.remise_total || 0)}</div></div>
+        <div class="admin-kpi-card purple"><div class="admin-kpi-label">Lignes traitées</div><div class="admin-kpi-value">${glob.nb_lignes || 0}</div></div>
+      </div>
+    `;
+
+    if (grossiste) html += renderGrossisteSection(grossiste, 'Grossistes de cette pharmacie');
+    if (genrq) html += renderGeneriqueurSection(genrq, 'Génériqueurs de cette pharmacie');
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red);">Erreur : ${e.message}</div>`;
+  }
+}
+
+// Override
+window.loadStatsPharmacie = loadStatsPharmacieV2;
+
 </script>
 </body>
 </html>
