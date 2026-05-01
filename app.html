@@ -5486,6 +5486,8 @@ function renderStatsGeneriqueurReseau(data) {
 
 
 
+
+
 // === ADMIN_INTEGRATION_AUDIT_INJECTED_MARKER ===
 // ============================================================
 // Admin — Audit Log PharmaCollect (v2.8.1)
@@ -5610,7 +5612,7 @@ function renderIntegrationDashboard(stats, logs) {
           <thead><tr><th>Pharmacie</th><th style="text-align:right;">Imports</th></tr></thead>
           <tbody>
             ${tph.length === 0
-              ? '<tr class="no-hover"><td colspan="2" style="text-align:center; color:var(--sub); padding:16px;">Aucune pharmacie n\\'utilise PharmaCollect</td></tr>'
+              ? '<tr class="no-hover"><td colspan="2" style="text-align:center; color:var(--sub); padding:16px;">Aucune pharmacie n&rsquo;utilise PharmaCollect</td></tr>'
               : tph.map(p => `
                 <tr class="no-hover">
                   <td>${escapeHtml(p.pharmacie_nom)}</td>
@@ -5651,7 +5653,7 @@ function renderIntegrationDashboard(stats, logs) {
         </thead>
         <tbody>
           ${items.length === 0
-            ? '<tr class="no-hover"><td colspan="6" style="text-align:center; color:var(--sub); padding:30px;">Aucun import re\u00e7u pour l\'instant. Quand PharmaCollect commencera \u00e0 envoyer des donn\u00e9es, elles appara\u00eetront ici.</td></tr>'
+            ? '<tr class="no-hover"><td colspan="6" style="text-align:center; color:var(--sub); padding:30px;">Aucun import re\u00e7u pour l&rsquo;instant. Quand PharmaCollect commencera \u00e0 envoyer des donn\u00e9es, elles appara\u00eetront ici.</td></tr>'
             : items.map(it => {
               const isError = it.status === 'error';
               const dateStr = it.created_at ? new Date(it.created_at).toLocaleString('fr-FR', {
