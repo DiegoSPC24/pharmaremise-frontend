@@ -5484,6 +5484,286 @@ function renderStatsGeneriqueurReseau(data) {
   `;
 }
 
+
+
+// === ADMIN_INTEGRATION_AUDIT_INJECTED_MARKER ===
+// ============================================================
+// Admin — Audit Log PharmaCollect (v2.8.1)
+// ============================================================
+
+// Ajout d'un onglet sidebar
+function _injectAuditTabSidebar() {
+  const sidebar = document.querySelector('#admin-sidebar-extra');
+  if (!sidebar) return;
+  if (document.querySelector('[data-admin-screen="integration"]')) return;
+  const btn = document.createElement('button');
+  btn.className = 'sidebar-link admin-only';
+  btn.setAttribute('data-admin-screen', 'integration');
+  btn.innerHTML = '🔌 Intégration PharmaCollect';
+  btn.onclick = () => adminGoTo('integration');
+  sidebar.appendChild(btn);
+}
+
+// Ajout de la section écran si elle n'existe pas
+function _ensureIntegrationScreen() {
+  if (document.getElementById('screen-admin-integration')) return;
+  const main = document.getElementById('main-content') || document.body;
+  const screen = document.createElement('div');
+  screen.id = 'screen-admin-integration';
+  screen.className = 'screen';
+  screen.style.display = 'none';
+  screen.innerHTML = `
+    <div class="screen-header">
+      <h1>🔌 Intégration PharmaCollect</h1>
+    </div>
+    <div id="admin-integration-content" style="padding: 20px;">
+      <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+    </div>
+  `;
+  main.appendChild(screen);
+}
+
+// Chargement de la section
+async function loadAdminIntegration() {
+  _ensureIntegrationScreen();
+  const el = document.getElementById('admin-integration-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+
+  try {
+    const [stats, logs] = await Promise.all([
+      apiGet('/admin/integration/stats').catch(() => null),
+      apiGet('/admin/integration/logs?limit=50').catch(() => ({ items: [], total: 0 })),
+    ]);
+
+    el.innerHTML = renderIntegrationDashboard(stats, logs);
+    _attachLogRowHandlers();
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red); padding:20px;">Erreur : ${e.message}</div>`;
+  }
+}
+window.loadAdminIntegration = loadAdminIntegration;
+
+
+function renderIntegrationDashboard(stats, logs) {
+  const t  = stats?.totaux  || {};
+  const q  = stats?.qualite || {};
+  const tp = stats?.par_type_30j || [];
+  const tph = stats?.top_pharmacies || [];
+
+  const taux = q.taux_succes_pct ?? 0;
+  const tauxColor = taux >= 95 ? 'green' : taux >= 80 ? 'amber' : 'red';
+
+  let html = `
+    <div class="admin-kpi-grid">
+      <div class="admin-kpi-card green">
+        <div class="admin-kpi-label">Aujourd'hui</div>
+        <div class="admin-kpi-value">${t.today || 0}</div>
+        <div class="admin-kpi-sub">imports re\u00e7us</div>
+      </div>
+      <div class="admin-kpi-card blue">
+        <div class="admin-kpi-label">7 derniers jours</div>
+        <div class="admin-kpi-value">${t.last_7_days || 0}</div>
+        <div class="admin-kpi-sub">imports</div>
+      </div>
+      <div class="admin-kpi-card amber">
+        <div class="admin-kpi-label">30 derniers jours</div>
+        <div class="admin-kpi-value">${t.last_30_days || 0}</div>
+        <div class="admin-kpi-sub">imports</div>
+      </div>
+      <div class="admin-kpi-card ${tauxColor}">
+        <div class="admin-kpi-label">Taux de succ\u00e8s</div>
+        <div class="admin-kpi-value">${taux}%</div>
+        <div class="admin-kpi-sub">${q.success || 0} OK / ${q.errors || 0} erreurs</div>
+      </div>
+    </div>
+  `;
+
+  // Section : par type + top pharmacies
+  html += `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div><div class="admin-section-title">Imports par type (30j)</div></div>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>Type</th><th style="text-align:right;">Nb imports</th></tr></thead>
+          <tbody>
+            ${tp.length === 0
+              ? '<tr class="no-hover"><td colspan="2" style="text-align:center; color:var(--sub); padding:16px;">Aucun import dans les 30 derniers jours</td></tr>'
+              : tp.map(p => `
+                <tr class="no-hover">
+                  <td>${escapeHtml(p.endpoint)}</td>
+                  <td style="text-align:right; font-weight:500;">${p.count}</td>
+                </tr>
+              `).join('')
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <div><div class="admin-section-title">Top pharmacies (30j)</div></div>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>Pharmacie</th><th style="text-align:right;">Imports</th></tr></thead>
+          <tbody>
+            ${tph.length === 0
+              ? '<tr class="no-hover"><td colspan="2" style="text-align:center; color:var(--sub); padding:16px;">Aucune pharmacie n\\'utilise PharmaCollect</td></tr>'
+              : tph.map(p => `
+                <tr class="no-hover">
+                  <td>${escapeHtml(p.pharmacie_nom)}</td>
+                  <td style="text-align:right; font-weight:500;">${p.nb_imports}</td>
+                </tr>
+              `).join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Section : derniers imports
+  const items = logs?.items || [];
+  const total = logs?.total || 0;
+
+  html += `
+    <div class="admin-section" style="margin-top:20px;">
+      <div class="admin-section-header">
+        <div>
+          <div class="admin-section-title">Derniers imports</div>
+          <div class="admin-section-sub">${total} imports au total · ${items.length} affich\u00e9s</div>
+        </div>
+        <button class="admin-btn secondary" onclick="loadAdminIntegration()">\u21bb Rafra\u00eechir</button>
+      </div>
+
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Pharmacie</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>R\u00e9sum\u00e9</th>
+            <th>Fichier</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.length === 0
+            ? '<tr class="no-hover"><td colspan="6" style="text-align:center; color:var(--sub); padding:30px;">Aucun import re\u00e7u pour l\'instant. Quand PharmaCollect commencera \u00e0 envoyer des donn\u00e9es, elles appara\u00eetront ici.</td></tr>'
+            : items.map(it => {
+              const isError = it.status === 'error';
+              const dateStr = it.created_at ? new Date(it.created_at).toLocaleString('fr-FR', {
+                day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'
+              }) : '—';
+              return `
+                <tr style="cursor:pointer;" data-log-id="${it.id}">
+                  <td style="font-family:'DM Mono',monospace; font-size:12px;">${dateStr}</td>
+                  <td>${escapeHtml(it.pharmacie_nom)}</td>
+                  <td><span class="badge ${it.endpoint === 'factures' ? 'blue' : it.endpoint === 'releves' ? 'amber' : 'gray'}">${escapeHtml(it.endpoint)}</span></td>
+                  <td><span class="badge ${isError ? 'red' : 'green'}">${isError ? '\u2716 Erreur' : '\u2714 Succ\u00e8s'}</span></td>
+                  <td style="font-size:12px; color:${isError ? 'var(--red)' : 'var(--text)'};">${escapeHtml(isError ? (it.error_message || '\u2014') : (it.summary_short || '\u2014'))}</td>
+                  <td style="font-family:'DM Mono',monospace; font-size:11px; color:var(--sub);">${escapeHtml(it.filename || '\u2014')}</td>
+                </tr>
+              `;
+            }).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return html;
+}
+
+
+// Ouverture modale détail
+function _attachLogRowHandlers() {
+  document.querySelectorAll('#admin-integration-content tr[data-log-id]').forEach(tr => {
+    tr.onclick = () => showLogDetail(tr.getAttribute('data-log-id'));
+  });
+}
+
+async function showLogDetail(logId) {
+  try {
+    const log = await apiGet(`/admin/integration/logs/${logId}`);
+    const summary = log.summary_full ? JSON.parse(log.summary_full) : null;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:40px;';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+    modal.innerHTML = `
+      <div style="background:white; border-radius:12px; max-width:700px; width:100%; max-height:80vh; overflow:auto; padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2 style="margin:0;">D\u00e9tail de l'import</h2>
+          <button onclick="this.closest('[style*=\\'position:fixed\\']').remove()" style="background:none; border:none; font-size:24px; cursor:pointer;">\u2715</button>
+        </div>
+        <div style="display:grid; grid-template-columns:120px 1fr; gap:8px 16px; font-size:13px;">
+          <div style="color:var(--sub);">Date</div>
+          <div>${log.created_at ? new Date(log.created_at).toLocaleString('fr-FR') : '\u2014'}</div>
+          <div style="color:var(--sub);">Pharmacie</div>
+          <div>${escapeHtml(log.pharmacie_nom)}</div>
+          <div style="color:var(--sub);">Endpoint</div>
+          <div>${escapeHtml(log.endpoint)}</div>
+          <div style="color:var(--sub);">Statut</div>
+          <div><span class="badge ${log.status === 'error' ? 'red' : 'green'}">${log.status === 'error' ? '\u2716 Erreur' : '\u2714 Succ\u00e8s'}</span></div>
+          <div style="color:var(--sub);">Filename</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px;">${escapeHtml(log.filename || '\u2014')}</div>
+          <div style="color:var(--sub);">Resource ID</div>
+          <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--sub);">${escapeHtml(log.ressource_id || '\u2014')}</div>
+        </div>
+        ${log.error_message ? `
+          <div style="margin-top:16px; padding:12px; background:#fee; border-radius:8px; border-left:4px solid var(--red);">
+            <div style="font-weight:600; color:var(--red); margin-bottom:4px;">Erreur :</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px;">${escapeHtml(log.error_message)}</div>
+          </div>` : ''}
+        ${summary ? `
+          <div style="margin-top:16px;">
+            <div style="font-weight:600; margin-bottom:8px;">R\u00e9sum\u00e9 complet :</div>
+            <pre style="background:#f5f5f5; padding:12px; border-radius:8px; font-size:11px; overflow:auto; max-height:300px;">${escapeHtml(JSON.stringify(summary, null, 2))}</pre>
+          </div>` : ''}
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } catch (e) {
+    alert('Erreur chargement d\u00e9tail : ' + e.message);
+  }
+}
+
+
+// Hook : si on est admin et qu'on charge l'app, on injecte le tab
+(function _bootAuditTab() {
+  const tryInject = () => {
+    if (typeof apiGet === 'function') {
+      _injectAuditTabSidebar();
+    } else {
+      setTimeout(tryInject, 500);
+    }
+  };
+  tryInject();
+})();
+
+// Hook : si adminGoTo('integration') est appelé, charger
+(function _hookAdminGoTo() {
+  const orig = window.adminGoTo;
+  if (!orig || orig.__pmckPatched) return;
+  window.adminGoTo = function(screen, btn) {
+    const result = orig.apply(this, arguments);
+    if (screen === 'integration') {
+      _ensureIntegrationScreen();
+      // Afficher l'écran
+      document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+      const target = document.getElementById('screen-admin-integration');
+      if (target) target.style.display = 'block';
+      loadAdminIntegration();
+    }
+    return result;
+  };
+  window.adminGoTo.__pmckPatched = true;
+})();
+
 </script>
 </body>
 </html>
