@@ -5488,6 +5488,8 @@ function renderStatsGeneriqueurReseau(data) {
 
 
 
+
+
 // === ADMIN_INTEGRATION_AUDIT_INJECTED_MARKER ===
 // ============================================================
 // Admin — Audit Log PharmaCollect (v2.8.1)
@@ -5506,23 +5508,38 @@ function _injectAuditTabSidebar() {
   sidebar.appendChild(btn);
 }
 
-// Ajout de la section écran si elle n'existe pas
+// Ajout de la section écran si elle n'existe pas (ou la déplacer si elle est mal placée)
 function _ensureIntegrationScreen() {
-  if (document.getElementById('screen-admin-integration')) return;
-  const main = document.getElementById('main-content') || document.body;
-  const screen = document.createElement('div');
-  screen.id = 'screen-admin-integration';
-  screen.className = 'screen';
-  screen.style.display = 'none';
-  screen.innerHTML = `
-    <div class="screen-header">
-      <h1>🔌 Intégration PharmaCollect</h1>
-    </div>
-    <div id="admin-integration-content" style="padding: 20px;">
-      <div class="loading-center"><div class="spinner"></div> Chargement...</div>
-    </div>
-  `;
-  main.appendChild(screen);
+  // Trouver le bon parent : le DIV qui contient tous les autres écrans
+  const refScreen = document.getElementById('screen-admin-dashboard')
+                 || document.querySelector('.screen');
+  const targetParent = refScreen?.parentElement
+                    || document.querySelector('.content')
+                    || document.body;
+
+  let screen = document.getElementById('screen-admin-integration');
+
+  // Si l'écran existe déjà mais n'est pas dans le bon parent, le déplacer
+  if (screen && screen.parentElement !== targetParent) {
+    targetParent.appendChild(screen);
+  }
+
+  // Sinon, le créer
+  if (!screen) {
+    screen = document.createElement('div');
+    screen.id = 'screen-admin-integration';
+    screen.className = 'screen';
+    screen.style.display = 'none';
+    screen.innerHTML = `
+      <div class="screen-header">
+        <h1>🔌 Intégration PharmaCollect</h1>
+      </div>
+      <div id="admin-integration-content" style="padding: 20px;">
+        <div class="loading-center"><div class="spinner"></div> Chargement...</div>
+      </div>
+    `;
+    targetParent.appendChild(screen);
+  }
 }
 
 // Chargement de la section
@@ -5764,67 +5781,6 @@ async function showLogDetail(logId) {
     return result;
   };
   window.adminGoTo.__pmckPatched = true;
-})();
-
-
-
-// === ADMIN_NAV_FIX_INJECTED_MARKER ===
-// ============================================================
-// Mini-fix : ajoute bouton "Audit PharmaCollect" dans Navigation rapide
-// ============================================================
-// Patche loadAdminDashboardReseau pour ajouter un 3ème bouton dans
-// la section "Navigation rapide" déjà présente.
-
-(function _patchAdminDashboardNav() {
-  // Attendre que loadAdminDashboardReseau soit défini
-  const tryPatch = () => {
-    const orig = window.loadAdminDashboard;
-    if (typeof orig !== 'function' || orig.__navPatchedV282) {
-      return;
-    }
-
-    window.loadAdminDashboard = async function() {
-      const result = await orig.apply(this, arguments);
-
-      // Après le rendu, chercher la section Navigation rapide et y ajouter le bouton
-      setTimeout(() => {
-        const sections = document.querySelectorAll('#admin-dashboard-content .admin-section');
-        for (const sec of sections) {
-          const title = sec.querySelector('.admin-section-title');
-          if (title && title.textContent.includes('Navigation rapide')) {
-            const btnContainer = sec.querySelector('div[style*="display:flex"]') 
-                              || sec.querySelector('div[style*="flex"]');
-            if (btnContainer && !btnContainer.querySelector('[data-pmck-audit-btn]')) {
-              const newBtn = document.createElement('button');
-              newBtn.className = 'admin-btn secondary';
-              newBtn.setAttribute('data-pmck-audit-btn', 'true');
-              newBtn.innerHTML = '🔌 Audit PharmaCollect';
-              newBtn.onclick = () => {
-                if (typeof adminGoTo === 'function') {
-                  adminGoTo('integration');
-                }
-              };
-              btnContainer.appendChild(newBtn);
-            }
-            break;
-          }
-        }
-      }, 100);
-
-      return result;
-    };
-    window.loadAdminDashboard.__navPatchedV282 = true;
-  };
-
-  // Réessayer toutes les 200ms jusqu'à ce que la fonction existe
-  const interval = setInterval(() => {
-    if (typeof window.loadAdminDashboard === 'function') {
-      tryPatch();
-      clearInterval(interval);
-    }
-  }, 200);
-  // Timeout de sécurité
-  setTimeout(() => clearInterval(interval), 10000);
 })();
 
 </script>
