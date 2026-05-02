@@ -6845,6 +6845,369 @@ async function showLogDetail(logId) {
 
 })();
 
+
+
+// === V312_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.12 — Onglet "Meilleur Compo Générique"
+// ============================================================
+
+(function _v312_init() {
+
+  const API = 'https://web-production-2202b.up.railway.app';
+  const T = () => localStorage.getItem('pharmaremise_token');
+
+  let _data = null;       // données complètes chargées
+  let _filteredData = null;  // après filtre recherche
+  let _renderedCount = 0;    // pour scroll infini
+  const PAGE_SIZE = 20;      // 20 molécules par page
+  let _currentSearch = '';
+
+  // ====================================================================
+  // 1. INJECTION DU BOUTON DE NAV
+  // ====================================================================
+  
+  function _injectNavLink() {
+    if (document.getElementById('v312-nav-link')) return;
+    
+    // Trouver le menu latéral (les autres liens type "Génériqueur")
+    const navLinks = [...document.querySelectorAll('nav a, [class*="sidebar"] a, .nav a')];
+    const generiqueurLink = navLinks.find(a => 
+      /générique/i.test(a.textContent || '') && 
+      !/meilleur|compo/i.test(a.textContent || '')
+    );
+    
+    if (!generiqueurLink) return;
+    
+    const a = document.createElement('a');
+    a.id = 'v312-nav-link';
+    a.href = '#';
+    a.className = generiqueurLink.className;
+    a.style.cssText = generiqueurLink.style.cssText;
+    a.innerHTML = `🏆 Meilleur compo`;
+    
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      _showScreen();
+    });
+    
+    // Insérer juste après "Génériqueur"
+    generiqueurLink.parentElement.insertBefore(a, generiqueurLink.nextSibling);
+  }
+
+  // ====================================================================
+  // 2. CRÉATION DE L'ÉCRAN
+  // ====================================================================
+  
+  function _ensureScreen() {
+    let screen = document.getElementById('screen-meilleur-compo');
+    if (screen) return screen;
+    
+    // Trouver le conteneur des écrans
+    const anyScreen = document.querySelector('[id^="screen-"]');
+    if (!anyScreen) return null;
+    
+    screen = document.createElement('div');
+    screen.id = 'screen-meilleur-compo';
+    screen.className = anyScreen.className;
+    screen.style.display = 'none';
+    
+    screen.innerHTML = `
+      <style>
+        #v312-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        #v312-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8;
+        }
+        #v312-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
+        #v312-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+        
+        #v312-search {
+          padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
+          font-size: 14px; width: 350px;
+        }
+        
+        #v312-stats {
+          display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 10px; margin-bottom: 20px;
+        }
+        .v312-stat-box {
+          background: #fafafa; padding: 12px; border-radius: 8px;
+          border: 1px solid #e8e8e8;
+        }
+        .v312-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .v312-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
+        
+        .v312-molecule {
+          background: white; border: 1px solid #e8e8e8;
+          border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+        }
+        .v312-molecule-header {
+          padding: 12px 16px; background: #f5fbf8;
+          font-weight: 600; color: #1D9E75; font-size: 15px;
+          border-bottom: 1px solid #e1f5ee;
+          cursor: pointer; user-select: none;
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        .v312-molecule-header:hover { background: #ebf7f1; }
+        .v312-molecule-count {
+          font-size: 12px; color: #888; font-weight: 400;
+        }
+        .v312-molecule-body { padding: 0; }
+        
+        .v312-product-row {
+          display: grid;
+          grid-template-columns: 30px 2.5fr 1fr 80px 80px 80px 80px 110px;
+          gap: 10px; padding: 10px 16px; align-items: center;
+          border-bottom: 1px solid #f0f0f0; font-size: 12px;
+        }
+        .v312-product-row:last-child { border-bottom: none; }
+        .v312-product-row.best { background: #fffdf2; }
+        .v312-product-row:hover { background: #fafafa; }
+        .v312-product-row.best:hover { background: #fff8e0; }
+        
+        .v312-star { font-size: 14px; }
+        .v312-name { font-weight: 500; color: #333; }
+        .v312-cip { font-family: monospace; font-size: 11px; color: #888; }
+        .v312-labo {
+          background: #1D9E75; color: white; padding: 3px 8px;
+          border-radius: 4px; font-size: 10px; font-weight: 500;
+          display: inline-block; text-align: center;
+        }
+        .v312-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .v312-pct { text-align: right; color: #888; font-size: 11px; }
+        .v312-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
+        .v312-ecart { text-align: right; font-size: 11px; color: #c0392b; }
+        
+        #v312-sentinel { padding: 30px; text-align: center; color: #888; }
+      </style>
+      
+      <div id="v312-container">
+        <div id="v312-header">
+          <div>
+            <h1 id="v312-title">🏆 Meilleur compo générique</h1>
+            <div id="v312-subtitle">Comparatif des prix nets après application des contrats</div>
+          </div>
+          <input id="v312-search" type="text" placeholder="🔍 Rechercher une molécule ou produit..."/>
+        </div>
+        
+        <div id="v312-stats"></div>
+        
+        <div id="v312-list">
+          <div id="v312-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement des 8000+ produits...</div>
+        </div>
+        
+        <div id="v312-sentinel" style="display:none;">
+          ⏳ Faire défiler pour charger plus...
+        </div>
+      </div>
+    `;
+    
+    anyScreen.parentElement.appendChild(screen);
+    
+    // Handler recherche (debounced)
+    let searchTimer = null;
+    const searchInput = screen.querySelector('#v312-search');
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        _currentSearch = searchInput.value.trim().toLowerCase();
+        _applyFilterAndRender();
+      }, 300);
+    });
+    
+    // Scroll infini
+    const sentinel = screen.querySelector('#v312-sentinel');
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && _filteredData && _renderedCount < _filteredData.length) {
+        _renderMore();
+      }
+    }, { rootMargin: '300px' });
+    obs.observe(sentinel);
+    
+    return screen;
+  }
+
+  // ====================================================================
+  // 3. CHARGEMENT DES DONNÉES
+  // ====================================================================
+  
+  async function _loadData() {
+    try {
+      const r = await fetch(`${API}/generiqueur/meilleur-compo`, {
+        headers: { Authorization: 'Bearer ' + T() }
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      _data = data;
+      _applyFilterAndRender();
+    } catch (e) {
+      const list = document.getElementById('v312-list');
+      list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ Erreur : ${e.message}</div>`;
+    }
+  }
+
+  function _applyFilterAndRender() {
+    if (!_data) return;
+    
+    // Filtre par recherche
+    if (_currentSearch) {
+      _filteredData = _data.molecules.filter(m =>
+        m.molecule.toLowerCase().includes(_currentSearch) ||
+        m.produits.some(p => 
+          (p.description || '').toLowerCase().includes(_currentSearch) ||
+          (p.labo || '').toLowerCase().includes(_currentSearch) ||
+          (p.cip13 || '').includes(_currentSearch)
+        )
+      );
+    } else {
+      _filteredData = _data.molecules;
+    }
+    
+    // Stats
+    const statsEl = document.getElementById('v312-stats');
+    const totalProduits = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
+    statsEl.innerHTML = `
+      <div class="v312-stat-box">
+        <div class="v312-stat-label">Molécules</div>
+        <div class="v312-stat-value">${_filteredData.length}</div>
+      </div>
+      <div class="v312-stat-box">
+        <div class="v312-stat-label">Produits</div>
+        <div class="v312-stat-value">${totalProduits.toLocaleString('fr-FR')}</div>
+      </div>
+      <div class="v312-stat-box">
+        <div class="v312-stat-label">Labos en contrat</div>
+        <div class="v312-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
+      </div>
+      <div class="v312-stat-box" title="${_data.labos_actifs.join(', ')}">
+        <div class="v312-stat-label">Avec offre</div>
+        <div class="v312-stat-value" style="font-size:12px;">${_data.labos_actifs.slice(0,4).join(', ')}${_data.labos_actifs.length > 4 ? '…' : ''}</div>
+      </div>
+    `;
+    
+    // Render
+    _renderedCount = 0;
+    document.getElementById('v312-list').innerHTML = '';
+    document.getElementById('v312-loading')?.remove();
+    _renderMore();
+  }
+
+  function _renderMore() {
+    if (!_filteredData) return;
+    
+    const list = document.getElementById('v312-list');
+    const sentinel = document.getElementById('v312-sentinel');
+    
+    const slice = _filteredData.slice(_renderedCount, _renderedCount + PAGE_SIZE);
+    
+    const html = slice.map(m => {
+      const productsHtml = m.produits.map(p => {
+        const star = p.meilleur_prix ? '⭐' : '';
+        const ecartHtml = !p.meilleur_prix && p.ecart_eur > 0 
+          ? `+${_fmtEuro(p.ecart_eur)}`
+          : (p.meilleur_prix ? 'meilleur' : '');
+        return `
+          <div class="v312-product-row ${p.meilleur_prix ? 'best' : ''}">
+            <div class="v312-star">${star}</div>
+            <div class="v312-name">
+              ${(p.description || '').slice(0, 70)}
+              <div class="v312-cip">CIP ${p.cip13 || '—'}</div>
+            </div>
+            <div><span class="v312-labo">${p.labo}</span></div>
+            <div class="v312-num">${_fmtEuro(p.ppht)}</div>
+            <div class="v312-pct">-${p.rem_gross_pct}%</div>
+            <div class="v312-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? ' / RDP -' + p.rdp_pct + '%' : ''}</div>
+            <div class="v312-pct">−${_fmtPct(p.total_remise_pct)}</div>
+            <div class="v312-prix-net">
+              ${_fmtEuro(p.prix_net)}
+              <div class="v312-ecart">${ecartHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      return `
+        <div class="v312-molecule">
+          <div class="v312-molecule-header">
+            <span>${m.molecule}</span>
+            <span class="v312-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+          </div>
+          <div class="v312-molecule-body">
+            <div class="v312-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
+              <div></div>
+              <div>Produit</div>
+              <div>Labo</div>
+              <div class="v312-num">PPHT</div>
+              <div class="v312-pct">Rem. gross.</div>
+              <div class="v312-pct">Rem. contrat</div>
+              <div class="v312-pct">Total %</div>
+              <div class="v312-prix-net">Prix net</div>
+            </div>
+            ${productsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    list.insertAdjacentHTML('beforeend', html);
+    _renderedCount += slice.length;
+    
+    if (_renderedCount >= _filteredData.length) {
+      sentinel.style.display = 'none';
+    } else {
+      sentinel.style.display = 'block';
+      sentinel.innerHTML = `⏳ ${_renderedCount} / ${_filteredData.length} molécules — Faire défiler pour charger plus`;
+    }
+  }
+
+  function _fmtEuro(v) {
+    if (v == null) return '—';
+    return Number(v).toLocaleString('fr-FR', { 
+      minimumFractionDigits: 2, maximumFractionDigits: 2 
+    }) + ' €';
+  }
+
+  function _fmtPct(v) {
+    if (v == null) return '—';
+    return Number(v).toFixed(1) + '%';
+  }
+
+  // ====================================================================
+  // 4. AFFICHAGE DE L'ÉCRAN
+  // ====================================================================
+  
+  function _showScreen() {
+    // Cacher tous les autres écrans
+    document.querySelectorAll('[id^="screen-"]').forEach(el => {
+      if (el.id === 'screen-meilleur-compo') return;
+      el.style.display = 'none';
+      el.classList.remove('active');
+    });
+    
+    const screen = _ensureScreen();
+    if (!screen) return;
+    
+    screen.style.display = 'block';
+    screen.classList.add('active');
+    
+    // Charger les données si pas déjà fait
+    if (!_data) {
+      _loadData();
+    } else {
+      _applyFilterAndRender();
+    }
+    
+    // Marquer le lien actif
+    document.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+    document.getElementById('v312-nav-link')?.classList.add('active');
+  }
+
+  // Lancer l'injection du lien périodiquement
+  setInterval(_injectNavLink, 1500);
+
+})();
+
 </script>
 </body>
 </html>
