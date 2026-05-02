@@ -6113,15 +6113,14 @@ async function showLogDetail(logId) {
 
 
 
-// === V300_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.0 — Page Paramètres + Admin Classifications épurée
-// ============================================================
-// 1. Page Paramètres grossiste : 5 cases "Exclure + champ %" pour les catégories
-// 2. Admin Classifications : 5 onglets seulement (Gén, Princeps, Biosim, TVA20, Produit cher)
-//    Onglet Produit cher : affiche le PFHT > 1500€
 
-(function _v300_setup() {
+
+// === V300_FIX_INJECTED_MARKER ===
+// ============================================================
+// v3.0.0 FIX — Ciblage robuste + filtrage catégories
+// ============================================================
+
+(function _v300_fix_init() {
 
   const CATEGORIES = [
     { key: "generique",     label: "Générique",    field: "taux_generique_pct"    },
@@ -6131,11 +6130,17 @@ async function showLogDetail(logId) {
     { key: "produit_cher",  label: "Produit cher", field: "taux_produit_cher_pct" },
   ];
 
-  // ----------------------------------------------------------------
-  // 1. Page Paramètres : injecter le bloc "Remises par catégorie" v3
-  // ----------------------------------------------------------------
-  function _renderRemisesParCategorieV3(currentCfg) {
-    const cfg = currentCfg || {};
+  // 5 catégories à conserver dans l'admin
+  const CATEGORIES_VISIBLES = new Set([
+    "generique", "princeps", "biosimilaire", "tva_20", "produit_cher"
+  ]);
+
+  // ====================================================================
+  // 1. PARAMETRES : injection après "Sauvegarder XXX"
+  // ====================================================================
+
+  function _renderRemisesV3Block(cfg, source) {
+    cfg = cfg || {};
     const seuilProdCher = cfg.seuil_produit_cher_classification ?? 1500;
 
     const rows = CATEGORIES.map(cat => {
@@ -6144,90 +6149,53 @@ async function showLogDetail(logId) {
       const inputVal = exclu ? "" : taux;
       const checked = exclu ? "checked" : "";
       const disabled = exclu ? "disabled" : "";
+      const inputBg = exclu ? "background:#f0f0f0; color:#aaa;" : "";
 
       return `
-        <div class="v300-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #eee;">
-          <label style="display:flex; align-items:center; gap:8px; min-width:200px; cursor:pointer;">
+        <div class="v300-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
+          <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
             <input type="checkbox" class="v300-cat-exclu" ${checked} data-field="${cat.field}">
-            <span style="font-weight:500;">Exclure ${cat.label}</span>
+            <span>Exclure ${cat.label}</span>
           </label>
           <div style="display:flex; align-items:center; gap:6px;">
             <input type="number" class="v300-cat-taux" data-field="${cat.field}" 
                    value="${inputVal}" ${disabled} step="0.01" min="0" max="100"
-                   style="width:80px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; ${exclu ? 'background:#f0f0f0; color:#aaa;' : ''}">
-            <span style="color:var(--sub);">%</span>
+                   style="width:90px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; ${inputBg}">
+            <span style="color:#888; font-size:13px;">%</span>
           </div>
         </div>
       `;
     }).join('');
 
     return `
-      <div class="v300-remises-block" style="margin-top:16px; padding:16px; background:#fafafa; border-radius:8px;">
-        <div style="font-weight:600; margin-bottom:12px; color:var(--text);">📋 Remises par catégorie (v3)</div>
+      <div class="v300-remises-block" data-v300-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
+        <div style="font-weight:600; margin-bottom:14px; color:#1D9E75; font-size:16px;">📋 Remises par catégorie — ${source.toUpperCase()}</div>
         
-        <div style="margin-bottom:16px; display:flex; align-items:center; gap:12px;">
-          <label style="font-size:13px;">Seuil "produit cher" :</label>
+        <div style="margin-bottom:18px; display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid #ddd;">
+          <label style="font-size:14px; min-width:240px;">Seuil "produit cher" (€) :</label>
           <input type="number" class="v300-seuil-prodcher" value="${seuilProdCher}" step="50" min="0"
-                 style="width:100px; padding:4px 8px; border:1px solid #ccc; border-radius:6px;">
-          <span style="color:var(--sub); font-size:13px;">€</span>
-          <span style="color:var(--sub); font-size:12px;">(au-delà : forfait à la boîte)</span>
+                 style="width:100px; padding:6px 10px; border:1px solid #ccc; border-radius:6px;">
+          <span style="color:#888; font-size:12px;">(au-delà : classifié "Produit cher")</span>
         </div>
 
         ${rows}
 
-        <div style="margin-top:12px; font-size:12px; color:var(--sub);">
-          ☐ Décocher = catégorie incluse dans le calcul de remise. Renseigner le % objectif.<br>
-          ☑ Cocher = catégorie exclue (aucune remise calculée pour cette catégorie).
+        <div style="margin-top:14px; font-size:12px; color:#888; line-height:1.5;">
+          ☐ Décocher = catégorie incluse dans le calcul de remise (% objectif renseigné)<br>
+          ☑ Cocher = catégorie exclue (aucune remise calculée pour cette catégorie)
         </div>
 
-        <div style="margin-top:12px;">
-          <button class="v300-btn-save" style="background:var(--green); color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:500;">
+        <div style="margin-top:16px; display:flex; align-items:center; gap:12px;">
+          <button class="v300-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
             💾 Sauvegarder + Recalculer
           </button>
-          <span class="v300-save-status" style="margin-left:10px; font-size:13px;"></span>
+          <span class="v300-save-status" style="font-size:13px;"></span>
         </div>
       </div>
     `;
   }
 
-  // Hook : trouver les configs grossiste affichées et y injecter le bloc v3
-  function _injectRemisesV3() {
-    const blocks = document.querySelectorAll('.config-grossiste-block, [data-grossiste-config], .grossiste-config');
-    // Si pas trouvé via classes, chercher par contenu (page Paramètres > Contrats grossistes)
-    const headers = [...document.querySelectorAll('h2, h3, .section-title, .config-title')].filter(h =>
-      h.textContent.includes('CERP') || h.textContent.includes('Alliance') || h.textContent.includes('OCP')
-    );
-
-    headers.forEach(async header => {
-      // Trouver le conteneur parent
-      const block = header.closest('.tab-content, .config-block, [class*="config"]') || header.parentElement;
-      if (!block) return;
-      if (block.querySelector('.v300-remises-block')) return; // déjà injecté
-
-      // Détecter la source (cerp/alliance/ocp)
-      const headerTxt = header.textContent.toLowerCase();
-      let source = null;
-      if (headerTxt.includes('cerp')) source = 'cerp';
-      else if (headerTxt.includes('alliance')) source = 'alliance';
-      else if (headerTxt.includes('ocp')) source = 'ocp';
-      if (!source) return;
-
-      // Récupérer la config v3
-      try {
-        const configs = await apiGet('/grossiste/config-v3');
-        const cfg = (configs || []).find(c => c.source === source);
-        const html = _renderRemisesParCategorieV3(cfg || {});
-        block.insertAdjacentHTML('beforeend', html);
-        // Attacher les events
-        _attachV300Handlers(block, source);
-      } catch (e) {
-        console.warn('v3 config load error:', e);
-      }
-    });
-  }
-
   function _attachV300Handlers(block, source) {
-    // Toggle exclu / inclu
     block.querySelectorAll('.v300-cat-exclu').forEach(cb => {
       cb.addEventListener('change', () => {
         const row = cb.closest('.v300-cat-row');
@@ -6242,17 +6210,17 @@ async function showLogDetail(logId) {
           input.style.background = '';
           input.style.color = '';
           if (!input.value) input.value = '0';
+          input.focus();
         }
       });
     });
 
-    // Bouton Sauvegarder
     const btn = block.querySelector('.v300-btn-save');
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const status = block.querySelector('.v300-save-status');
-      status.textContent = '⏳ Sauvegarde...';
-      status.style.color = 'var(--sub)';
+      status.textContent = '⏳ Sauvegarde + recalcul...';
+      status.style.color = '#888';
 
       const payload = {
         source: source,
@@ -6274,7 +6242,7 @@ async function showLogDetail(logId) {
 
       try {
         const T = localStorage.getItem('pharmaremise_token');
-        const r = await fetch((window.API_BASE || 'https://web-production-2202b.up.railway.app') + '/grossiste/config-v3', {
+        const r = await fetch('https://web-production-2202b.up.railway.app/grossiste/config-v3', {
           method: 'PUT',
           headers: { 'Authorization': 'Bearer ' + T, 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -6282,83 +6250,207 @@ async function showLogDetail(logId) {
         const data = await r.json();
         if (data.ok) {
           const nb = data.recalcul?.nb_factures_recalculees ?? 0;
-          status.textContent = `✓ Sauvegardé · ${nb} facture(s) recalculée(s)`;
-          status.style.color = 'var(--green)';
+          const total = data.recalcul?.remise_totale_calculee ?? 0;
+          status.textContent = `✓ ${nb} facture(s) recalculée(s) · ${total}€ remises`;
+          status.style.color = '#1D9E75';
+          // Invalider le cache pour les prochains chargements
+          window._v300ConfigCache = null;
         } else {
-          status.textContent = '✗ ' + (data.detail || 'Erreur');
-          status.style.color = 'var(--red)';
+          status.textContent = '✗ ' + (data.detail || JSON.stringify(data).slice(0, 200));
+          status.style.color = '#c0392b';
         }
       } catch (e) {
         status.textContent = '✗ ' + e.message;
-        status.style.color = 'var(--red)';
+        status.style.color = '#c0392b';
       }
     });
   }
 
-  // Lancer l'injection à intervalles réguliers (page Paramètres dynamique)
+  async function _injectRemisesV3() {
+    // Cibler tous les boutons "Sauvegarder XXX"
+    const buttons = [...document.querySelectorAll('button')].filter(b => 
+      /^Sauvegarder\s+(CERP|OCP|Alliance|ALLIANCE)$/i.test(b.textContent.trim())
+    );
+    if (buttons.length === 0) return;
+
+    // Charger les configs v3 (cache 30s)
+    if (!window._v300ConfigCache || Date.now() - (window._v300CacheTs || 0) > 30000) {
+      try {
+        window._v300ConfigCache = await apiGet('/grossiste/config-v3');
+        window._v300CacheTs = Date.now();
+      } catch (e) {
+        console.warn('v300 config error:', e);
+        return;
+      }
+    }
+    const configs = window._v300ConfigCache || [];
+
+    buttons.forEach(btn => {
+      const txt = btn.textContent.toLowerCase();
+      let source = null;
+      if (txt.includes('cerp')) source = 'cerp';
+      else if (txt.includes('alliance')) source = 'alliance';
+      else if (txt.includes('ocp')) source = 'ocp';
+      if (!source) return;
+
+      // Trouver le conteneur parent (la "card" du grossiste)
+      // On cherche le 1er ancêtre qui contient à la fois ce bouton ET le titre du grossiste
+      let container = btn.closest('.tab-content, .card, [class*="config"]') || btn.parentElement?.parentElement;
+      if (!container) container = btn.parentElement;
+
+      // Si déjà injecté pour cette source, skip
+      const existing = container.querySelector(`.v300-remises-block[data-v300-source="${source}"]`);
+      if (existing) return;
+
+      const cfg = configs.find(c => c.source === source);
+      const html = _renderRemisesV3Block(cfg, source);
+
+      // Insérer juste après le bouton
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html.trim();
+      const newBlock = wrapper.firstElementChild;
+
+      // Trouver le parent direct du bouton (pour insertAfter)
+      const btnRow = btn.closest('div');
+      if (btnRow && btnRow.parentElement) {
+        btnRow.parentElement.insertBefore(newBlock, btnRow.nextSibling);
+      } else {
+        btn.parentElement.appendChild(newBlock);
+      }
+
+      _attachV300Handlers(newBlock, source);
+    });
+  }
+
+  // Lancer périodiquement
   setInterval(_injectRemisesV3, 1500);
 
 
-  // ----------------------------------------------------------------
-  // 2. Admin Classifications : masquer les onglets "Remise sur facture" et "Éligible"
-  // ----------------------------------------------------------------
-  function _filterClassificationsAdmin() {
-    const screen = document.getElementById('screen-admin-classifications');
-    if (!screen) return;
+  // ====================================================================
+  // 2. CLASSIFICATIONS ADMIN : wrapper sur renderClassifCategory
+  //    pour cacher "remise_facture" et "eligible"
+  // ====================================================================
 
-    // Cibler les "accordions" / titres de catégorie
-    const categoryHeaders = screen.querySelectorAll('[class*="category"], details > summary, h3, h4, [class*="accordion"]');
-    categoryHeaders.forEach(h => {
-      const txt = (h.textContent || '').toLowerCase();
-      // Catégories à masquer
-      const masquees = ['remise sur facture', 'éligible', 'eligible'];
-      const masque = masquees.some(m => txt.includes(m));
-      if (masque) {
-        // Masquer toute la section parente
-        const parent = h.closest('details, .accordion-item, [class*="category-block"]') || h.parentElement;
-        if (parent) parent.style.display = 'none';
-      } else {
-        // Si déjà masqué par erreur, ré-afficher
-        const parent = h.closest('details, .accordion-item, [class*="category-block"]') || h.parentElement;
-        if (parent && parent.style.display === 'none') parent.style.display = '';
+  function _patchClassifCategoryRender() {
+    if (typeof window.renderClassifCategory !== 'function') return false;
+    if (window.renderClassifCategory.__v300Patched) return true;
+
+    const orig = window.renderClassifCategory;
+    window.renderClassifCategory = function(catKey, catData) {
+      // Si la catégorie n'est PAS dans la liste autorisée, retourner string vide
+      if (!CATEGORIES_VISIBLES.has(catKey)) {
+        return '';
       }
-    });
+      // Sinon, appel normal
+      return orig.apply(this, arguments);
+    };
+    window.renderClassifCategory.__v300Patched = true;
+    return true;
+  }
 
-    // Pour la catégorie "Produit cher", afficher le PFHT > 1500€ à côté du nom
-    const prodCherHeader = [...categoryHeaders].find(h => 
-      (h.textContent || '').toLowerCase().includes('produit cher')
-    );
-    if (prodCherHeader) {
-      const block = prodCherHeader.closest('details, .accordion-item, [class*="category-block"]') || prodCherHeader.parentElement;
-      if (block && !block.__pmckV300PriceLabeled) {
-        // Cherche les rows et y ajoute le prix si absent
-        const rows = block.querySelectorAll('[data-cip13], tr');
-        rows.forEach(async row => {
-          if (row.__pmckV300Done) return;
-          const cip = row.getAttribute('data-cip13');
-          if (!cip) return;
-          // On va lire le prix depuis le cache window._factureMetaCache si existe
-          // Sinon, on note juste un placeholder
-          const priceCell = row.querySelector('.cat-price, [data-price]');
-          if (!priceCell) {
-            // Ajouter un span discret après le nom
-            const nameCell = row.querySelector('.cat-name, td:nth-child(2)');
-            if (nameCell && !nameCell.querySelector('.v300-price-tag')) {
-              const tag = document.createElement('span');
-              tag.className = 'v300-price-tag';
-              tag.style.cssText = 'margin-left:8px; padding:2px 6px; background:#fff3cd; color:#856404; border-radius:4px; font-size:11px;';
-              tag.textContent = '> 1500€';
-              nameCell.appendChild(tag);
-            }
-          }
-          row.__pmckV300Done = true;
-        });
-        block.__pmckV300PriceLabeled = true;
+  // Patcher dès que possible, et relancer le rendu si l'écran est ouvert
+  function _tryPatchAndReload() {
+    if (_patchClassifCategoryRender()) {
+      const screen = document.getElementById('screen-admin-classifications');
+      if (screen && getComputedStyle(screen).display !== 'none') {
+        if (typeof window.loadAdminClassifications === 'function') {
+          window.loadAdminClassifications();
+        }
       }
     }
   }
 
-  setInterval(_filterClassificationsAdmin, 1000);
+  // Tentative immédiate + retry jusqu'à ce que la fonction existe
+  let _tries = 0;
+  const interval = setInterval(() => {
+    _tries++;
+    if (_patchClassifCategoryRender() || _tries > 30) {
+      clearInterval(interval);
+    }
+  }, 500);
+
+
+  // ====================================================================
+  // 3. Affichage colonne fichier (numero_facture + total_ttc)
+  //    Hérité de la précédente version, mais simplifié
+  // ====================================================================
+  
+  (function _patchFactureRowsDisplay() {
+    window._factureMetaCache = window._factureMetaCache || {};
+
+    const origFetch = window.fetch;
+    if (origFetch.__v300FactPatched) return;
+
+    window.fetch = async function(url, opts) {
+      const r = await origFetch.apply(this, arguments);
+      const ct = r.headers.get('content-type') || '';
+      if (typeof url === 'string' && /\/grossiste\/factures(\?|$)/.test(url) && ct.includes('json')) {
+        try {
+          const clone = r.clone();
+          const data = await clone.json();
+          const items = Array.isArray(data) ? data : (data?.items || data?.factures || []);
+          items.forEach(f => {
+            if (f && f.id) window._factureMetaCache[f.id] = f;
+          });
+          setTimeout(() => _enrichRowsFromCache(), 50);
+          setTimeout(() => _enrichRowsFromCache(), 250);
+          setTimeout(() => _enrichRowsFromCache(), 800);
+        } catch (e) { /* ignore */ }
+      }
+      return r;
+    };
+    window.fetch.__v300FactPatched = true;
+  })();
+
+  function _enrichRowsFromCache() {
+    document.querySelectorAll('tr, [class*="facture"]').forEach(row => {
+      if (row.__v300FactDone) return;
+      const text = row.textContent || '';
+      let factureId = row.getAttribute('data-facture-id') || row.getAttribute('data-id');
+      if (!factureId) {
+        for (const fid in window._factureMetaCache) {
+          const f = window._factureMetaCache[fid];
+          if (f.filename && text.includes(f.filename)) {
+            factureId = fid;
+            break;
+          }
+        }
+      }
+      if (!factureId) return;
+
+      const f = window._factureMetaCache[factureId];
+      if (!f) return;
+
+      const cells = row.querySelectorAll('td, [class*="cell"]');
+      for (const c of cells) {
+        const txt = (c.textContent || '').trim();
+        if (txt === f.filename || (txt.includes('PHARMACOLLECT_') && txt.endsWith('.pdf'))) {
+          const numero = f.numero_facture || f.num_facture;
+          const ttc    = f.total_ttc;
+          const parts = [];
+          if (numero) parts.push(numero);
+          if (ttc) parts.push(Number(ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' € TTC');
+
+          if (parts.length > 0) {
+            const checkbox = c.querySelector('input[type=checkbox]');
+            c.textContent = parts.join(' · ');
+            if (checkbox) c.insertBefore(checkbox, c.firstChild);
+            c.title = f.filename;
+            row.__v300FactDone = true;
+          } else if (f.filename && f.filename.startsWith('PHARMACOLLECT_')) {
+            const checkbox = c.querySelector('input[type=checkbox]');
+            c.textContent = '(Import PharmaCollect — sans n°)';
+            if (checkbox) c.insertBefore(checkbox, c.firstChild);
+            c.title = f.filename;
+            row.__v300FactDone = true;
+          }
+          break;
+        }
+      }
+    });
+  }
+
+  setInterval(() => _enrichRowsFromCache(), 1500);
 
 })();
 
