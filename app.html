@@ -6528,6 +6528,168 @@ async function showLogDetail(logId) {
 
 })();
 
+
+
+// === V302_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.2 — Scroll infini sur Admin Classifications
+// ============================================================
+
+(function _v302_init() {
+
+  let _isLoadingMore = false;
+  let _trackedCategories = {};  // { categoryKey: { offset, has_more, total } }
+
+  // ====================================================================
+  // Scroll infini : quand on arrive en bas d'une catégorie déployée,
+  // on charge la page suivante via /admin/classifications/page
+  // ====================================================================
+
+  function _findCategorySections() {
+    const screen = document.getElementById('screen-admin-classifications');
+    if (!screen) return [];
+    
+    // Chercher les "détails" / accordéons par catégorie
+    return [...screen.querySelectorAll('details, [class*="category-block"], [class*="accordion-item"]')];
+  }
+
+  function _getCategoryKeyFromSection(section) {
+    // Trouver le titre/summary
+    const summary = section.querySelector('summary, .accordion-title, [class*="category-title"], [class*="cat-title"]');
+    const txt = (summary?.textContent || section.textContent || '').toLowerCase();
+    
+    if (txt.includes('générique')) return 'generique';
+    if (txt.includes('biosimilaire')) return 'biosimilaire';
+    if (txt.includes('produit cher')) return 'produit_cher';
+    if (txt.includes('sortie hospi')) return 'sortie_hospitaliere';
+    if (txt.includes('tva 20')) return 'tva_20';
+    if (txt.includes('princeps')) return 'princeps';
+    return null;
+  }
+
+  function _findFooterMessage(section) {
+    // Cherche le "... et X autres (utilisez la recherche pour les retrouver)"
+    const candidates = [...section.querySelectorAll('div, p, span')];
+    return candidates.find(el => /\.\.\.\s*et\s+\d+\s+autres/i.test(el.textContent || ''));
+  }
+
+  async function _loadMoreClassifications(categoryKey, offset, sentinel) {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
+    
+    try {
+      const T = localStorage.getItem('pharmaremise_token');
+      const url = `https://web-production-2202b.up.railway.app/admin/classifications/page?category=${categoryKey}&limit=50&offset=${offset}`;
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T } });
+      const data = await r.json();
+      
+      const items = data.items || [];
+      if (items.length === 0) {
+        sentinel.innerHTML = '✓ Toutes les classifications chargées';
+        return { has_more: false };
+      }
+      
+      // Insérer les items dans le DOM
+      const section = sentinel.closest('details, [class*="category-block"], [class*="accordion-item"]');
+      if (!section) return { has_more: false };
+      
+      // Trouver le conteneur des rows existantes
+      const existingRows = section.querySelectorAll('[data-cip13]');
+      if (existingRows.length === 0) return { has_more: false };
+      const container = existingRows[existingRows.length - 1].parentElement;
+      
+      // Cloner le format des rows existantes
+      const template = existingRows[existingRows.length - 1].cloneNode(true);
+      
+      items.forEach(it => {
+        // Cloner le template et remplir
+        const newRow = template.cloneNode(true);
+        newRow.setAttribute('data-cip13', it.cip13);
+        
+        // Mettre à jour les cellules : CIP, Nom, Statut
+        const cells = newRow.querySelectorAll('td, [class*="cell"], div');
+        if (cells.length >= 1) cells[0].textContent = it.cip13;
+        // Trouver la cellule du nom
+        const nameCell = [...cells].find(c => c.tagName === 'TD' || c.textContent.length > 5);
+        if (nameCell) nameCell.textContent = it.nom || '—';
+        
+        // Insérer avant la sentinelle
+        container.insertBefore(newRow, sentinel);
+      });
+      
+      _trackedCategories[categoryKey] = {
+        offset:   offset + items.length,
+        has_more: data.has_more,
+        total:    data.total,
+      };
+      
+      if (!data.has_more) {
+        sentinel.innerHTML = `✓ ${data.total} produits chargés`;
+      } else {
+        sentinel.innerHTML = `⏳ ${offset + items.length} / ${data.total} chargés...`;
+      }
+      
+      return data;
+    } catch (e) {
+      sentinel.innerHTML = `⚠️ ${e.message}`;
+      return { has_more: false };
+    } finally {
+      _isLoadingMore = false;
+    }
+  }
+
+  function _setupScrollInfiniteSentinels() {
+    const sections = _findCategorySections();
+    
+    sections.forEach(section => {
+      // Skip si pas déployé
+      if (section.tagName === 'DETAILS' && !section.open) return;
+      
+      // Skip si sentinelle déjà installée
+      if (section.querySelector('[data-v302-sentinel]')) return;
+      
+      // Trouver le footer "... et X autres"
+      const footer = _findFooterMessage(section);
+      if (!footer) return;
+      
+      const categoryKey = _getCategoryKeyFromSection(section);
+      if (!categoryKey) return;
+      
+      // Compter les items déjà visibles
+      const items = section.querySelectorAll('[data-cip13]');
+      const offset = items.length;
+      
+      _trackedCategories[categoryKey] = { offset: offset, has_more: true };
+      
+      // Créer la sentinelle
+      const sentinel = document.createElement('div');
+      sentinel.setAttribute('data-v302-sentinel', categoryKey);
+      sentinel.style.cssText = 'padding:14px; text-align:center; color:#888; font-size:13px; background:#fafafa; border-top:1px dashed #ddd;';
+      sentinel.innerHTML = `⏳ Faire défiler pour charger plus (${offset} affichés)`;
+      
+      footer.style.display = 'none';
+      footer.parentElement.insertBefore(sentinel, footer);
+      
+      // Observer
+      const observer = new IntersectionObserver(async (entries) => {
+        if (!entries[0].isIntersecting) return;
+        const cat = _trackedCategories[categoryKey];
+        if (!cat || !cat.has_more) return;
+        await _loadMoreClassifications(categoryKey, cat.offset, sentinel);
+        // Si fini, désactiver l'observer
+        if (!_trackedCategories[categoryKey].has_more) {
+          observer.disconnect();
+        }
+      }, { rootMargin: '100px' });
+      
+      observer.observe(sentinel);
+    });
+  }
+
+  setInterval(_setupScrollInfiniteSentinels, 2000);
+
+})();
+
 </script>
 </body>
 </html>
