@@ -6117,6 +6117,8 @@ async function showLogDetail(logId) {
 
 
 
+
+
 // === V301_FRONTEND_INJECTED_MARKER ===
 // ============================================================
 // v3.0.1 — UI propre + Sortie hospitalière + pré-remplissage
@@ -6370,9 +6372,20 @@ async function showLogDetail(logId) {
   //    du formulaire HAUT (puisqu'on les remplace par les taux par catégorie)
   // ====================================================================
   
+  // 🔧 RÉPARATION : ré-afficher les labels du bloc v3 si la version précédente
+  // les a cachés à tort (ils avaient été match par TO_HIDE alors qu'ils sont dans v301)
+  function _fixV301Labels() {
+    document.querySelectorAll('.v301-remises-block label').forEach(lbl => {
+      if (lbl.style.display === 'none') {
+        lbl.style.display = '';
+      }
+    });
+  }
+  setInterval(_fixV301Labels, 800);
+
   function _cleanupOldExclusionCheckboxes() {
     // Cacher toutes les anciennes cases d'exclusion du formulaire HAUT
-    // Elles sont remplacées par notre bloc v301
+    // MAIS PAS celles dans notre nouveau bloc v3 !
     const TO_HIDE = [
       'Exclure TVA 20%',
       'Exclure biosimilaires',
@@ -6380,6 +6393,9 @@ async function showLogDetail(logId) {
       'Exclure stupéfiants',
     ];
     [...document.querySelectorAll('label')].forEach(lbl => {
+      // Skip si le label est dans notre bloc v3
+      if (lbl.closest('.v301-remises-block')) return;
+      
       const txt = lbl.textContent.trim();
       if (TO_HIDE.some(t => txt === t)) {
         lbl.style.display = 'none';
