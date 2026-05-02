@@ -5846,6 +5846,271 @@ async function showLogDetail(logId) {
   setTimeout(() => clearInterval(interval), 10000);
 })();
 
+
+
+// === V290_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v2.9.0 — Améliorations affichage + scroll infini
+// 1. Liste factures : afficher numero_facture + total_ttc
+// 2. Page Classifications admin : scroll infini
+// ============================================================
+
+// ----------------------------------------------------------------
+// 1. Patcher l'affichage de la colonne Fichier dans la liste factures
+// ----------------------------------------------------------------
+// On utilise un MutationObserver qui détecte les <td> contenant un nom de fichier
+// PHARMACOLLECT_*.pdf et les remplace par "FAC-XXX · 1234,56 € TTC"
+// 
+// Mais en fait, le plus propre est de modifier le rendu directement.
+// Pour ça, je hook le moment où le tableau est rendu.
+
+(function _patchFactureRowsDisplay() {
+  // Stocker un cache des données de factures qu'on récupère via API
+  window._factureMetaCache = window._factureMetaCache || {};
+
+  // Helper : récupérer méta facture si pas dans cache
+  async function _getFactureMeta(factureId) {
+    if (window._factureMetaCache[factureId]) return window._factureMetaCache[factureId];
+    try {
+      const data = await apiGet('/grossiste/factures/' + factureId);
+      window._factureMetaCache[factureId] = data;
+      return data;
+    } catch (e) { return null; }
+  }
+
+  // Re-render des cellules "filename" en lisant les data-* sur la ligne
+  function _updateFilenameCells(root) {
+    const rows = (root || document).querySelectorAll('tr[data-facture-id], [data-facture-id]');
+    rows.forEach(async row => {
+      if (row.__pmckV290Patched) return;
+      const fid = row.getAttribute('data-facture-id');
+      if (!fid) return;
+      const numero = row.getAttribute('data-numero-facture');
+      const ttc    = row.getAttribute('data-total-ttc');
+      const filenameCell = row.querySelector('[data-cell="filename"], td:nth-child(2)');
+      if (!filenameCell) return;
+
+      // Si numero/ttc déjà sur la row (data-*), on les utilise
+      if (numero || ttc) {
+        const parts = [];
+        if (numero) parts.push(numero);
+        if (ttc) parts.push(parseFloat(ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' € TTC');
+        filenameCell.textContent = parts.join(' · ') || filenameCell.textContent;
+        row.__pmckV290Patched = true;
+      }
+    });
+  }
+
+  // Hook : intercepter les fetchs vers /grossiste/factures pour enrichir les rows
+  const origFetch = window.fetch;
+  if (!origFetch.__pmckV290Patched) {
+    window.fetch = async function(url, opts) {
+      const r = await origFetch.apply(this, arguments);
+      // Cloner la réponse pour la lire sans casser le flux
+      const ct = r.headers.get('content-type') || '';
+      if (typeof url === 'string' && /\/grossiste\/factures(\?|$)/.test(url) && ct.includes('json')) {
+        try {
+          const clone = r.clone();
+          const data = await clone.json();
+          const items = Array.isArray(data) ? data : (data?.items || data?.factures || []);
+          items.forEach(f => {
+            if (f && f.id) {
+              window._factureMetaCache[f.id] = f;
+            }
+          });
+          // Après le rendu DOM, re-tagger les cellules
+          setTimeout(() => _enrichRowsFromCache(), 50);
+          setTimeout(() => _enrichRowsFromCache(), 250);
+          setTimeout(() => _enrichRowsFromCache(), 800);
+        } catch (e) { /* ignore */ }
+      }
+      return r;
+    };
+    window.fetch.__pmckV290Patched = true;
+  }
+
+  // Enrichir les rows de la liste factures depuis le cache
+  function _enrichRowsFromCache() {
+    document.querySelectorAll('tr, [class*="facture"]').forEach(row => {
+      if (row.__pmckV290Done) return;
+      // Chercher dans la row le nom de fichier PHARMACOLLECT_*.pdf
+      const text = row.textContent || '';
+      // Trouver l'ID de facture si data-facture-id présent
+      let factureId = row.getAttribute('data-facture-id') || row.getAttribute('data-id');
+      // Sinon, essayer de matcher via le filename
+      if (!factureId) {
+        for (const fid in window._factureMetaCache) {
+          const f = window._factureMetaCache[fid];
+          if (f.filename && text.includes(f.filename)) {
+            factureId = fid;
+            break;
+          }
+        }
+      }
+      if (!factureId) return;
+
+      const f = window._factureMetaCache[factureId];
+      if (!f) return;
+
+      // Cellule à modifier = celle qui contient le filename
+      const cells = row.querySelectorAll('td, [class*="cell"]');
+      for (const c of cells) {
+        const txt = (c.textContent || '').trim();
+        if (txt === f.filename || (txt.includes('PHARMACOLLECT_') && txt.endsWith('.pdf'))) {
+          // Construire le nouveau libellé
+          const numero = f.numero_facture || f.num_facture;
+          const ttc    = f.total_ttc;
+          const parts = [];
+          if (numero) parts.push(numero);
+          if (ttc) parts.push(Number(ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' € TTC');
+
+          if (parts.length > 0) {
+            // Garder le checkbox éventuel devant
+            const checkbox = c.querySelector('input[type=checkbox]');
+            c.textContent = parts.join(' · ');
+            if (checkbox) c.insertBefore(checkbox, c.firstChild);
+            c.title = f.filename; // tooltip avec le vrai nom
+            row.__pmckV290Done = true;
+          } else {
+            // Pas de numero ni ttc : on laisse le filename mais on raccourcit
+            // (pour les anciennes factures uploadées en PDF qui n'ont pas ces champs)
+            if (f.filename && f.filename.startsWith('PHARMACOLLECT_')) {
+              // Cas spécifique : on remplace au moins par "Import PharmaCollect"
+              c.textContent = '(Import PharmaCollect — sans n°)';
+              c.title = f.filename;
+              row.__pmckV290Done = true;
+            }
+          }
+          break;
+        }
+      }
+    });
+  }
+
+  // Lancer périodiquement au cas où des données arrivent en différé
+  setInterval(() => _enrichRowsFromCache(), 1500);
+})();
+
+
+// ----------------------------------------------------------------
+// 2. Page Classifications admin : scroll infini
+// ----------------------------------------------------------------
+(function _patchClassificationsScroll() {
+  // On wrappe la fonction qui charge les classifs admin
+  // (plusieurs noms possibles selon l'implémentation : loadAdminClassifications, etc.)
+  const tryPatch = () => {
+    // Chercher la fonction de chargement
+    const candidates = ['loadAdminClassifications', 'loadClassifications', 'loadAdminClassif'];
+    let fnName = null;
+    for (const c of candidates) {
+      if (typeof window[c] === 'function') { fnName = c; break; }
+    }
+    if (!fnName) {
+      // Re-essayer plus tard
+      setTimeout(tryPatch, 500);
+      return;
+    }
+    if (window[fnName].__pmckV290InfScroll) return;
+
+    const orig = window[fnName];
+    window[fnName] = async function() {
+      const result = await orig.apply(this, arguments);
+      // Après le rendu, ajouter un sentinelle pour scroll infini
+      setTimeout(_setupInfiniteScrollSentinel, 200);
+      return result;
+    };
+    window[fnName].__pmckV290InfScroll = true;
+  };
+  tryPatch();
+
+  // Fonction qui ajoute la sentinelle et l'IntersectionObserver
+  let _isLoadingMore = false;
+  let _currentOffset = 0;
+
+  function _setupInfiniteScrollSentinel() {
+    const screen = document.getElementById('screen-admin-classifications');
+    if (!screen) return;
+
+    // Si une sentinelle existe déjà, la retirer
+    const oldSentinel = screen.querySelector('[data-pmck-scroll-sentinel]');
+    if (oldSentinel) oldSentinel.remove();
+
+    // Compter les classifications déjà affichées
+    const items = screen.querySelectorAll('[data-cip13]');
+    _currentOffset = items.length;
+
+    if (_currentOffset === 0) return; // page vide ou pas encore rendue
+
+    // Vérifier si on doit charger plus (regarder le footer "...et X autres")
+    const footer = [...screen.querySelectorAll('div, p, span')].find(el => 
+      el.textContent.match(/\.\.\.\s*et\s+\d+\s+autres/i)
+    );
+    if (!footer) return; // tout est déjà chargé, pas besoin de scroll infini
+
+    // Créer la sentinelle juste avant le footer
+    const sentinel = document.createElement('div');
+    sentinel.setAttribute('data-pmck-scroll-sentinel', 'true');
+    sentinel.style.cssText = 'height: 50px; display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px;';
+    sentinel.innerHTML = '⏳ Chargement de la suite...';
+    footer.parentElement.insertBefore(sentinel, footer);
+    footer.style.display = 'none'; // masquer "et X autres"
+
+    // Observer
+    const observer = new IntersectionObserver(async (entries) => {
+      if (!entries[0].isIntersecting || _isLoadingMore) return;
+      _isLoadingMore = true;
+      try {
+        const data = await apiGet(`/admin/classifications?limit=50&offset=${_currentOffset}`);
+        const newItems = data.items || data;
+        if (Array.isArray(newItems) && newItems.length > 0) {
+          _renderMoreClassifications(newItems);
+          _currentOffset += newItems.length;
+          // Si moins de 50 reçues, fini
+          if (newItems.length < 50) {
+            sentinel.innerHTML = '✓ Toutes les classifications chargées';
+            observer.disconnect();
+          }
+        } else {
+          sentinel.innerHTML = '✓ Toutes les classifications chargées';
+          observer.disconnect();
+        }
+      } catch (e) {
+        sentinel.innerHTML = '⚠️ Erreur chargement : ' + e.message;
+      } finally {
+        _isLoadingMore = false;
+      }
+    }, { rootMargin: '200px' });
+
+    observer.observe(sentinel);
+  }
+
+  function _renderMoreClassifications(items) {
+    // Trouver le conteneur où sont les classifs existantes
+    const screen = document.getElementById('screen-admin-classifications');
+    if (!screen) return;
+    const existing = screen.querySelectorAll('[data-cip13]');
+    if (existing.length === 0) return;
+    const container = existing[existing.length - 1].parentElement;
+
+    items.forEach(it => {
+      // On clone le format existant en trouvant un item template
+      const template = existing[existing.length - 1].cloneNode(true);
+      template.setAttribute('data-cip13', it.cip13 || '');
+      // Mettre à jour les cellules : CIP, Nom, Statut
+      const cells = template.querySelectorAll('td, [class*="cell"]');
+      // On essaye de remplir intelligemment
+      if (cells.length >= 1) cells[0].textContent = it.cip13 || '—';
+      if (cells.length >= 2) cells[1].textContent = it.nom || '—';
+      if (cells.length >= 3) {
+        // Cellule statut
+        const badge = template.querySelector('.badge') || cells[2].querySelector('span') || cells[2];
+        badge.textContent = it.statut || it.statut_force || '—';
+      }
+      container.appendChild(template);
+    });
+  }
+})();
+
 </script>
 </body>
 </html>
