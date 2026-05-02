@@ -6847,52 +6847,62 @@ async function showLogDetail(logId) {
 
 
 
+
+
 // === V312_FRONTEND_INJECTED_MARKER ===
 // ============================================================
-// v3.0.12 — Onglet "Meilleur Compo Générique"
+// v3.0.12 — Onglet "Meilleur Compo Générique" (FIX sélecteurs)
 // ============================================================
+// Structure réelle du menu :
+//   <nav class="sidebar-nav">
+//     <button class="nav-item active">💊 Génériqueur</button>
+//     ...
+//   </nav>
 
 (function _v312_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
 
-  let _data = null;       // données complètes chargées
-  let _filteredData = null;  // après filtre recherche
-  let _renderedCount = 0;    // pour scroll infini
-  const PAGE_SIZE = 20;      // 20 molécules par page
+  let _data = null;
+  let _filteredData = null;
+  let _renderedCount = 0;
+  const PAGE_SIZE = 20;
   let _currentSearch = '';
 
   // ====================================================================
   // 1. INJECTION DU BOUTON DE NAV
   // ====================================================================
   
-  function _injectNavLink() {
-    if (document.getElementById('v312-nav-link')) return;
+  function _injectNavButton() {
+    if (document.getElementById('v312-nav-btn')) return;
     
-    // Trouver le menu latéral (les autres liens type "Génériqueur")
-    const navLinks = [...document.querySelectorAll('nav a, [class*="sidebar"] a, .nav a')];
-    const generiqueurLink = navLinks.find(a => 
-      /générique/i.test(a.textContent || '') && 
-      !/meilleur|compo/i.test(a.textContent || '')
+    // Trouver le bouton "Génériqueur" dans la sidebar-nav
+    const nav = document.querySelector('nav.sidebar-nav');
+    if (!nav) return;
+    
+    const generiqueurBtn = [...nav.querySelectorAll('button.nav-item')].find(b => 
+      /Génériqueur/i.test(b.textContent || '')
     );
+    if (!generiqueurBtn) return;
     
-    if (!generiqueurLink) return;
+    const btn = document.createElement('button');
+    btn.id = 'v312-nav-btn';
+    btn.className = 'nav-item';
+    btn.textContent = '🏆 Meilleur compo';
     
-    const a = document.createElement('a');
-    a.id = 'v312-nav-link';
-    a.href = '#';
-    a.className = generiqueurLink.className;
-    a.style.cssText = generiqueurLink.style.cssText;
-    a.innerHTML = `🏆 Meilleur compo`;
-    
-    a.addEventListener('click', (e) => {
-      e.preventDefault();
+    btn.addEventListener('click', () => {
       _showScreen();
+      
+      // Mettre à jour la classe active des boutons nav
+      [...nav.querySelectorAll('button.nav-item')].forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
     });
     
     // Insérer juste après "Génériqueur"
-    generiqueurLink.parentElement.insertBefore(a, generiqueurLink.nextSibling);
+    generiqueurBtn.parentElement.insertBefore(btn, generiqueurBtn.nextSibling);
+    
+    console.log('[v312] Bouton "Meilleur compo" injecté ✓');
   }
 
   // ====================================================================
@@ -6918,13 +6928,14 @@ async function showLogDetail(logId) {
         #v312-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8;
+          flex-wrap: wrap; gap: 12px;
         }
         #v312-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
         #v312-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
         
         #v312-search {
           padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
-          font-size: 14px; width: 350px;
+          font-size: 14px; min-width: 280px; flex: 1; max-width: 400px;
         }
         
         #v312-stats {
@@ -6946,18 +6957,15 @@ async function showLogDetail(logId) {
           padding: 12px 16px; background: #f5fbf8;
           font-weight: 600; color: #1D9E75; font-size: 15px;
           border-bottom: 1px solid #e1f5ee;
-          cursor: pointer; user-select: none;
           display: flex; align-items: center; justify-content: space-between;
         }
-        .v312-molecule-header:hover { background: #ebf7f1; }
         .v312-molecule-count {
           font-size: 12px; color: #888; font-weight: 400;
         }
-        .v312-molecule-body { padding: 0; }
         
         .v312-product-row {
           display: grid;
-          grid-template-columns: 30px 2.5fr 1fr 80px 80px 80px 80px 110px;
+          grid-template-columns: 30px 2.5fr 100px 80px 80px 80px 80px 110px;
           gap: 10px; padding: 10px 16px; align-items: center;
           border-bottom: 1px solid #f0f0f0; font-size: 12px;
         }
@@ -6967,8 +6975,8 @@ async function showLogDetail(logId) {
         .v312-product-row.best:hover { background: #fff8e0; }
         
         .v312-star { font-size: 14px; }
-        .v312-name { font-weight: 500; color: #333; }
-        .v312-cip { font-family: monospace; font-size: 11px; color: #888; }
+        .v312-name { font-weight: 500; color: #333; line-height: 1.3; }
+        .v312-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
         .v312-labo {
           background: #1D9E75; color: white; padding: 3px 8px;
           border-radius: 4px; font-size: 10px; font-weight: 500;
@@ -6977,9 +6985,13 @@ async function showLogDetail(logId) {
         .v312-num { text-align: right; font-variant-numeric: tabular-nums; }
         .v312-pct { text-align: right; color: #888; font-size: 11px; }
         .v312-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
-        .v312-ecart { text-align: right; font-size: 11px; color: #c0392b; }
+        .v312-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
         
         #v312-sentinel { padding: 30px; text-align: center; color: #888; }
+        
+        @media (max-width: 900px) {
+          .v312-product-row { grid-template-columns: 1fr; gap: 4px; }
+        }
       </style>
       
       <div id="v312-container">
@@ -6988,13 +7000,13 @@ async function showLogDetail(logId) {
             <h1 id="v312-title">🏆 Meilleur compo générique</h1>
             <div id="v312-subtitle">Comparatif des prix nets après application des contrats</div>
           </div>
-          <input id="v312-search" type="text" placeholder="🔍 Rechercher une molécule ou produit..."/>
+          <input id="v312-search" type="text" placeholder="🔍 Rechercher une molécule, produit ou labo..."/>
         </div>
         
         <div id="v312-stats"></div>
         
         <div id="v312-list">
-          <div id="v312-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement des 8000+ produits...</div>
+          <div id="v312-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement des 6000+ produits...</div>
         </div>
         
         <div id="v312-sentinel" style="display:none;">
@@ -7005,7 +7017,7 @@ async function showLogDetail(logId) {
     
     anyScreen.parentElement.appendChild(screen);
     
-    // Handler recherche (debounced)
+    // Handler recherche
     let searchTimer = null;
     const searchInput = screen.querySelector('#v312-search');
     searchInput.addEventListener('input', () => {
@@ -7043,14 +7055,15 @@ async function showLogDetail(logId) {
       _applyFilterAndRender();
     } catch (e) {
       const list = document.getElementById('v312-list');
-      list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ Erreur : ${e.message}</div>`;
+      if (list) {
+        list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ Erreur : ${e.message}</div>`;
+      }
     }
   }
 
   function _applyFilterAndRender() {
     if (!_data) return;
     
-    // Filtre par recherche
     if (_currentSearch) {
       _filteredData = _data.molecules.filter(m =>
         m.molecule.toLowerCase().includes(_currentSearch) ||
@@ -7066,11 +7079,13 @@ async function showLogDetail(logId) {
     
     // Stats
     const statsEl = document.getElementById('v312-stats');
+    if (!statsEl) return;
+    
     const totalProduits = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
     statsEl.innerHTML = `
       <div class="v312-stat-box">
         <div class="v312-stat-label">Molécules</div>
-        <div class="v312-stat-value">${_filteredData.length}</div>
+        <div class="v312-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
       </div>
       <div class="v312-stat-box">
         <div class="v312-stat-label">Produits</div>
@@ -7081,14 +7096,15 @@ async function showLogDetail(logId) {
         <div class="v312-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
       </div>
       <div class="v312-stat-box" title="${_data.labos_actifs.join(', ')}">
-        <div class="v312-stat-label">Avec offre</div>
-        <div class="v312-stat-value" style="font-size:12px;">${_data.labos_actifs.slice(0,4).join(', ')}${_data.labos_actifs.length > 4 ? '…' : ''}</div>
+        <div class="v312-stat-label">Avec offre active</div>
+        <div class="v312-stat-value" style="font-size:13px;">${_data.labos_actifs.slice(0,4).join(', ')}${_data.labos_actifs.length > 4 ? '…' : ''}</div>
       </div>
     `;
     
     // Render
     _renderedCount = 0;
-    document.getElementById('v312-list').innerHTML = '';
+    const list = document.getElementById('v312-list');
+    if (list) list.innerHTML = '';
     document.getElementById('v312-loading')?.remove();
     _renderMore();
   }
@@ -7098,6 +7114,7 @@ async function showLogDetail(logId) {
     
     const list = document.getElementById('v312-list');
     const sentinel = document.getElementById('v312-sentinel');
+    if (!list || !sentinel) return;
     
     const slice = _filteredData.slice(_renderedCount, _renderedCount + PAGE_SIZE);
     
@@ -7106,19 +7123,19 @@ async function showLogDetail(logId) {
         const star = p.meilleur_prix ? '⭐' : '';
         const ecartHtml = !p.meilleur_prix && p.ecart_eur > 0 
           ? `+${_fmtEuro(p.ecart_eur)}`
-          : (p.meilleur_prix ? 'meilleur' : '');
+          : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
         return `
           <div class="v312-product-row ${p.meilleur_prix ? 'best' : ''}">
             <div class="v312-star">${star}</div>
-            <div class="v312-name">
-              ${(p.description || '').slice(0, 70)}
+            <div>
+              <div class="v312-name">${(p.description || '').slice(0, 70)}</div>
               <div class="v312-cip">CIP ${p.cip13 || '—'}</div>
             </div>
             <div><span class="v312-labo">${p.labo}</span></div>
             <div class="v312-num">${_fmtEuro(p.ppht)}</div>
             <div class="v312-pct">-${p.rem_gross_pct}%</div>
-            <div class="v312-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? ' / RDP -' + p.rdp_pct + '%' : ''}</div>
-            <div class="v312-pct">−${_fmtPct(p.total_remise_pct)}</div>
+            <div class="v312-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
+            <div class="v312-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
             <div class="v312-prix-net">
               ${_fmtEuro(p.prix_net)}
               <div class="v312-ecart">${ecartHtml}</div>
@@ -7133,7 +7150,7 @@ async function showLogDetail(logId) {
             <span>${m.molecule}</span>
             <span class="v312-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
           </div>
-          <div class="v312-molecule-body">
+          <div>
             <div class="v312-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
               <div></div>
               <div>Produit</div>
@@ -7191,20 +7208,29 @@ async function showLogDetail(logId) {
     screen.style.display = 'block';
     screen.classList.add('active');
     
-    // Charger les données si pas déjà fait
     if (!_data) {
       _loadData();
     } else {
       _applyFilterAndRender();
     }
-    
-    // Marquer le lien actif
-    document.querySelectorAll('a').forEach(a => a.classList.remove('active'));
-    document.getElementById('v312-nav-link')?.classList.add('active');
   }
 
-  // Lancer l'injection du lien périodiquement
-  setInterval(_injectNavLink, 1500);
+  // Lancer l'injection du bouton périodiquement (au cas où le menu se re-rend)
+  setInterval(_injectNavButton, 1500);
+  
+  // Aussi : si l'utilisateur clique sur un autre bouton nav, on désactive le nôtre
+  setInterval(() => {
+    const nav = document.querySelector('nav.sidebar-nav');
+    if (!nav) return;
+    const ourBtn = document.getElementById('v312-nav-btn');
+    if (!ourBtn) return;
+    
+    // Si on n'est pas sur l'écran meilleur-compo, retirer .active du nôtre
+    const screen = document.getElementById('screen-meilleur-compo');
+    if (!screen || screen.style.display === 'none') {
+      ourBtn.classList.remove('active');
+    }
+  }, 500);
 
 })();
 
