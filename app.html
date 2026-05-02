@@ -6119,12 +6119,14 @@ async function showLogDetail(logId) {
 
 
 
-// === V301_FRONTEND_INJECTED_MARKER ===
+
+
+// === V307_FRONTEND_INJECTED_MARKER ===
 // ============================================================
-// v3.0.1 — UI propre + Sortie hospitalière + pré-remplissage
+// v3.0.7 — Mode simple OU mode détail dans Paramètres
 // ============================================================
 
-(function _v301_init() {
+(function _v307_init() {
 
   const CATEGORIES = [
     { key: "generique",     label: "Générique",    field: "taux_generique_pct"    },
@@ -6133,53 +6135,43 @@ async function showLogDetail(logId) {
     { key: "tva_20",        label: "TVA 20%",      field: "taux_tva20_pct"        },
   ];
 
-  // Catégories visibles dans Admin Classifications
-  const CATEGORIES_VISIBLES = new Set([
-    "generique", "princeps", "biosimilaire", "tva_20", "produit_cher", "sortie_hospitaliere"
-  ]);
-
-  // ====================================================================
-  // 1. PARAMETRES — bloc v3.0.1 propre
-  // ====================================================================
-
-  function _renderRemisesV301Block(cfg, source) {
+  function _renderRemisesV307Block(cfg, source) {
     cfg = cfg || {};
-    const seuilCher           = cfg.seuil_cher ?? 465;
-    const forfaitCher         = cfg.forfait_cher ?? 10;
-    const seuilSortieHospi    = cfg.seuil_sortie_hospi ?? 1500;
-    const forfaitSortieHospi  = cfg.forfait_sortie_hospi ?? 50;
-    const exclureSortieHospi  = cfg.exclure_sortie_hospi ?? false;
+    const seuilCher          = cfg.seuil_cher ?? 465;
+    const forfaitCher        = cfg.forfait_cher ?? 10;
+    const seuilSortieHospi   = cfg.seuil_sortie_hospi ?? 1500;
+    const forfaitSortieHospi = cfg.forfait_sortie_hospi ?? 50;
+    const exclureSortieHospi = cfg.exclure_sortie_hospi ?? false;
+    const tauxLegacy         = cfg.taux_remise_pct_legacy ?? null;
+    const modeCalcul         = cfg.mode_calcul || "detail";
+    const modeSimpleTaux     = cfg.mode_simple_taux_pct ?? (tauxLegacy ?? 4);
     
-    // Pré-remplissage : taux_remise_pct_legacy (ex 50%) ou existant
-    const tauxLegacy = cfg.taux_remise_pct_legacy ?? null;
-    
+    const isSimple = modeCalcul === "simple";
+
+    // Lignes catégories %
     const rows = CATEGORIES.map(cat => {
       let taux = cfg[cat.field];
       let exclu;
       let inputVal;
-      
-      // Si taux pas encore défini → pré-remplir avec legacy
       if (taux === null || taux === undefined) {
-        // Première fois : décocher la case + pré-remplir avec legacy
         exclu = false;
         inputVal = tauxLegacy ?? 0;
       } else {
         exclu = false;
         inputVal = taux;
       }
-      
       const checked = exclu ? "checked" : "";
       const disabled = exclu ? "disabled" : "";
       const inputBg = exclu ? "background:#f0f0f0; color:#aaa;" : "";
 
       return `
-        <div class="v301-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
+        <div class="v307-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
           <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
-            <input type="checkbox" class="v301-cat-exclu" ${checked} data-field="${cat.field}">
+            <input type="checkbox" class="v307-cat-exclu" ${checked} data-field="${cat.field}">
             <span>Exclure ${cat.label}</span>
           </label>
           <div style="display:flex; align-items:center; gap:6px;">
-            <input type="number" class="v301-cat-taux" data-field="${cat.field}" 
+            <input type="number" class="v307-cat-taux" data-field="${cat.field}" 
                    value="${inputVal}" ${disabled} step="0.01" min="0" max="100"
                    style="width:90px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; ${inputBg}">
             <span style="color:#888; font-size:13px;">%</span>
@@ -6188,45 +6180,79 @@ async function showLogDetail(logId) {
       `;
     }).join('');
 
-    return `
-      <div class="v301-remises-block" data-v301-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
-        <div style="font-weight:600; margin-bottom:14px; color:#1D9E75; font-size:16px;">📋 Remises par catégorie — ${source.toUpperCase()}</div>
-        
-        <!-- Seuils -->
+    // Bloc mode détail
+    const blocDetail = `
+      <div class="v307-mode-detail" style="display:${isSimple ? 'none' : 'block'};">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #ddd;">
           <div>
             <label style="font-size:13px; color:#555;">Seuil "produit cher" (€) :</label>
-            <input type="number" class="v301-seuil-cher" value="${seuilCher}" step="50" min="0"
+            <input type="number" class="v307-seuil-cher" value="${seuilCher}" step="50" min="0"
                    style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
           </div>
           <div>
             <label style="font-size:13px; color:#555;">Forfait par boîte (€) :</label>
-            <input type="number" class="v301-forfait-cher" value="${forfaitCher}" step="0.5" min="0"
+            <input type="number" class="v307-forfait-cher" value="${forfaitCher}" step="0.5" min="0"
                    style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
           </div>
           <div>
             <label style="font-size:13px; color:#555;">Seuil "sortie hospitalière" (€) :</label>
-            <input type="number" class="v301-seuil-hospi" value="${seuilSortieHospi}" step="100" min="0"
+            <input type="number" class="v307-seuil-hospi" value="${seuilSortieHospi}" step="100" min="0"
                    style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
           </div>
           <div>
             <label style="font-size:13px; color:#555;">Forfait sortie hospi (€/boîte) :</label>
-            <input type="number" class="v301-forfait-hospi" value="${forfaitSortieHospi}" step="1" min="0"
+            <input type="number" class="v307-forfait-hospi" value="${forfaitSortieHospi}" step="1" min="0"
                    style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
           </div>
         </div>
 
-        <!-- Catégories % -->
         ${rows}
 
-        <!-- Sortie hospitalière (case seule) -->
-        <div class="v301-cat-row" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; margin-top:6px;">
+        <div class="v307-cat-row" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; margin-top:6px;">
           <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
-            <input type="checkbox" class="v301-exclure-hospi" ${exclureSortieHospi ? 'checked' : ''}>
+            <input type="checkbox" class="v307-exclure-hospi" ${exclureSortieHospi ? 'checked' : ''}>
             <span>Exclure Sortie hospitalière</span>
           </label>
           <span style="color:#888; font-size:12px;">(sinon : forfait par boîte ci-dessus)</span>
         </div>
+      </div>
+    `;
+
+    // Bloc mode simple
+    const blocSimple = `
+      <div class="v307-mode-simple" style="display:${isSimple ? 'block' : 'none'}; padding:16px; background:#fffbf0; border:1px solid #f0d890; border-radius:8px;">
+        <div style="font-size:13px; color:#666; margin-bottom:12px;">
+          🎯 <strong>Mode simple</strong> : taux unique appliqué à toutes les lignes,<br>
+          sauf <strong>Génériques</strong> et <strong>produits déjà remisés sur facture</strong> (exclus d'office).
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <label style="font-size:14px;">Taux unique :</label>
+          <input type="number" class="v307-taux-simple" value="${modeSimpleTaux}" step="0.01" min="0" max="100"
+                 style="width:100px; padding:6px 10px; border:1px solid #ccc; border-radius:6px;">
+          <span style="color:#888; font-size:13px;">%</span>
+        </div>
+      </div>
+    `;
+
+    return `
+      <div class="v307-remises-block" data-v307-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
+        <div style="font-weight:600; margin-bottom:14px; color:#1D9E75; font-size:16px;">📋 Remises par catégorie — ${source.toUpperCase()}</div>
+        
+        <!-- Toggle mode -->
+        <div style="margin-bottom:18px; padding:12px; background:white; border:1px solid #ddd; border-radius:8px;">
+          <div style="font-size:13px; color:#666; margin-bottom:8px; font-weight:500;">Mode de calcul :</div>
+          <label style="display:inline-flex; align-items:center; gap:6px; margin-right:24px; cursor:pointer;">
+            <input type="radio" name="v307-mode-${source}" value="detail" ${!isSimple ? 'checked' : ''}>
+            <span style="font-size:14px;">🔬 Mode détaillé (5 catégories)</span>
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="radio" name="v307-mode-${source}" value="simple" ${isSimple ? 'checked' : ''}>
+            <span style="font-size:14px;">🎯 Mode simple (taux unique)</span>
+          </label>
+        </div>
+
+        ${blocDetail}
+        ${blocSimple}
 
         <div style="margin-top:14px; font-size:12px; color:#888; line-height:1.5;">
           ☐ Décocher = catégorie incluse (% objectif renseigné)<br>
@@ -6234,20 +6260,32 @@ async function showLogDetail(logId) {
         </div>
 
         <div style="margin-top:16px; display:flex; align-items:center; gap:12px;">
-          <button class="v301-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
+          <button class="v307-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
             💾 Sauvegarder + Recalculer
           </button>
-          <span class="v301-save-status" style="font-size:13px;"></span>
+          <span class="v307-save-status" style="font-size:13px;"></span>
         </div>
       </div>
     `;
   }
 
-  function _attachV301Handlers(block, source) {
-    block.querySelectorAll('.v301-cat-exclu').forEach(cb => {
+  function _attachV307Handlers(block, source) {
+    // Toggle mode simple/détail
+    block.querySelectorAll(`input[name="v307-mode-${source}"]`).forEach(radio => {
+      radio.addEventListener('change', () => {
+        const isSimple = radio.value === 'simple';
+        const detail = block.querySelector('.v307-mode-detail');
+        const simple = block.querySelector('.v307-mode-simple');
+        if (detail) detail.style.display = isSimple ? 'none' : 'block';
+        if (simple) simple.style.display = isSimple ? 'block' : 'none';
+      });
+    });
+
+    // Toggle catégorie excluse
+    block.querySelectorAll('.v307-cat-exclu').forEach(cb => {
       cb.addEventListener('change', () => {
-        const row = cb.closest('.v301-cat-row');
-        const input = row.querySelector('.v301-cat-taux');
+        const row = cb.closest('.v307-cat-row');
+        const input = row.querySelector('.v307-cat-taux');
         if (cb.checked) {
           input.disabled = true;
           input.style.background = '#f0f0f0';
@@ -6261,35 +6299,47 @@ async function showLogDetail(logId) {
       });
     });
 
-    const btn = block.querySelector('.v301-btn-save');
+    // Bouton Sauvegarder
+    const btn = block.querySelector('.v307-btn-save');
     if (!btn) return;
     btn.addEventListener('click', async () => {
-      const status = block.querySelector('.v301-save-status');
+      const status = block.querySelector('.v307-save-status');
       status.textContent = '⏳ Sauvegarde + recalcul...';
       status.style.color = '#888';
+
+      const modeRadio = block.querySelector(`input[name="v307-mode-${source}"]:checked`);
+      const mode = modeRadio?.value || 'detail';
 
       const payload = {
         source: source,
         recalculer: true,
-        seuil_cher:           parseFloat(block.querySelector('.v301-seuil-cher').value) || 465,
-        forfait_cher:         parseFloat(block.querySelector('.v301-forfait-cher').value) || 10,
-        seuil_sortie_hospi:   parseFloat(block.querySelector('.v301-seuil-hospi').value) || 1500,
-        forfait_sortie_hospi: parseFloat(block.querySelector('.v301-forfait-hospi').value) || 50,
-        exclure_sortie_hospi: block.querySelector('.v301-exclure-hospi').checked,
+        mode_calcul: mode,
       };
 
-      block.querySelectorAll('.v301-cat-row').forEach(row => {
-        const cb = row.querySelector('.v301-cat-exclu');
-        if (!cb) return;  // Pour la ligne sortie hospi qui n'a pas .v301-cat-exclu
-        const input = row.querySelector('.v301-cat-taux');
-        const field = cb.getAttribute('data-field');
-        if (cb.checked) {
-          payload[field] = null;
-        } else {
-          const v = parseFloat(input.value);
-          payload[field] = isNaN(v) ? 0 : v;
-        }
-      });
+      if (mode === 'simple') {
+        const tauxSimple = parseFloat(block.querySelector('.v307-taux-simple').value) || 0;
+        payload.mode_simple_taux_pct = tauxSimple;
+      } else {
+        // Mode détail
+        payload.seuil_cher           = parseFloat(block.querySelector('.v307-seuil-cher').value) || 465;
+        payload.forfait_cher         = parseFloat(block.querySelector('.v307-forfait-cher').value) || 10;
+        payload.seuil_sortie_hospi   = parseFloat(block.querySelector('.v307-seuil-hospi').value) || 1500;
+        payload.forfait_sortie_hospi = parseFloat(block.querySelector('.v307-forfait-hospi').value) || 50;
+        payload.exclure_sortie_hospi = block.querySelector('.v307-exclure-hospi').checked;
+        
+        block.querySelectorAll('.v307-cat-row').forEach(row => {
+          const cb = row.querySelector('.v307-cat-exclu');
+          if (!cb) return;
+          const input = row.querySelector('.v307-cat-taux');
+          const field = cb.getAttribute('data-field');
+          if (cb.checked) {
+            payload[field] = null;
+          } else {
+            const v = parseFloat(input.value);
+            payload[field] = isNaN(v) ? 0 : v;
+          }
+        });
+      }
 
       try {
         const T = localStorage.getItem('pharmaremise_token');
@@ -6302,9 +6352,9 @@ async function showLogDetail(logId) {
         if (data.ok) {
           const nb = data.recalcul?.nb_factures_recalculees ?? 0;
           const total = data.recalcul?.remise_totale_calculee ?? 0;
-          status.textContent = `✓ ${nb} facture(s) recalculée(s) · ${total}€ remises`;
+          status.textContent = `✓ ${nb} facture(s) · ${total}€ remises (mode ${mode})`;
           status.style.color = '#1D9E75';
-          window._v301ConfigCache = null;
+          window._v307ConfigCache = null;
         } else {
           status.textContent = '✗ ' + (data.detail || JSON.stringify(data).slice(0, 200));
           status.style.color = '#c0392b';
@@ -6316,19 +6366,19 @@ async function showLogDetail(logId) {
     });
   }
 
-  async function _injectRemisesV301() {
+  async function _injectRemisesV307() {
     const buttons = [...document.querySelectorAll('button')].filter(b => 
       /^Sauvegarder\s+(CERP|OCP|Alliance|ALLIANCE)$/i.test(b.textContent.trim())
     );
     if (buttons.length === 0) return;
 
-    if (!window._v301ConfigCache || Date.now() - (window._v301CacheTs || 0) > 30000) {
+    if (!window._v307ConfigCache || Date.now() - (window._v307CacheTs || 0) > 30000) {
       try {
-        window._v301ConfigCache = await apiGet('/grossiste/config-v3');
-        window._v301CacheTs = Date.now();
+        window._v307ConfigCache = await apiGet('/grossiste/config-v3');
+        window._v307CacheTs = Date.now();
       } catch (e) { return; }
     }
-    const configs = window._v301ConfigCache || [];
+    const configs = window._v307ConfigCache || [];
 
     buttons.forEach(btn => {
       const txt = btn.textContent.toLowerCase();
@@ -6341,13 +6391,16 @@ async function showLogDetail(logId) {
       let container = btn.closest('.tab-content, .card, [class*="config"]') || btn.parentElement?.parentElement;
       if (!container) container = btn.parentElement;
 
-      // Anti-doublon
-      if (container.querySelector(`.v301-remises-block[data-v301-source="${source}"]`)) return;
-      // Supprimer aussi les anciens blocs v300 si présents
-      container.querySelectorAll('.v300-remises-block').forEach(el => el.remove());
+      // Anti-doublon (toutes versions)
+      if (container.querySelector(`.v307-remises-block[data-v307-source="${source}"]`)) return;
+      // Supprimer les anciens blocs v3xx
+      container.querySelectorAll('.v300-remises-block, .v301-remises-block, .v307-remises-block').forEach(el => {
+        if (el.classList.contains('v307-remises-block')) return; // garde les v307
+        el.remove();
+      });
 
       const cfg = configs.find(c => c.source === source);
-      const html = _renderRemisesV301Block(cfg, source);
+      const html = _renderRemisesV307Block(cfg, source);
 
       const wrapper = document.createElement('div');
       wrapper.innerHTML = html.trim();
@@ -6360,42 +6413,17 @@ async function showLogDetail(logId) {
         btn.parentElement.appendChild(newBlock);
       }
 
-      _attachV301Handlers(newBlock, source);
+      _attachV307Handlers(newBlock, source);
     });
   }
 
-  setInterval(_injectRemisesV301, 1500);
+  setInterval(_injectRemisesV307, 1500);
 
-
-  // ====================================================================
-  // 2. CACHER les anciennes options "Exclure TVA 20%" et "Exclure biosimilaires"
-  //    du formulaire HAUT (puisqu'on les remplace par les taux par catégorie)
-  // ====================================================================
-  
-  // 🔧 RÉPARATION : ré-afficher les labels du bloc v3 si la version précédente
-  // les a cachés à tort (ils avaient été match par TO_HIDE alors qu'ils sont dans v301)
-  function _fixV301Labels() {
-    document.querySelectorAll('.v301-remises-block label').forEach(lbl => {
-      if (lbl.style.display === 'none') {
-        lbl.style.display = '';
-      }
-    });
-  }
-  setInterval(_fixV301Labels, 800);
-
+  // Cacher anciennes cases
   function _cleanupOldExclusionCheckboxes() {
-    // Cacher toutes les anciennes cases d'exclusion du formulaire HAUT
-    // MAIS PAS celles dans notre nouveau bloc v3 !
-    const TO_HIDE = [
-      'Exclure TVA 20%',
-      'Exclure biosimilaires',
-      'Exclure frigo',
-      'Exclure stupéfiants',
-    ];
+    const TO_HIDE = ['Exclure TVA 20%', 'Exclure biosimilaires', 'Exclure frigo', 'Exclure stupéfiants'];
     [...document.querySelectorAll('label')].forEach(lbl => {
-      // Skip si le label est dans notre bloc v3
-      if (lbl.closest('.v301-remises-block')) return;
-      
+      if (lbl.closest('.v307-remises-block')) return;
       const txt = lbl.textContent.trim();
       if (TO_HIDE.some(t => txt === t)) {
         lbl.style.display = 'none';
@@ -6403,325 +6431,6 @@ async function showLogDetail(logId) {
     });
   }
   setInterval(_cleanupOldExclusionCheckboxes, 1500);
-
-
-  // ====================================================================
-  // 3. ADMIN CLASSIFICATIONS — wrapper renderClassifCategory
-  // ====================================================================
-
-  function _patchClassifCategoryRender() {
-    if (typeof window.renderClassifCategory !== 'function') return false;
-    if (window.renderClassifCategory.__v301Patched) return true;
-
-    const orig = window.renderClassifCategory;
-    window.renderClassifCategory = function(catKey, catData) {
-      // Filtrer les catégories non autorisées
-      if (!CATEGORIES_VISIBLES.has(catKey)) {
-        return '';
-      }
-      
-      // Renommer "produit_cher" en "Produit cher" (déjà bon par défaut)
-      // Renommer "sortie_hospitaliere" → "Sortie hospitalière"
-      if (catKey === 'sortie_hospitaliere' && catData) {
-        catData.label = 'Sortie hospitalière';
-      }
-
-      // Appel normal
-      let html = orig.apply(this, arguments);
-      
-      // Pour produit_cher et sortie_hospitaliere, on ajoute le prix après
-      // (post-traitement HTML)
-      if ((catKey === 'produit_cher' || catKey === 'sortie_hospitaliere') && catData?.items) {
-        // Le HTML retourné contient les rows. On enrichit par CIP en injectant le prix.
-        // Plus simple : on annote chaque row pour qu'on puisse la modifier après le DOM
-        catData.items.forEach(it => {
-          if (it.pfht || it.ppht) {
-            it._showPrice = it.pfht || it.ppht;
-          }
-        });
-      }
-      return html;
-    };
-    window.renderClassifCategory.__v301Patched = true;
-
-    // Recharger la page admin classif si ouverte
-    const screen = document.getElementById('screen-admin-classifications');
-    if (screen && getComputedStyle(screen).display !== 'none') {
-      if (typeof window.loadAdminClassifications === 'function') {
-        window.loadAdminClassifications();
-      }
-    }
-    return true;
-  }
-
-  let _tries = 0;
-  const interval = setInterval(() => {
-    _tries++;
-    if (_patchClassifCategoryRender() || _tries > 30) clearInterval(interval);
-  }, 500);
-
-  // Annoter les rows produit cher / sortie hospi avec le prix
-  function _annotateProdCherRows() {
-    const screen = document.getElementById('screen-admin-classifications');
-    if (!screen) return;
-    
-    // Trouver les sections "Produit cher" et "Sortie hospitalière"
-    const sections = screen.querySelectorAll('details, .accordion-item, [class*="category-block"]');
-    sections.forEach(sec => {
-      const summary = sec.querySelector('summary, .accordion-title, .category-title');
-      const summaryTxt = (summary?.textContent || '').toLowerCase();
-      const isProdCher = summaryTxt.includes('produit cher');
-      const isHospi    = summaryTxt.includes('sortie hospi') || summaryTxt.includes('hospitalière');
-      
-      if (!isProdCher && !isHospi) return;
-      
-      // Pour chaque row dans cette section, ajouter le prix si dispo
-      const rows = sec.querySelectorAll('[data-cip13], tr');
-      rows.forEach(row => {
-        if (row.__v301Priced) return;
-        const cip = row.getAttribute('data-cip13');
-        if (!cip) return;
-        
-        // Chercher le prix dans le cache global
-        const meta = window._priceCache?.[cip];
-        if (!meta || !meta.pfht) return;
-        
-        const nameCell = row.querySelector('.cat-name, td:nth-child(2)') || row.children[1];
-        if (nameCell && !nameCell.querySelector('.v301-price-tag')) {
-          const tag = document.createElement('span');
-          tag.className = 'v301-price-tag';
-          const isHigh = meta.pfht > 1500;
-          tag.style.cssText = `margin-left:8px; padding:2px 8px; background:${isHigh ? '#ffe6e6' : '#fff3cd'}; color:${isHigh ? '#9d0000' : '#856404'}; border-radius:4px; font-size:11px; font-weight:500;`;
-          tag.textContent = Number(meta.pfht).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-          nameCell.appendChild(tag);
-          row.__v301Priced = true;
-        }
-      });
-    });
-  }
-  setInterval(_annotateProdCherRows, 2000);
-
-  // Hook fetch pour récupérer les prix
-  const origFetch = window.fetch;
-  if (!origFetch.__v301PriceHooked) {
-    window._priceCache = window._priceCache || {};
-    window.fetch = async function(url, opts) {
-      const r = await origFetch.apply(this, arguments);
-      const ct = r.headers.get('content-type') || '';
-      if (typeof url === 'string' && /\/grossiste\/factures\/[\w-]+/.test(url) && ct.includes('json')) {
-        try {
-          const clone = r.clone();
-          const data = await clone.json();
-          if (data.lignes) {
-            data.lignes.forEach(l => {
-              if (l.cip13 && (l.pfht || l.ppht)) {
-                window._priceCache[l.cip13] = { pfht: l.pfht || l.ppht };
-              }
-            });
-          }
-        } catch (e) { /* ignore */ }
-      }
-      return r;
-    };
-    window.fetch.__v301PriceHooked = true;
-  }
-
-})();
-
-
-
-
-
-// === V303_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.3 — Scroll infini Classifications (vrais sélecteurs DOM)
-// ============================================================
-// Structure réelle :
-// .classif-category (.open quand déployée)
-//   └── .classif-category-body
-//       ├── .classif-row (× N produits)
-//       │   └── .classif-status > span.badge.gray "Catégorie"
-//       └── div (sans classe) "...et 120 autres"
-
-(function _v303_init() {
-
-  let _isLoadingMore = false;
-  let _trackedCategories = {};
-
-  // Map texte de catégorie visible → clé interne
-  const CATEGORY_KEYS = {
-    'générique':       'generique',
-    'biosimilaire':    'biosimilaire',
-    'produit cher':    'produit_cher',
-    'sortie hospi':    'sortie_hospitaliere',
-    'sortie hospitalière': 'sortie_hospitaliere',
-    'tva 20':          'tva_20',
-    'princeps':        'princeps',
-  };
-
-  function _getCategoryKey(categorySection) {
-    // Le header de la catégorie contient le titre
-    // Ex: "Générique 158" → on extrait "Générique"
-    const header = categorySection.querySelector('.classif-category-header, [class*="header"]')
-                || categorySection.firstElementChild;
-    if (!header) return null;
-    
-    const txt = (header.textContent || '').toLowerCase().trim();
-    for (const [needle, key] of Object.entries(CATEGORY_KEYS)) {
-      if (txt.includes(needle)) return key;
-    }
-    return null;
-  }
-
-  function _findFooterMessage(body) {
-    // Le footer "...et X autres" est un <div> sans classe, dernier enfant
-    const children = [...body.children];
-    return children.find(el => /\.\.\.\s*et\s+\d+\s+autres/i.test(el.textContent || ''));
-  }
-
-  async function _loadMoreClassifications(categoryKey, offset, sentinel, body) {
-    if (_isLoadingMore) return;
-    _isLoadingMore = true;
-    
-    try {
-      const T = localStorage.getItem('pharmaremise_token');
-      const url = `https://web-production-2202b.up.railway.app/admin/classifications/page?category=${categoryKey}&limit=50&offset=${offset}`;
-      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T } });
-      const data = await r.json();
-      
-      const items = data.items || [];
-      if (items.length === 0) {
-        sentinel.innerHTML = '✓ Toutes les classifications chargées';
-        return { has_more: false };
-      }
-      
-      // Cloner une row existante comme template
-      const existingRows = body.querySelectorAll('.classif-row');
-      if (existingRows.length === 0) {
-        sentinel.innerHTML = '⚠️ Pas de template trouvé';
-        return { has_more: false };
-      }
-      const template = existingRows[existingRows.length - 1];
-      
-      // Insérer chaque nouvel item avant la sentinelle
-      items.forEach(it => {
-        const newRow = template.cloneNode(true);
-        newRow.setAttribute('data-cip13', it.cip13);
-        
-        // Mettre à jour le contenu en gardant la structure
-        // 1. CIP (généralement 1ère colonne)
-        const cipCell = newRow.querySelector('.classif-cip, [class*="cip"]') 
-                     || newRow.children[0];
-        if (cipCell && cipCell.children.length === 0) {
-          cipCell.textContent = it.cip13;
-        } else if (cipCell) {
-          // Trouver le textNode dedans
-          const cipText = [...cipCell.childNodes].find(n => n.nodeType === 3);
-          if (cipText) cipText.textContent = it.cip13;
-          else cipCell.textContent = it.cip13;
-        }
-        
-        // 2. Nom
-        const nameCell = newRow.querySelector('.classif-nom, [class*="nom"], [class*="name"]')
-                      || newRow.children[1];
-        if (nameCell) {
-          const nameText = [...nameCell.childNodes].find(n => n.nodeType === 3);
-          if (nameText) nameText.textContent = it.nom || '—';
-          else nameCell.textContent = it.nom || '—';
-        }
-        
-        // 3. Pour produit cher / sortie hospitalière : annotation prix
-        if ((categoryKey === 'produit_cher' || categoryKey === 'sortie_hospitaliere') && it.pfht) {
-          const statusCell = newRow.querySelector('.classif-status');
-          if (statusCell && !statusCell.querySelector('.v303-price')) {
-            const tag = document.createElement('span');
-            tag.className = 'v303-price';
-            tag.style.cssText = 'margin-left:8px; padding:2px 6px; background:#fff3cd; color:#856404; border-radius:4px; font-size:11px;';
-            tag.textContent = Number(it.pfht).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' €';
-            statusCell.appendChild(tag);
-          }
-        }
-        
-        body.insertBefore(newRow, sentinel);
-      });
-      
-      _trackedCategories[categoryKey] = {
-        offset:   offset + items.length,
-        has_more: data.has_more,
-        total:    data.total,
-      };
-      
-      if (!data.has_more) {
-        sentinel.innerHTML = `✓ ${data.total} produits affichés`;
-      } else {
-        sentinel.innerHTML = `⏳ ${offset + items.length} / ${data.total} chargés... continuez à scroller`;
-      }
-      
-      return data;
-    } catch (e) {
-      sentinel.innerHTML = `⚠️ ${e.message}`;
-      return { has_more: false };
-    } finally {
-      _isLoadingMore = false;
-    }
-  }
-
-  function _setupScrollSentinels() {
-    // Trouver toutes les sections .classif-category déployées
-    const categories = document.querySelectorAll('.classif-category');
-    
-    categories.forEach(cat => {
-      // Skip si pas déployée (pas de classe "open")
-      if (!cat.classList.contains('open')) return;
-      
-      const body = cat.querySelector('.classif-category-body');
-      if (!body) return;
-      
-      // Skip si sentinelle déjà installée
-      if (body.querySelector('[data-v303-sentinel]')) return;
-      
-      // Trouver le footer "...et X autres"
-      const footer = _findFooterMessage(body);
-      if (!footer) return;
-      
-      // Identifier la catégorie
-      const categoryKey = _getCategoryKey(cat);
-      if (!categoryKey) return;
-      
-      // Compter les rows déjà visibles
-      const rows = body.querySelectorAll('.classif-row');
-      const offset = rows.length;
-      
-      _trackedCategories[categoryKey] = { offset: offset, has_more: true };
-      
-      // Créer la sentinelle
-      const sentinel = document.createElement('div');
-      sentinel.setAttribute('data-v303-sentinel', categoryKey);
-      sentinel.style.cssText = 'padding:14px; text-align:center; color:#888; font-size:13px; background:#fafafa; border-top:1px dashed #ddd;';
-      sentinel.innerHTML = `⏳ Faire défiler pour charger plus (${offset} affichés)`;
-      
-      // Cacher le footer original et insérer la sentinelle à sa place
-      footer.style.display = 'none';
-      body.insertBefore(sentinel, footer);
-      
-      // Observer
-      const observer = new IntersectionObserver(async (entries) => {
-        if (!entries[0].isIntersecting) return;
-        const tracker = _trackedCategories[categoryKey];
-        if (!tracker || !tracker.has_more) return;
-        await _loadMoreClassifications(categoryKey, tracker.offset, sentinel, body);
-        if (!_trackedCategories[categoryKey].has_more) {
-          observer.disconnect();
-        }
-      }, { rootMargin: '200px' });
-      
-      observer.observe(sentinel);
-    });
-  }
-
-  // Lancer périodiquement (catégories peuvent être ouvertes/fermées dynamiquement)
-  setInterval(_setupScrollSentinels, 1500);
-
 })();
 
 </script>
