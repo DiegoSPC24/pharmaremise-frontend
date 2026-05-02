@@ -6437,46 +6437,37 @@ async function showLogDetail(logId) {
 
 
 
-// === V309_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.9 — Détails Génériqueur (FIX sélecteurs DOM)
-// ============================================================
-// Structure réelle :
-// DIV.card (1 par labo)
-//   ├── DIV (header) → SPAN "N°X" + SPAN "Nom labo"
-//   ├── KPIs (CA, Remise grossiste, RDP, etc.)
-//   └── DIV "Répartition par source"
-//       └── lignes : SPAN rang/source + SPAN nom + SPAN € + SPAN %
 
-(function _v309_init() {
+
+// === V311_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.11 — Boxes récap avec % + RDP par produit
+// ============================================================
+
+(function _v311_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
 
-  // Liste des labos connus pour la détection
   const LABOS_CONNUS = [
     'Biogaran', 'Mylan', 'Viatris', 'Teva', 'Cristers', 'Sandoz',
     'Arrow', 'Krka', 'EG Labo', 'EG', 'Zydus', 'Zentiva', 'Sanofi',
     'Sun', 'Almus', 'Accord', 'Reddy', 'Aurobindo', 'Substipharm',
-    'Arrow Génériques', 'Sanofi Aventis', 'GNR', 'Bouchara', 'Pfizer',
+    'GNR', 'Bouchara', 'Pfizer',
   ];
   
-  // Sources de grossiste (avec variations)
   const SOURCES_MAP = {
-    'cerp':         /^cerp/i,
-    'alliance':     /^alliance/i,
-    'ocp':          /^ocp/i,
-    'direct':       /^(direct|labo direct)/i,
+    'cerp':     /^cerp/i,
+    'alliance': /^alliance/i,
+    'ocp':      /^ocp/i,
+    'direct':   /^(direct|labo direct)/i,
   };
 
   function _findLaboName(card) {
-    // Cherche le 1er SPAN du header avec un nom de labo connu
-    // Le header est le 1er DIV avec 2 SPAN (rang + nom)
     const spans = [...card.querySelectorAll('span')];
     for (const span of spans) {
       if (span.children.length > 0) continue;
       const txt = (span.textContent || '').trim();
-      // Match exact ou avec emoji
       const found = LABOS_CONNUS.find(l => txt === l || txt === '🏢 ' + l || txt.endsWith(l));
       if (found) return found;
     }
@@ -6495,9 +6486,7 @@ async function showLogDetail(logId) {
     const screen = document.getElementById('screen-generiqueur');
     if (!screen || screen.offsetParent === null) return;
     
-    // Toutes les .card du screen génériqueur qui contiennent "Répartition par source"
     const cards = [...screen.querySelectorAll('.card')].filter(card => {
-      // Skip kpi-card et autres
       if (card.classList.contains('kpi-card')) return false;
       return /Répartition par source/i.test(card.textContent || '');
     });
@@ -6505,16 +6494,10 @@ async function showLogDetail(logId) {
     cards.forEach(card => {
       const labo = _findLaboName(card);
       if (!labo) return;
+      if (card.querySelector('.v309-voir-tout-btn, .v311-voir-tout-btn')) return;
       
-      // Skip si déjà patché (idempotent)
-      if (card.querySelector('.v309-voir-tout-btn')) return;
-      
-      card.setAttribute('data-v309-labo', labo);
+      card.setAttribute('data-v311-labo', labo);
 
-      // ============================================
-      // BOUTON "Voir tout" : à côté du nom du labo (en haut)
-      // ============================================
-      // Trouver le SPAN du nom du labo dans le header
       const headerSpan = [...card.querySelectorAll('span')].find(s => {
         if (s.children.length > 0) return false;
         return (s.textContent || '').trim() === labo;
@@ -6522,42 +6505,26 @@ async function showLogDetail(logId) {
       
       if (headerSpan && headerSpan.parentElement) {
         const btnTout = document.createElement('button');
-        btnTout.className = 'v309-voir-tout-btn';
+        btnTout.className = 'v311-voir-tout-btn';
         btnTout.textContent = '👁️ Voir tout';
-        btnTout.style.cssText = `
-          margin-left: 12px;
-          padding: 4px 12px;
-          background: #1D9E75;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
-          cursor: pointer;
-          font-weight: 500;
-          vertical-align: middle;
-        `;
+        btnTout.style.cssText = `margin-left: 12px; padding: 4px 12px; background: #1D9E75;
+          color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;
+          font-weight: 500; vertical-align: middle;`;
         btnTout.addEventListener('click', (e) => {
           e.stopPropagation();
           _openDetailsModal(labo, null);
         });
-        // Insérer après le SPAN du nom
         headerSpan.parentElement.insertBefore(btnTout, headerSpan.nextSibling);
       }
 
-      // ============================================
-      // BOUTON "Voir" pour CHAQUE source dans Répartition par source
-      // ============================================
-      // Trouver le bloc "Répartition par source"
       const repTitle = [...card.querySelectorAll('*')].find(el => 
         el.children.length === 0 && /Répartition par source/i.test(el.textContent || '')
       );
       if (!repTitle) return;
       
-      // Le tableau de répartition est le PARENT du titre (ou son frère)
       const repBlock = repTitle.parentElement;
       if (!repBlock) return;
       
-      // Lignes de sources : on cherche les SPAN qui matchent CERP/Alliance/OCP/Direct
       const sourceSpans = [...repBlock.querySelectorAll('span')].filter(s => {
         if (s.children.length > 0) return false;
         return _findSourceFromText(s.textContent) !== null;
@@ -6566,56 +6533,41 @@ async function showLogDetail(logId) {
       sourceSpans.forEach(span => {
         const sourceKey = _findSourceFromText(span.textContent);
         if (!sourceKey) return;
-        
-        // La ligne contenant ce SPAN
         const row = span.parentElement;
         if (!row) return;
+        if (row.querySelector(`.v311-voir-source-btn[data-src="${sourceKey}"]`)) return;
         
-        // Skip si bouton déjà présent dans cette ligne
-        if (row.querySelector(`.v309-voir-source-btn[data-src="${sourceKey}"]`)) return;
-        
-        // Vérifier si la ligne a un CA (sinon pas de produit, pas la peine)
         const rowText = row.textContent || '';
         const hasCA = /\d+[,.]?\d*\s*€/.test(rowText) && !rowText.includes('aucun achat');
         
         const btn = document.createElement('button');
-        btn.className = 'v309-voir-source-btn';
+        btn.className = 'v311-voir-source-btn';
         btn.setAttribute('data-src', sourceKey);
         btn.textContent = hasCA ? '👁️ Voir' : '—';
         btn.disabled = !hasCA;
-        btn.style.cssText = `
-          margin-left: 10px;
-          padding: 3px 10px;
+        btn.style.cssText = `margin-left: 10px; padding: 3px 10px;
           background: ${hasCA ? 'white' : '#f5f5f5'};
           color: ${hasCA ? '#1D9E75' : '#aaa'};
           border: 1px solid ${hasCA ? '#1D9E75' : '#ddd'};
-          border-radius: 5px;
-          font-size: 11px;
+          border-radius: 5px; font-size: 11px;
           cursor: ${hasCA ? 'pointer' : 'not-allowed'};
-          font-weight: 500;
-          vertical-align: middle;
-        `;
+          font-weight: 500; vertical-align: middle;`;
         if (hasCA) {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
             _openDetailsModal(labo, sourceKey);
           });
         }
-        // Insérer dans la ligne (après le dernier SPAN)
         row.appendChild(btn);
       });
     });
   }
 
-  // ====================================================================
-  // MODAL
-  // ====================================================================
-
   function _getMonthYear() {
-    if (typeof window.currentMois !== 'undefined' && typeof window.currentAnnee !== 'undefined') {
+    if (window.currentMois !== undefined && window.currentAnnee !== undefined) {
       return { mois: window.currentMois, annee: window.currentAnnee };
     }
-    if (typeof window.moisActif !== 'undefined' && typeof window.anneeActive !== 'undefined') {
+    if (window.moisActif !== undefined && window.anneeActive !== undefined) {
       return { mois: window.moisActif, annee: window.anneeActive };
     }
     const now = new Date();
@@ -6631,7 +6583,6 @@ async function showLogDetail(logId) {
         fin_annee: window.periodeFinAnnee,
       };
     }
-    // 12 derniers mois par défaut
     const now = new Date();
     const fin_mois = now.getMonth() + 1;
     const fin_annee = now.getFullYear();
@@ -6658,12 +6609,12 @@ async function showLogDetail(logId) {
   let _currentMode = 'mois';
 
   async function _loadAndRender() {
-    const tbody = document.getElementById('v309-modal-tbody');
-    const totalsDiv = document.getElementById('v309-modal-totals');
-    const titleEl = document.getElementById('v309-modal-title');
-    const subtitleEl = document.getElementById('v309-modal-subtitle');
-    const btnPdfTout = document.getElementById('v309-btn-pdf-tout');
-    const btnPdfSource = document.getElementById('v309-btn-pdf-source');
+    const tbody = document.getElementById('v311-modal-tbody');
+    const totalsDiv = document.getElementById('v311-modal-totals');
+    const titleEl = document.getElementById('v311-modal-title');
+    const subtitleEl = document.getElementById('v311-modal-subtitle');
+    const btnPdfTout = document.getElementById('v311-btn-pdf-tout');
+    const btnPdfSource = document.getElementById('v311-btn-pdf-source');
     
     if (!tbody) return;
     
@@ -6671,20 +6622,16 @@ async function showLogDetail(logId) {
     totalsDiv.innerHTML = '';
     
     let url, periodLabel;
-    
     if (_currentMode === 'mois') {
       const { mois, annee } = _getMonthYear();
       url = `${API}/generiqueur/labo/${encodeURIComponent(_currentLabo)}/details?mois=${mois}&annee=${annee}`;
-      periodLabel = `Mois ${String(mois).padStart(2, '0')}/${annee}`;
+      periodLabel = `Mois ${String(mois).padStart(2,'0')}/${annee}`;
     } else {
       const p = _getPeriode();
       url = `${API}/generiqueur/labo/${encodeURIComponent(_currentLabo)}/details-periode?debut_mois=${p.debut_mois}&debut_annee=${p.debut_annee}&fin_mois=${p.fin_mois}&fin_annee=${p.fin_annee}`;
       periodLabel = `${String(p.debut_mois).padStart(2,'0')}/${p.debut_annee} → ${String(p.fin_mois).padStart(2,'0')}/${p.fin_annee}`;
     }
-    
-    if (_currentSource) {
-      url += `&source=${_currentSource}`;
-    }
+    if (_currentSource) url += `&source=${_currentSource}`;
     
     titleEl.textContent = `${_currentLabo}` + (_currentSource ? ` · ${_currentSource.toUpperCase()}` : ' · Tous grossistes');
     subtitleEl.textContent = periodLabel;
@@ -6692,7 +6639,6 @@ async function showLogDetail(logId) {
     try {
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T() } });
       const data = await r.json();
-      
       if (!r.ok) {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;">⚠️ ${data.detail || 'Erreur'}</td></tr>`;
         return;
@@ -6701,37 +6647,35 @@ async function showLogDetail(logId) {
       const produits = data.produits || [];
       const totaux = data.totaux || {};
       
-      // Totaux en haut
+      // Helper pour afficher € + %
+      const boxEuroPct = (label, eur, pct, highlight) => `
+        <div class="v311-stat-box" style="${highlight ? 'background:#1D9E75; color:white;' : ''}">
+          <div class="v311-stat-label" ${highlight ? 'style="color:rgba(255,255,255,0.85);"' : ''}>${label}</div>
+          <div class="v311-stat-value" ${highlight ? 'style="color:white;"' : ''}>${_fmtEuro(eur)}</div>
+          <div class="v311-stat-pct" ${highlight ? 'style="color:rgba(255,255,255,0.75);"' : ''}>${pct != null ? _fmtPct(pct) + ' du CA' : ''}</div>
+        </div>`;
+      
+      // Boxes récap : € + % du CA en dessous
       totalsDiv.innerHTML = `
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px;">
-          <div class="v309-stat-box">
-            <div class="v309-stat-label">Produits</div>
-            <div class="v309-stat-value">${totaux.nb_produits || 0}</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+          <div class="v311-stat-box">
+            <div class="v311-stat-label">Produits</div>
+            <div class="v311-stat-value">${totaux.nb_produits || 0}</div>
+            <div class="v311-stat-pct">références</div>
           </div>
-          <div class="v309-stat-box">
-            <div class="v309-stat-label">Total HT</div>
-            <div class="v309-stat-value">${_fmtEuro(totaux.ca_ht)}</div>
+          <div class="v311-stat-box">
+            <div class="v311-stat-label">Total HT</div>
+            <div class="v311-stat-value">${_fmtEuro(totaux.ca_ht)}</div>
+            <div class="v311-stat-pct">CA généré</div>
           </div>
-          <div class="v309-stat-box">
-            <div class="v309-stat-label">Rem. grossiste</div>
-            <div class="v309-stat-value">${_fmtEuro(totaux.remise_grossiste)}</div>
-          </div>
-          <div class="v309-stat-box">
-            <div class="v309-stat-label">RDP</div>
-            <div class="v309-stat-value">${_fmtEuro(totaux.rdp)}</div>
-          </div>
-          <div class="v309-stat-box">
-            <div class="v309-stat-label">Rem. contrat</div>
-            <div class="v309-stat-value">${_fmtEuro(totaux.remise_contrat)}</div>
-          </div>
-          <div class="v309-stat-box" style="background:#1D9E75;">
-            <div class="v309-stat-label" style="color:rgba(255,255,255,0.85);">REMISE TOTALE</div>
-            <div class="v309-stat-value" style="color:white;">${_fmtEuro(totaux.remise_totale)}</div>
-          </div>
+          ${boxEuroPct('Rem. grossiste', totaux.remise_grossiste, totaux.remise_grossiste_pct)}
+          ${boxEuroPct('RDP', totaux.rdp, totaux.rdp_pct)}
+          ${boxEuroPct('Rem. contrat', totaux.remise_contrat, totaux.remise_contrat_pct)}
+          ${boxEuroPct('REMISE TOTALE', totaux.remise_totale, totaux.remise_totale_pct, true)}
         </div>
       `;
       
-      // Tableau
+      // Tableau produits
       if (produits.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;">Aucun produit ${_currentSource ? 'chez ' + _currentSource.toUpperCase() : ''} sur cette période.</td></tr>`;
       } else {
@@ -6758,7 +6702,6 @@ async function showLogDetail(logId) {
       } else {
         btnPdfSource.style.display = 'none';
       }
-      
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;">⚠️ ${e.message}</td></tr>`;
     }
@@ -6773,10 +6716,7 @@ async function showLogDetail(logId) {
       const p = _getPeriode();
       url = `${API}/generiqueur/labo/${encodeURIComponent(_currentLabo)}/pdf-periode?debut_mois=${p.debut_mois}&debut_annee=${p.debut_annee}&fin_mois=${p.fin_mois}&fin_annee=${p.fin_annee}`;
     }
-    
-    if (includeSource && _currentSource) {
-      url += `&source=${_currentSource}`;
-    }
+    if (includeSource && _currentSource) url += `&source=${_currentSource}`;
     
     fetch(url, { headers: { Authorization: 'Bearer ' + T() } })
       .then(r => {
@@ -6787,60 +6727,55 @@ async function showLogDetail(logId) {
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        const fname = `PharmaRemise_${_currentLabo}` 
-          + (includeSource && _currentSource ? `_${_currentSource}` : '_tous')
-          + '.pdf';
-        a.download = fname;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        a.download = `PharmaRemise_${_currentLabo}` + (includeSource && _currentSource ? `_${_currentSource}` : '_tous') + '.pdf';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(blobUrl);
       })
       .catch(e => alert('Erreur PDF: ' + e.message));
   }
 
   function _ensureModalDOM() {
-    if (document.getElementById('v309-modal-overlay')) return;
-    
+    if (document.getElementById('v311-modal-overlay')) return;
     const modal = document.createElement('div');
-    modal.id = 'v309-modal-overlay';
+    modal.id = 'v311-modal-overlay';
     modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; padding:30px; overflow-y:auto;';
     modal.innerHTML = `
       <style>
-        .v309-stat-box {
+        .v311-stat-box {
           background:#fafafa; padding:10px 12px; border-radius:8px;
           border:1px solid #e8e8e8;
         }
-        .v309-stat-label { font-size:11px; color:#888; margin-bottom:4px; text-transform:uppercase; }
-        .v309-stat-value { font-size:15px; font-weight:600; color:#222; }
-        #v309-modal-table {
+        .v311-stat-label { font-size:11px; color:#888; margin-bottom:4px; text-transform:uppercase; }
+        .v311-stat-value { font-size:16px; font-weight:600; color:#222; }
+        .v311-stat-pct { font-size:11px; color:#999; margin-top:3px; }
+        #v311-modal-table {
           width:100%; border-collapse:collapse; font-size:12px; margin-top:14px;
         }
-        #v309-modal-table th {
+        #v311-modal-table th {
           background:#1D9E75; color:white; padding:9px 8px; text-align:left;
           font-size:11px; font-weight:600; position:sticky; top:0;
         }
-        #v309-modal-table td { padding:7px 8px; border-bottom:1px solid #eee; }
-        #v309-modal-table tr:hover td { background:#f5fbf8; }
+        #v311-modal-table td { padding:7px 8px; border-bottom:1px solid #eee; }
+        #v311-modal-table tr:hover td { background:#f5fbf8; }
       </style>
       <div style="max-width:1400px; margin:0 auto; background:white; border-radius:12px; padding:24px; box-shadow:0 12px 40px rgba(0,0,0,0.2);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
           <div>
-            <div id="v309-modal-title" style="font-size:22px; font-weight:600; color:#222;">Détails</div>
-            <div id="v309-modal-subtitle" style="font-size:13px; color:#888; margin-top:2px;"></div>
+            <div id="v311-modal-title" style="font-size:22px; font-weight:600; color:#222;">Détails</div>
+            <div id="v311-modal-subtitle" style="font-size:13px; color:#888; margin-top:2px;"></div>
           </div>
-          <button id="v309-modal-close" style="background:none; border:none; font-size:24px; cursor:pointer; color:#888;">×</button>
+          <button id="v311-modal-close" style="background:none; border:none; font-size:24px; cursor:pointer; color:#888;">×</button>
         </div>
         
         <div style="display:inline-flex; gap:0; background:#f0f0f0; border-radius:8px; padding:3px; margin-bottom:14px;">
-          <button id="v309-mode-mois" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📅 Mois courant</button>
-          <button id="v309-mode-periode" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📊 Période entière</button>
+          <button id="v311-mode-mois" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📅 Mois courant</button>
+          <button id="v311-mode-periode" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📊 Période entière</button>
         </div>
         
-        <div id="v309-modal-totals" style="margin-bottom:10px;"></div>
+        <div id="v311-modal-totals" style="margin-bottom:10px;"></div>
         
         <div style="max-height:55vh; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
-          <table id="v309-modal-table">
+          <table id="v311-modal-table">
             <thead>
               <tr>
                 <th style="min-width:240px;">Produit (alpha)</th>
@@ -6855,54 +6790,44 @@ async function showLogDetail(logId) {
                 <th style="text-align:right;">Rem. contrat €</th>
               </tr>
             </thead>
-            <tbody id="v309-modal-tbody"></tbody>
+            <tbody id="v311-modal-tbody"></tbody>
           </table>
         </div>
         
         <div style="margin-top:18px; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
           <span style="color:#888; font-size:12px; margin-right:auto;">📄 PDF signé PharmaRemise</span>
-          <button id="v309-btn-pdf-source" style="display:none; padding:9px 16px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF source uniquement</button>
-          <button id="v309-btn-pdf-tout" style="padding:9px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF (toutes sources)</button>
+          <button id="v311-btn-pdf-source" style="display:none; padding:9px 16px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF source uniquement</button>
+          <button id="v311-btn-pdf-tout" style="padding:9px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF (toutes sources)</button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
     
-    document.getElementById('v309-modal-close').addEventListener('click', () => {
-      document.getElementById('v309-modal-overlay').style.display = 'none';
+    document.getElementById('v311-modal-close').addEventListener('click', () => {
+      document.getElementById('v311-modal-overlay').style.display = 'none';
     });
     modal.addEventListener('click', (e) => {
-      if (e.target.id === 'v309-modal-overlay') modal.style.display = 'none';
+      if (e.target.id === 'v311-modal-overlay') modal.style.display = 'none';
     });
-    
-    document.getElementById('v309-mode-mois').addEventListener('click', () => {
-      _currentMode = 'mois';
-      _toggleModeButtons();
-      _loadAndRender();
+    document.getElementById('v311-mode-mois').addEventListener('click', () => {
+      _currentMode = 'mois'; _toggleModeButtons(); _loadAndRender();
     });
-    document.getElementById('v309-mode-periode').addEventListener('click', () => {
-      _currentMode = 'periode';
-      _toggleModeButtons();
-      _loadAndRender();
+    document.getElementById('v311-mode-periode').addEventListener('click', () => {
+      _currentMode = 'periode'; _toggleModeButtons(); _loadAndRender();
     });
-    
-    document.getElementById('v309-btn-pdf-tout').addEventListener('click', () => _downloadPdf(false));
-    document.getElementById('v309-btn-pdf-source').addEventListener('click', () => _downloadPdf(true));
+    document.getElementById('v311-btn-pdf-tout').addEventListener('click', () => _downloadPdf(false));
+    document.getElementById('v311-btn-pdf-source').addEventListener('click', () => _downloadPdf(true));
   }
 
   function _toggleModeButtons() {
-    const moisBtn = document.getElementById('v309-mode-mois');
-    const periodeBtn = document.getElementById('v309-mode-periode');
+    const moisBtn = document.getElementById('v311-mode-mois');
+    const periodeBtn = document.getElementById('v311-mode-periode');
     if (_currentMode === 'mois') {
-      moisBtn.style.background = '#1D9E75';
-      moisBtn.style.color = 'white';
-      periodeBtn.style.background = 'transparent';
-      periodeBtn.style.color = '#666';
+      moisBtn.style.background = '#1D9E75'; moisBtn.style.color = 'white';
+      periodeBtn.style.background = 'transparent'; periodeBtn.style.color = '#666';
     } else {
-      moisBtn.style.background = 'transparent';
-      moisBtn.style.color = '#666';
-      periodeBtn.style.background = '#1D9E75';
-      periodeBtn.style.color = 'white';
+      moisBtn.style.background = 'transparent'; moisBtn.style.color = '#666';
+      periodeBtn.style.background = '#1D9E75'; periodeBtn.style.color = 'white';
     }
   }
 
@@ -6912,11 +6837,10 @@ async function showLogDetail(logId) {
     _currentSource = source || null;
     _currentMode = 'mois';
     _toggleModeButtons();
-    document.getElementById('v309-modal-overlay').style.display = 'block';
+    document.getElementById('v311-modal-overlay').style.display = 'block';
     _loadAndRender();
   }
 
-  // Lancer périodiquement (les cards apparaissent dynamiquement)
   setInterval(_injectVoirButtons, 1500);
 
 })();
