@@ -6435,157 +6435,194 @@ async function showLogDetail(logId) {
 
 
 
+
+
 // === V309_FRONTEND_INJECTED_MARKER ===
 // ============================================================
-// v3.0.9 — Détails Génériqueur par labo (modal + PDF)
+// v3.0.9 — Détails Génériqueur (FIX sélecteurs DOM)
 // ============================================================
+// Structure réelle :
+// DIV.card (1 par labo)
+//   ├── DIV (header) → SPAN "N°X" + SPAN "Nom labo"
+//   ├── KPIs (CA, Remise grossiste, RDP, etc.)
+//   └── DIV "Répartition par source"
+//       └── lignes : SPAN rang/source + SPAN nom + SPAN € + SPAN %
 
 (function _v309_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
 
-  // ====================================================================
-  // 1. INJECTION DES BOUTONS "Voir" sur chaque carte labo
-  // ====================================================================
+  // Liste des labos connus pour la détection
+  const LABOS_CONNUS = [
+    'Biogaran', 'Mylan', 'Viatris', 'Teva', 'Cristers', 'Sandoz',
+    'Arrow', 'Krka', 'EG Labo', 'EG', 'Zydus', 'Zentiva', 'Sanofi',
+    'Sun', 'Almus', 'Accord', 'Reddy', 'Aurobindo', 'Substipharm',
+    'Arrow Génériques', 'Sanofi Aventis', 'GNR', 'Bouchara', 'Pfizer',
+  ];
+  
+  // Sources de grossiste (avec variations)
+  const SOURCES_MAP = {
+    'cerp':         /^cerp/i,
+    'alliance':     /^alliance/i,
+    'ocp':          /^ocp/i,
+    'direct':       /^(direct|labo direct)/i,
+  };
 
-  function _findCarteLabo(node) {
-    let cur = node;
-    while (cur && cur !== document.body) {
-      if (cur.classList && cur.classList.contains('card')) return cur;
-      // Heuristique : un container qui contient à la fois "Biogaran"/"Mylan"/etc et "Répartition par source"
-      if (cur.textContent && /Répartition par source/i.test(cur.textContent) && cur.children.length > 1) {
-        return cur;
-      }
-      cur = cur.parentElement;
+  function _findLaboName(card) {
+    // Cherche le 1er SPAN du header avec un nom de labo connu
+    // Le header est le 1er DIV avec 2 SPAN (rang + nom)
+    const spans = [...card.querySelectorAll('span')];
+    for (const span of spans) {
+      if (span.children.length > 0) continue;
+      const txt = (span.textContent || '').trim();
+      // Match exact ou avec emoji
+      const found = LABOS_CONNUS.find(l => txt === l || txt === '🏢 ' + l || txt.endsWith(l));
+      if (found) return found;
     }
     return null;
   }
 
-  function _detectLaboFromCard(card) {
-    // Chercher le nom du labo dans le titre (premier strong, h2, h3, ou span avec font-bold)
-    const candidates = [...card.querySelectorAll('h1,h2,h3,h4,strong,b,[class*="title"]')];
-    for (const c of candidates) {
-      const txt = (c.textContent || '').trim();
-      // Mots clés connus
-      const known = ['Biogaran', 'Mylan', 'Viatris', 'Teva', 'Cristers', 'Sandoz', 'Arrow', 
-                     'Krka', 'EG Labo', 'EG', 'Zydus', 'Zentiva', 'Sanofi', 'BIOGARAN'];
-      for (const k of known) {
-        if (txt === k || txt.includes(k)) return k;
-      }
+  function _findSourceFromText(txt) {
+    const t = (txt || '').trim();
+    for (const [key, regex] of Object.entries(SOURCES_MAP)) {
+      if (regex.test(t)) return key;
     }
     return null;
   }
 
   function _injectVoirButtons() {
-    // Page Génériqueur uniquement
     const screen = document.getElementById('screen-generiqueur');
-    if (!screen || screen.style.display === 'none') return;
+    if (!screen || screen.offsetParent === null) return;
     
-    // Trouver toutes les sections "Répartition par source" dans la page
-    const reps = [...screen.querySelectorAll('*')].filter(el => {
-      if (el.children.length > 0) return false;
-      return /^Répartition par source$/i.test((el.textContent || '').trim());
+    // Toutes les .card du screen génériqueur qui contiennent "Répartition par source"
+    const cards = [...screen.querySelectorAll('.card')].filter(card => {
+      // Skip kpi-card et autres
+      if (card.classList.contains('kpi-card')) return false;
+      return /Répartition par source/i.test(card.textContent || '');
     });
 
-    reps.forEach(repTitle => {
-      // La carte parente
-      const card = _findCarteLabo(repTitle);
-      if (!card) return;
-      
-      // Skip si déjà patché
-      if (card.querySelector('.v309-voir-tout-btn')) return;
-      
-      const labo = _detectLaboFromCard(card);
+    cards.forEach(card => {
+      const labo = _findLaboName(card);
       if (!labo) return;
       
-      card.setAttribute('data-v309-labo', labo);
+      // Skip si déjà patché (idempotent)
+      if (card.querySelector('.v309-voir-tout-btn')) return;
       
+      card.setAttribute('data-v309-labo', labo);
+
       // ============================================
-      // Bouton "Voir tout" en haut (à côté du nom du labo)
+      // BOUTON "Voir tout" : à côté du nom du labo (en haut)
       // ============================================
-      const headerArea = card.querySelector('h1,h2,h3,h4,strong,b,[class*="title"]')?.parentElement;
-      if (headerArea && !headerArea.querySelector('.v309-voir-tout-btn')) {
+      // Trouver le SPAN du nom du labo dans le header
+      const headerSpan = [...card.querySelectorAll('span')].find(s => {
+        if (s.children.length > 0) return false;
+        return (s.textContent || '').trim() === labo;
+      });
+      
+      if (headerSpan && headerSpan.parentElement) {
         const btnTout = document.createElement('button');
         btnTout.className = 'v309-voir-tout-btn';
         btnTout.textContent = '👁️ Voir tout';
-        btnTout.style.cssText = 'margin-left:12px; padding:5px 12px; background:#1D9E75; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer; font-weight:500;';
+        btnTout.style.cssText = `
+          margin-left: 12px;
+          padding: 4px 12px;
+          background: #1D9E75;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+          font-weight: 500;
+          vertical-align: middle;
+        `;
         btnTout.addEventListener('click', (e) => {
           e.stopPropagation();
           _openDetailsModal(labo, null);
         });
-        headerArea.appendChild(btnTout);
+        // Insérer après le SPAN du nom
+        headerSpan.parentElement.insertBefore(btnTout, headerSpan.nextSibling);
       }
-      
+
       // ============================================
-      // Bouton "Voir" à côté de chaque source (CERP/Alliance/OCP)
+      // BOUTON "Voir" pour CHAQUE source dans Répartition par source
       // ============================================
-      // Le tableau de répartition est sous repTitle. On trouve les cellules avec "CERP", "Alliance", etc.
-      const tableArea = repTitle.parentElement?.parentElement || repTitle.parentElement;
-      if (!tableArea) return;
+      // Trouver le bloc "Répartition par source"
+      const repTitle = [...card.querySelectorAll('*')].find(el => 
+        el.children.length === 0 && /Répartition par source/i.test(el.textContent || '')
+      );
+      if (!repTitle) return;
       
-      const sourceLabels = ['CERP', 'Alliance', 'OCP', 'ALLIANCE', 'Direct labo', 'Direct'];
-      const allCells = [...tableArea.querySelectorAll('td, [class*="cell"], div, span')];
+      // Le tableau de répartition est le PARENT du titre (ou son frère)
+      const repBlock = repTitle.parentElement;
+      if (!repBlock) return;
       
-      sourceLabels.forEach(srcName => {
-        const sourceLower = srcName.toLowerCase().includes('alliance') ? 'alliance'
-                          : srcName.toLowerCase().includes('cerp') ? 'cerp'
-                          : srcName.toLowerCase().includes('ocp') ? 'ocp'
-                          : srcName.toLowerCase().includes('direct') ? 'direct'
-                          : null;
-        if (!sourceLower) return;
+      // Lignes de sources : on cherche les SPAN qui matchent CERP/Alliance/OCP/Direct
+      const sourceSpans = [...repBlock.querySelectorAll('span')].filter(s => {
+        if (s.children.length > 0) return false;
+        return _findSourceFromText(s.textContent) !== null;
+      });
+      
+      sourceSpans.forEach(span => {
+        const sourceKey = _findSourceFromText(span.textContent);
+        if (!sourceKey) return;
         
-        // Trouver la cellule dont le texte est exactement le nom de la source
-        const matchingCells = allCells.filter(c => {
-          if (c.children.length > 1) return false;
-          const t = (c.textContent || '').trim();
-          return t === srcName || t === srcName + ' ' || /^[\s]*[●■]?\s*(CERP|Alliance|ALLIANCE|OCP|Direct labo|Direct)[\s]*$/i.test(t);
-        });
+        // La ligne contenant ce SPAN
+        const row = span.parentElement;
+        if (!row) return;
         
-        matchingCells.forEach(cell => {
-          // Trouver la ligne (le row parent)
-          const row = cell.closest('tr, [class*="row"]') || cell.parentElement?.parentElement;
-          if (!row) return;
-          if (row.querySelector(`.v309-voir-source-btn[data-src="${sourceLower}"]`)) return;
-          
-          const btn = document.createElement('button');
-          btn.className = 'v309-voir-source-btn';
-          btn.setAttribute('data-src', sourceLower);
-          btn.textContent = '👁️ Voir';
-          btn.style.cssText = 'margin-left:8px; padding:3px 9px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:5px; font-size:11px; cursor:pointer; font-weight:500;';
+        // Skip si bouton déjà présent dans cette ligne
+        if (row.querySelector(`.v309-voir-source-btn[data-src="${sourceKey}"]`)) return;
+        
+        // Vérifier si la ligne a un CA (sinon pas de produit, pas la peine)
+        const rowText = row.textContent || '';
+        const hasCA = /\d+[,.]?\d*\s*€/.test(rowText) && !rowText.includes('aucun achat');
+        
+        const btn = document.createElement('button');
+        btn.className = 'v309-voir-source-btn';
+        btn.setAttribute('data-src', sourceKey);
+        btn.textContent = hasCA ? '👁️ Voir' : '—';
+        btn.disabled = !hasCA;
+        btn.style.cssText = `
+          margin-left: 10px;
+          padding: 3px 10px;
+          background: ${hasCA ? 'white' : '#f5f5f5'};
+          color: ${hasCA ? '#1D9E75' : '#aaa'};
+          border: 1px solid ${hasCA ? '#1D9E75' : '#ddd'};
+          border-radius: 5px;
+          font-size: 11px;
+          cursor: ${hasCA ? 'pointer' : 'not-allowed'};
+          font-weight: 500;
+          vertical-align: middle;
+        `;
+        if (hasCA) {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            _openDetailsModal(labo, sourceLower);
+            _openDetailsModal(labo, sourceKey);
           });
-          
-          // Insérer dans la dernière cellule de la ligne, ou à côté du nom de la source
-          const lastCell = row.lastElementChild;
-          if (lastCell) {
-            lastCell.appendChild(btn);
-          } else {
-            cell.appendChild(btn);
-          }
-        });
+        }
+        // Insérer dans la ligne (après le dernier SPAN)
+        row.appendChild(btn);
       });
     });
   }
 
   // ====================================================================
-  // 2. MODAL DÉTAILS
+  // MODAL
   // ====================================================================
 
   function _getMonthYear() {
-    // Lire depuis le contexte global de l'app si dispo
     if (typeof window.currentMois !== 'undefined' && typeof window.currentAnnee !== 'undefined') {
       return { mois: window.currentMois, annee: window.currentAnnee };
     }
-    // Fallback : mois en cours
+    if (typeof window.moisActif !== 'undefined' && typeof window.anneeActive !== 'undefined') {
+      return { mois: window.moisActif, annee: window.anneeActive };
+    }
     const now = new Date();
     return { mois: now.getMonth() + 1, annee: now.getFullYear() };
   }
 
   function _getPeriode() {
-    // Si l'app a un sélecteur de période, le lire
     if (window.periodeDebutMois !== undefined && window.periodeFinMois !== undefined) {
       return {
         debut_mois: window.periodeDebutMois,
@@ -6594,42 +6631,31 @@ async function showLogDetail(logId) {
         fin_annee: window.periodeFinAnnee,
       };
     }
-    // Fallback : 12 derniers mois
+    // 12 derniers mois par défaut
     const now = new Date();
-    const end_mois = now.getMonth() + 1;
-    const end_annee = now.getFullYear();
-    let start_mois = end_mois;
-    let start_annee = end_annee - 1;
-    if (start_mois === 12) {
-      start_mois = 1;
-      start_annee = end_annee;
-    } else {
-      start_mois = end_mois + 1;
-      start_annee = end_annee - 1;
-    }
-    return {
-      debut_mois: start_mois,
-      debut_annee: start_annee,
-      fin_mois: end_mois,
-      fin_annee: end_annee,
-    };
+    const fin_mois = now.getMonth() + 1;
+    const fin_annee = now.getFullYear();
+    let debut_mois = fin_mois + 1;
+    let debut_annee = fin_annee - 1;
+    if (debut_mois > 12) { debut_mois = 1; debut_annee = fin_annee; }
+    return { debut_mois, debut_annee, fin_mois, fin_annee };
   }
 
   function _fmtEuro(v) {
-    if (v == null || v === undefined) return '—';
+    if (v == null) return '—';
     return Number(v).toLocaleString('fr-FR', { 
       minimumFractionDigits: 2, maximumFractionDigits: 2 
     }) + ' €';
   }
 
   function _fmtPct(v) {
-    if (v == null || v === undefined) return '—';
+    if (v == null) return '—';
     return Number(v).toFixed(1) + ' %';
   }
 
   let _currentLabo = null;
   let _currentSource = null;
-  let _currentMode = 'mois';  // 'mois' ou 'periode'
+  let _currentMode = 'mois';
 
   async function _loadAndRender() {
     const tbody = document.getElementById('v309-modal-tbody');
@@ -6660,17 +6686,22 @@ async function showLogDetail(logId) {
       url += `&source=${_currentSource}`;
     }
     
-    titleEl.textContent = `${_currentLabo}` + (_currentSource ? ` · ${_currentSource.toUpperCase()}` : '');
+    titleEl.textContent = `${_currentLabo}` + (_currentSource ? ` · ${_currentSource.toUpperCase()}` : ' · Tous grossistes');
     subtitleEl.textContent = periodLabel;
     
     try {
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T() } });
       const data = await r.json();
       
+      if (!r.ok) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;">⚠️ ${data.detail || 'Erreur'}</td></tr>`;
+        return;
+      }
+      
       const produits = data.produits || [];
       const totaux = data.totaux || {};
       
-      // Totaux
+      // Totaux en haut
       totalsDiv.innerHTML = `
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px;">
           <div class="v309-stat-box">
@@ -6693,16 +6724,16 @@ async function showLogDetail(logId) {
             <div class="v309-stat-label">Rem. contrat</div>
             <div class="v309-stat-value">${_fmtEuro(totaux.remise_contrat)}</div>
           </div>
-          <div class="v309-stat-box" style="background:#1D9E75; color:white;">
+          <div class="v309-stat-box" style="background:#1D9E75;">
             <div class="v309-stat-label" style="color:rgba(255,255,255,0.85);">REMISE TOTALE</div>
             <div class="v309-stat-value" style="color:white;">${_fmtEuro(totaux.remise_totale)}</div>
           </div>
         </div>
       `;
       
-      // Tableau produits
+      // Tableau
       if (produits.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;">Aucun produit sur cette période${_currentSource ? ' chez ' + _currentSource.toUpperCase() : ''}.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;">Aucun produit ${_currentSource ? 'chez ' + _currentSource.toUpperCase() : ''} sur cette période.</td></tr>`;
       } else {
         tbody.innerHTML = produits.map(p => `
           <tr>
@@ -6720,7 +6751,6 @@ async function showLogDetail(logId) {
         `).join('');
       }
       
-      // Boutons PDF
       btnPdfTout.style.display = 'inline-block';
       if (_currentSource) {
         btnPdfSource.style.display = 'inline-block';
@@ -6748,7 +6778,6 @@ async function showLogDetail(logId) {
       url += `&source=${_currentSource}`;
     }
     
-    // On ne peut pas mettre Authorization en query string, donc fetch + blob + ouverture
     fetch(url, { headers: { Authorization: 'Bearer ' + T() } })
       .then(r => {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -6803,16 +6832,13 @@ async function showLogDetail(logId) {
           <button id="v309-modal-close" style="background:none; border:none; font-size:24px; cursor:pointer; color:#888;">×</button>
         </div>
         
-        <!-- Toggle période -->
         <div style="display:inline-flex; gap:0; background:#f0f0f0; border-radius:8px; padding:3px; margin-bottom:14px;">
-          <button id="v309-mode-mois" class="v309-mode-btn" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📅 Mois courant</button>
-          <button id="v309-mode-periode" class="v309-mode-btn" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📊 Période entière</button>
+          <button id="v309-mode-mois" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📅 Mois courant</button>
+          <button id="v309-mode-periode" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📊 Période entière</button>
         </div>
         
-        <!-- Totaux -->
         <div id="v309-modal-totals" style="margin-bottom:10px;"></div>
         
-        <!-- Tableau -->
         <div style="max-height:55vh; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
           <table id="v309-modal-table">
             <thead>
@@ -6833,7 +6859,6 @@ async function showLogDetail(logId) {
           </table>
         </div>
         
-        <!-- Footer boutons PDF -->
         <div style="margin-top:18px; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
           <span style="color:#888; font-size:12px; margin-right:auto;">📄 PDF signé PharmaRemise</span>
           <button id="v309-btn-pdf-source" style="display:none; padding:9px 16px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF source uniquement</button>
@@ -6843,14 +6868,11 @@ async function showLogDetail(logId) {
     `;
     document.body.appendChild(modal);
     
-    // Handlers
     document.getElementById('v309-modal-close').addEventListener('click', () => {
       document.getElementById('v309-modal-overlay').style.display = 'none';
     });
     modal.addEventListener('click', (e) => {
-      if (e.target.id === 'v309-modal-overlay') {
-        modal.style.display = 'none';
-      }
+      if (e.target.id === 'v309-modal-overlay') modal.style.display = 'none';
     });
     
     document.getElementById('v309-mode-mois').addEventListener('click', () => {
@@ -6894,7 +6916,7 @@ async function showLogDetail(logId) {
     _loadAndRender();
   }
 
-  // Réinjecter les boutons régulièrement (rendu dynamique)
+  // Lancer périodiquement (les cards apparaissent dynamiquement)
   setInterval(_injectVoirButtons, 1500);
 
 })();
