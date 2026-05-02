@@ -6115,50 +6115,69 @@ async function showLogDetail(logId) {
 
 
 
-// === V300_FIX_INJECTED_MARKER ===
+
+
+// === V301_FRONTEND_INJECTED_MARKER ===
 // ============================================================
-// v3.0.0 FIX — Ciblage robuste + filtrage catégories
+// v3.0.1 — UI propre + Sortie hospitalière + pré-remplissage
 // ============================================================
 
-(function _v300_fix_init() {
+(function _v301_init() {
 
   const CATEGORIES = [
     { key: "generique",     label: "Générique",    field: "taux_generique_pct"    },
     { key: "princeps",      label: "Princeps",     field: "taux_princeps_pct"     },
     { key: "biosimilaire",  label: "Biosimilaire", field: "taux_biosimilaire_pct" },
     { key: "tva_20",        label: "TVA 20%",      field: "taux_tva20_pct"        },
-    { key: "produit_cher",  label: "Produit cher", field: "taux_produit_cher_pct" },
   ];
 
-  // 5 catégories à conserver dans l'admin
+  // Catégories visibles dans Admin Classifications
   const CATEGORIES_VISIBLES = new Set([
-    "generique", "princeps", "biosimilaire", "tva_20", "produit_cher"
+    "generique", "princeps", "biosimilaire", "tva_20", "produit_cher", "sortie_hospitaliere"
   ]);
 
   // ====================================================================
-  // 1. PARAMETRES : injection après "Sauvegarder XXX"
+  // 1. PARAMETRES — bloc v3.0.1 propre
   // ====================================================================
 
-  function _renderRemisesV3Block(cfg, source) {
+  function _renderRemisesV301Block(cfg, source) {
     cfg = cfg || {};
-    const seuilProdCher = cfg.seuil_produit_cher_classification ?? 1500;
-
+    const seuilCher           = cfg.seuil_cher ?? 465;
+    const forfaitCher         = cfg.forfait_cher ?? 10;
+    const seuilSortieHospi    = cfg.seuil_sortie_hospi ?? 1500;
+    const forfaitSortieHospi  = cfg.forfait_sortie_hospi ?? 50;
+    const exclureSortieHospi  = cfg.exclure_sortie_hospi ?? false;
+    
+    // Pré-remplissage : taux_remise_pct_legacy (ex 50%) ou existant
+    const tauxLegacy = cfg.taux_remise_pct_legacy ?? null;
+    
     const rows = CATEGORIES.map(cat => {
-      const taux = cfg[cat.field];
-      const exclu = (taux === null || taux === undefined);
-      const inputVal = exclu ? "" : taux;
+      let taux = cfg[cat.field];
+      let exclu;
+      let inputVal;
+      
+      // Si taux pas encore défini → pré-remplir avec legacy
+      if (taux === null || taux === undefined) {
+        // Première fois : décocher la case + pré-remplir avec legacy
+        exclu = false;
+        inputVal = tauxLegacy ?? 0;
+      } else {
+        exclu = false;
+        inputVal = taux;
+      }
+      
       const checked = exclu ? "checked" : "";
       const disabled = exclu ? "disabled" : "";
       const inputBg = exclu ? "background:#f0f0f0; color:#aaa;" : "";
 
       return `
-        <div class="v300-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
+        <div class="v301-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
           <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
-            <input type="checkbox" class="v300-cat-exclu" ${checked} data-field="${cat.field}">
+            <input type="checkbox" class="v301-cat-exclu" ${checked} data-field="${cat.field}">
             <span>Exclure ${cat.label}</span>
           </label>
           <div style="display:flex; align-items:center; gap:6px;">
-            <input type="number" class="v300-cat-taux" data-field="${cat.field}" 
+            <input type="number" class="v301-cat-taux" data-field="${cat.field}" 
                    value="${inputVal}" ${disabled} step="0.01" min="0" max="100"
                    style="width:90px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; ${inputBg}">
             <span style="color:#888; font-size:13px;">%</span>
@@ -6168,69 +6187,99 @@ async function showLogDetail(logId) {
     }).join('');
 
     return `
-      <div class="v300-remises-block" data-v300-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
+      <div class="v301-remises-block" data-v301-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
         <div style="font-weight:600; margin-bottom:14px; color:#1D9E75; font-size:16px;">📋 Remises par catégorie — ${source.toUpperCase()}</div>
         
-        <div style="margin-bottom:18px; display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid #ddd;">
-          <label style="font-size:14px; min-width:240px;">Seuil "produit cher" (€) :</label>
-          <input type="number" class="v300-seuil-prodcher" value="${seuilProdCher}" step="50" min="0"
-                 style="width:100px; padding:6px 10px; border:1px solid #ccc; border-radius:6px;">
-          <span style="color:#888; font-size:12px;">(au-delà : classifié "Produit cher")</span>
+        <!-- Seuils -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #ddd;">
+          <div>
+            <label style="font-size:13px; color:#555;">Seuil "produit cher" (€) :</label>
+            <input type="number" class="v301-seuil-cher" value="${seuilCher}" step="50" min="0"
+                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
+          </div>
+          <div>
+            <label style="font-size:13px; color:#555;">Forfait par boîte (€) :</label>
+            <input type="number" class="v301-forfait-cher" value="${forfaitCher}" step="0.5" min="0"
+                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
+          </div>
+          <div>
+            <label style="font-size:13px; color:#555;">Seuil "sortie hospitalière" (€) :</label>
+            <input type="number" class="v301-seuil-hospi" value="${seuilSortieHospi}" step="100" min="0"
+                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
+          </div>
+          <div>
+            <label style="font-size:13px; color:#555;">Forfait sortie hospi (€/boîte) :</label>
+            <input type="number" class="v301-forfait-hospi" value="${forfaitSortieHospi}" step="1" min="0"
+                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
+          </div>
         </div>
 
+        <!-- Catégories % -->
         ${rows}
 
+        <!-- Sortie hospitalière (case seule) -->
+        <div class="v301-cat-row" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
+            <input type="checkbox" class="v301-exclure-hospi" ${exclureSortieHospi ? 'checked' : ''}>
+            <span>Exclure Sortie hospitalière</span>
+          </label>
+          <span style="color:#888; font-size:12px;">(sinon : forfait par boîte ci-dessus)</span>
+        </div>
+
         <div style="margin-top:14px; font-size:12px; color:#888; line-height:1.5;">
-          ☐ Décocher = catégorie incluse dans le calcul de remise (% objectif renseigné)<br>
-          ☑ Cocher = catégorie exclue (aucune remise calculée pour cette catégorie)
+          ☐ Décocher = catégorie incluse (% objectif renseigné)<br>
+          ☑ Cocher = catégorie exclue (aucune remise calculée)
         </div>
 
         <div style="margin-top:16px; display:flex; align-items:center; gap:12px;">
-          <button class="v300-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
+          <button class="v301-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
             💾 Sauvegarder + Recalculer
           </button>
-          <span class="v300-save-status" style="font-size:13px;"></span>
+          <span class="v301-save-status" style="font-size:13px;"></span>
         </div>
       </div>
     `;
   }
 
-  function _attachV300Handlers(block, source) {
-    block.querySelectorAll('.v300-cat-exclu').forEach(cb => {
+  function _attachV301Handlers(block, source) {
+    block.querySelectorAll('.v301-cat-exclu').forEach(cb => {
       cb.addEventListener('change', () => {
-        const row = cb.closest('.v300-cat-row');
-        const input = row.querySelector('.v300-cat-taux');
+        const row = cb.closest('.v301-cat-row');
+        const input = row.querySelector('.v301-cat-taux');
         if (cb.checked) {
           input.disabled = true;
-          input.value = '';
           input.style.background = '#f0f0f0';
           input.style.color = '#aaa';
         } else {
           input.disabled = false;
           input.style.background = '';
           input.style.color = '';
-          if (!input.value) input.value = '0';
           input.focus();
         }
       });
     });
 
-    const btn = block.querySelector('.v300-btn-save');
+    const btn = block.querySelector('.v301-btn-save');
     if (!btn) return;
     btn.addEventListener('click', async () => {
-      const status = block.querySelector('.v300-save-status');
+      const status = block.querySelector('.v301-save-status');
       status.textContent = '⏳ Sauvegarde + recalcul...';
       status.style.color = '#888';
 
       const payload = {
         source: source,
         recalculer: true,
-        seuil_produit_cher_classification: parseFloat(block.querySelector('.v300-seuil-prodcher').value) || 1500,
+        seuil_cher:           parseFloat(block.querySelector('.v301-seuil-cher').value) || 465,
+        forfait_cher:         parseFloat(block.querySelector('.v301-forfait-cher').value) || 10,
+        seuil_sortie_hospi:   parseFloat(block.querySelector('.v301-seuil-hospi').value) || 1500,
+        forfait_sortie_hospi: parseFloat(block.querySelector('.v301-forfait-hospi').value) || 50,
+        exclure_sortie_hospi: block.querySelector('.v301-exclure-hospi').checked,
       };
 
-      block.querySelectorAll('.v300-cat-row').forEach(row => {
-        const cb = row.querySelector('.v300-cat-exclu');
-        const input = row.querySelector('.v300-cat-taux');
+      block.querySelectorAll('.v301-cat-row').forEach(row => {
+        const cb = row.querySelector('.v301-cat-exclu');
+        if (!cb) return;  // Pour la ligne sortie hospi qui n'a pas .v301-cat-exclu
+        const input = row.querySelector('.v301-cat-taux');
         const field = cb.getAttribute('data-field');
         if (cb.checked) {
           payload[field] = null;
@@ -6253,8 +6302,7 @@ async function showLogDetail(logId) {
           const total = data.recalcul?.remise_totale_calculee ?? 0;
           status.textContent = `✓ ${nb} facture(s) recalculée(s) · ${total}€ remises`;
           status.style.color = '#1D9E75';
-          // Invalider le cache pour les prochains chargements
-          window._v300ConfigCache = null;
+          window._v301ConfigCache = null;
         } else {
           status.textContent = '✗ ' + (data.detail || JSON.stringify(data).slice(0, 200));
           status.style.color = '#c0392b';
@@ -6266,24 +6314,19 @@ async function showLogDetail(logId) {
     });
   }
 
-  async function _injectRemisesV3() {
-    // Cibler tous les boutons "Sauvegarder XXX"
+  async function _injectRemisesV301() {
     const buttons = [...document.querySelectorAll('button')].filter(b => 
       /^Sauvegarder\s+(CERP|OCP|Alliance|ALLIANCE)$/i.test(b.textContent.trim())
     );
     if (buttons.length === 0) return;
 
-    // Charger les configs v3 (cache 30s)
-    if (!window._v300ConfigCache || Date.now() - (window._v300CacheTs || 0) > 30000) {
+    if (!window._v301ConfigCache || Date.now() - (window._v301CacheTs || 0) > 30000) {
       try {
-        window._v300ConfigCache = await apiGet('/grossiste/config-v3');
-        window._v300CacheTs = Date.now();
-      } catch (e) {
-        console.warn('v300 config error:', e);
-        return;
-      }
+        window._v301ConfigCache = await apiGet('/grossiste/config-v3');
+        window._v301CacheTs = Date.now();
+      } catch (e) { return; }
     }
-    const configs = window._v300ConfigCache || [];
+    const configs = window._v301ConfigCache || [];
 
     buttons.forEach(btn => {
       const txt = btn.textContent.toLowerCase();
@@ -6293,24 +6336,21 @@ async function showLogDetail(logId) {
       else if (txt.includes('ocp')) source = 'ocp';
       if (!source) return;
 
-      // Trouver le conteneur parent (la "card" du grossiste)
-      // On cherche le 1er ancêtre qui contient à la fois ce bouton ET le titre du grossiste
       let container = btn.closest('.tab-content, .card, [class*="config"]') || btn.parentElement?.parentElement;
       if (!container) container = btn.parentElement;
 
-      // Si déjà injecté pour cette source, skip
-      const existing = container.querySelector(`.v300-remises-block[data-v300-source="${source}"]`);
-      if (existing) return;
+      // Anti-doublon
+      if (container.querySelector(`.v301-remises-block[data-v301-source="${source}"]`)) return;
+      // Supprimer aussi les anciens blocs v300 si présents
+      container.querySelectorAll('.v300-remises-block').forEach(el => el.remove());
 
       const cfg = configs.find(c => c.source === source);
-      const html = _renderRemisesV3Block(cfg, source);
+      const html = _renderRemisesV301Block(cfg, source);
 
-      // Insérer juste après le bouton
       const wrapper = document.createElement('div');
       wrapper.innerHTML = html.trim();
       const newBlock = wrapper.firstElementChild;
 
-      // Trouver le parent direct du bouton (pour insertAfter)
       const btnRow = btn.closest('div');
       if (btnRow && btnRow.parentElement) {
         btnRow.parentElement.insertBefore(newBlock, btnRow.nextSibling);
@@ -6318,139 +6358,157 @@ async function showLogDetail(logId) {
         btn.parentElement.appendChild(newBlock);
       }
 
-      _attachV300Handlers(newBlock, source);
+      _attachV301Handlers(newBlock, source);
     });
   }
 
-  // Lancer périodiquement
-  setInterval(_injectRemisesV3, 1500);
+  setInterval(_injectRemisesV301, 1500);
 
 
   // ====================================================================
-  // 2. CLASSIFICATIONS ADMIN : wrapper sur renderClassifCategory
-  //    pour cacher "remise_facture" et "eligible"
+  // 2. CACHER les anciennes options "Exclure TVA 20%" et "Exclure biosimilaires"
+  //    du formulaire HAUT (puisqu'on les remplace par les taux par catégorie)
+  // ====================================================================
+  
+  function _cleanupOldExclusionCheckboxes() {
+    // Cacher toutes les anciennes cases d'exclusion du formulaire HAUT
+    // Elles sont remplacées par notre bloc v301
+    const TO_HIDE = [
+      'Exclure TVA 20%',
+      'Exclure biosimilaires',
+      'Exclure frigo',
+      'Exclure stupéfiants',
+    ];
+    [...document.querySelectorAll('label')].forEach(lbl => {
+      const txt = lbl.textContent.trim();
+      if (TO_HIDE.some(t => txt === t)) {
+        lbl.style.display = 'none';
+      }
+    });
+  }
+  setInterval(_cleanupOldExclusionCheckboxes, 1500);
+
+
+  // ====================================================================
+  // 3. ADMIN CLASSIFICATIONS — wrapper renderClassifCategory
   // ====================================================================
 
   function _patchClassifCategoryRender() {
     if (typeof window.renderClassifCategory !== 'function') return false;
-    if (window.renderClassifCategory.__v300Patched) return true;
+    if (window.renderClassifCategory.__v301Patched) return true;
 
     const orig = window.renderClassifCategory;
     window.renderClassifCategory = function(catKey, catData) {
-      // Si la catégorie n'est PAS dans la liste autorisée, retourner string vide
+      // Filtrer les catégories non autorisées
       if (!CATEGORIES_VISIBLES.has(catKey)) {
         return '';
       }
-      // Sinon, appel normal
-      return orig.apply(this, arguments);
+      
+      // Renommer "produit_cher" en "Produit cher" (déjà bon par défaut)
+      // Renommer "sortie_hospitaliere" → "Sortie hospitalière"
+      if (catKey === 'sortie_hospitaliere' && catData) {
+        catData.label = 'Sortie hospitalière';
+      }
+
+      // Appel normal
+      let html = orig.apply(this, arguments);
+      
+      // Pour produit_cher et sortie_hospitaliere, on ajoute le prix après
+      // (post-traitement HTML)
+      if ((catKey === 'produit_cher' || catKey === 'sortie_hospitaliere') && catData?.items) {
+        // Le HTML retourné contient les rows. On enrichit par CIP en injectant le prix.
+        // Plus simple : on annote chaque row pour qu'on puisse la modifier après le DOM
+        catData.items.forEach(it => {
+          if (it.pfht || it.ppht) {
+            it._showPrice = it.pfht || it.ppht;
+          }
+        });
+      }
+      return html;
     };
-    window.renderClassifCategory.__v300Patched = true;
+    window.renderClassifCategory.__v301Patched = true;
+
+    // Recharger la page admin classif si ouverte
+    const screen = document.getElementById('screen-admin-classifications');
+    if (screen && getComputedStyle(screen).display !== 'none') {
+      if (typeof window.loadAdminClassifications === 'function') {
+        window.loadAdminClassifications();
+      }
+    }
     return true;
   }
 
-  // Patcher dès que possible, et relancer le rendu si l'écran est ouvert
-  function _tryPatchAndReload() {
-    if (_patchClassifCategoryRender()) {
-      const screen = document.getElementById('screen-admin-classifications');
-      if (screen && getComputedStyle(screen).display !== 'none') {
-        if (typeof window.loadAdminClassifications === 'function') {
-          window.loadAdminClassifications();
-        }
-      }
-    }
-  }
-
-  // Tentative immédiate + retry jusqu'à ce que la fonction existe
   let _tries = 0;
   const interval = setInterval(() => {
     _tries++;
-    if (_patchClassifCategoryRender() || _tries > 30) {
-      clearInterval(interval);
-    }
+    if (_patchClassifCategoryRender() || _tries > 30) clearInterval(interval);
   }, 500);
 
+  // Annoter les rows produit cher / sortie hospi avec le prix
+  function _annotateProdCherRows() {
+    const screen = document.getElementById('screen-admin-classifications');
+    if (!screen) return;
+    
+    // Trouver les sections "Produit cher" et "Sortie hospitalière"
+    const sections = screen.querySelectorAll('details, .accordion-item, [class*="category-block"]');
+    sections.forEach(sec => {
+      const summary = sec.querySelector('summary, .accordion-title, .category-title');
+      const summaryTxt = (summary?.textContent || '').toLowerCase();
+      const isProdCher = summaryTxt.includes('produit cher');
+      const isHospi    = summaryTxt.includes('sortie hospi') || summaryTxt.includes('hospitalière');
+      
+      if (!isProdCher && !isHospi) return;
+      
+      // Pour chaque row dans cette section, ajouter le prix si dispo
+      const rows = sec.querySelectorAll('[data-cip13], tr');
+      rows.forEach(row => {
+        if (row.__v301Priced) return;
+        const cip = row.getAttribute('data-cip13');
+        if (!cip) return;
+        
+        // Chercher le prix dans le cache global
+        const meta = window._priceCache?.[cip];
+        if (!meta || !meta.pfht) return;
+        
+        const nameCell = row.querySelector('.cat-name, td:nth-child(2)') || row.children[1];
+        if (nameCell && !nameCell.querySelector('.v301-price-tag')) {
+          const tag = document.createElement('span');
+          tag.className = 'v301-price-tag';
+          const isHigh = meta.pfht > 1500;
+          tag.style.cssText = `margin-left:8px; padding:2px 8px; background:${isHigh ? '#ffe6e6' : '#fff3cd'}; color:${isHigh ? '#9d0000' : '#856404'}; border-radius:4px; font-size:11px; font-weight:500;`;
+          tag.textContent = Number(meta.pfht).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+          nameCell.appendChild(tag);
+          row.__v301Priced = true;
+        }
+      });
+    });
+  }
+  setInterval(_annotateProdCherRows, 2000);
 
-  // ====================================================================
-  // 3. Affichage colonne fichier (numero_facture + total_ttc)
-  //    Hérité de la précédente version, mais simplifié
-  // ====================================================================
-  
-  (function _patchFactureRowsDisplay() {
-    window._factureMetaCache = window._factureMetaCache || {};
-
-    const origFetch = window.fetch;
-    if (origFetch.__v300FactPatched) return;
-
+  // Hook fetch pour récupérer les prix
+  const origFetch = window.fetch;
+  if (!origFetch.__v301PriceHooked) {
+    window._priceCache = window._priceCache || {};
     window.fetch = async function(url, opts) {
       const r = await origFetch.apply(this, arguments);
       const ct = r.headers.get('content-type') || '';
-      if (typeof url === 'string' && /\/grossiste\/factures(\?|$)/.test(url) && ct.includes('json')) {
+      if (typeof url === 'string' && /\/grossiste\/factures\/[\w-]+/.test(url) && ct.includes('json')) {
         try {
           const clone = r.clone();
           const data = await clone.json();
-          const items = Array.isArray(data) ? data : (data?.items || data?.factures || []);
-          items.forEach(f => {
-            if (f && f.id) window._factureMetaCache[f.id] = f;
-          });
-          setTimeout(() => _enrichRowsFromCache(), 50);
-          setTimeout(() => _enrichRowsFromCache(), 250);
-          setTimeout(() => _enrichRowsFromCache(), 800);
+          if (data.lignes) {
+            data.lignes.forEach(l => {
+              if (l.cip13 && (l.pfht || l.ppht)) {
+                window._priceCache[l.cip13] = { pfht: l.pfht || l.ppht };
+              }
+            });
+          }
         } catch (e) { /* ignore */ }
       }
       return r;
     };
-    window.fetch.__v300FactPatched = true;
-  })();
-
-  function _enrichRowsFromCache() {
-    document.querySelectorAll('tr, [class*="facture"]').forEach(row => {
-      if (row.__v300FactDone) return;
-      const text = row.textContent || '';
-      let factureId = row.getAttribute('data-facture-id') || row.getAttribute('data-id');
-      if (!factureId) {
-        for (const fid in window._factureMetaCache) {
-          const f = window._factureMetaCache[fid];
-          if (f.filename && text.includes(f.filename)) {
-            factureId = fid;
-            break;
-          }
-        }
-      }
-      if (!factureId) return;
-
-      const f = window._factureMetaCache[factureId];
-      if (!f) return;
-
-      const cells = row.querySelectorAll('td, [class*="cell"]');
-      for (const c of cells) {
-        const txt = (c.textContent || '').trim();
-        if (txt === f.filename || (txt.includes('PHARMACOLLECT_') && txt.endsWith('.pdf'))) {
-          const numero = f.numero_facture || f.num_facture;
-          const ttc    = f.total_ttc;
-          const parts = [];
-          if (numero) parts.push(numero);
-          if (ttc) parts.push(Number(ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' € TTC');
-
-          if (parts.length > 0) {
-            const checkbox = c.querySelector('input[type=checkbox]');
-            c.textContent = parts.join(' · ');
-            if (checkbox) c.insertBefore(checkbox, c.firstChild);
-            c.title = f.filename;
-            row.__v300FactDone = true;
-          } else if (f.filename && f.filename.startsWith('PHARMACOLLECT_')) {
-            const checkbox = c.querySelector('input[type=checkbox]');
-            c.textContent = '(Import PharmaCollect — sans n°)';
-            if (checkbox) c.insertBefore(checkbox, c.firstChild);
-            c.title = f.filename;
-            row.__v300FactDone = true;
-          }
-          break;
-        }
-      }
-    });
+    window.fetch.__v301PriceHooked = true;
   }
-
-  setInterval(() => _enrichRowsFromCache(), 1500);
 
 })();
 
