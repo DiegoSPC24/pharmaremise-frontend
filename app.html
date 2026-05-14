@@ -6849,17 +6849,17 @@ async function showLogDetail(logId) {
 
 
 
-// === V312_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.12 — Onglet "Meilleur Compo Générique" (FIX sélecteurs)
-// ============================================================
-// Structure réelle du menu :
-//   <nav class="sidebar-nav">
-//     <button class="nav-item active">💊 Génériqueur</button>
-//     ...
-//   </nav>
 
-(function _v312_init() {
+
+// === V313_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.13 — Meilleur compo amélioré + Admin Molecules
+// ============================================================
+// - Bouton ✏️ inline pour renommer/fusionner depuis l'écran public
+// - Filtre auto des molécules suspectes (toggle)
+// - Page admin "Molécules" dans le menu Admin
+
+(function _v313_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
@@ -6869,18 +6869,16 @@ async function showLogDetail(logId) {
   let _renderedCount = 0;
   const PAGE_SIZE = 20;
   let _currentSearch = '';
+  let _showSuspects = false;
 
   // ====================================================================
-  // 1. INJECTION DU BOUTON DE NAV
+  // 1. INJECTION DU BOUTON NAV "Meilleur compo"
   // ====================================================================
   
   function _injectNavButton() {
     if (document.getElementById('v312-nav-btn')) return;
-    
-    // Trouver le bouton "Génériqueur" dans la sidebar-nav
     const nav = document.querySelector('nav.sidebar-nav');
     if (!nav) return;
-    
     const generiqueurBtn = [...nav.querySelectorAll('button.nav-item')].find(b => 
       /Génériqueur/i.test(b.textContent || '')
     );
@@ -6890,30 +6888,22 @@ async function showLogDetail(logId) {
     btn.id = 'v312-nav-btn';
     btn.className = 'nav-item';
     btn.textContent = '🏆 Meilleur compo';
-    
     btn.addEventListener('click', () => {
       _showScreen();
-      
-      // Mettre à jour la classe active des boutons nav
       [...nav.querySelectorAll('button.nav-item')].forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
-    
-    // Insérer juste après "Génériqueur"
     generiqueurBtn.parentElement.insertBefore(btn, generiqueurBtn.nextSibling);
-    
-    console.log('[v312] Bouton "Meilleur compo" injecté ✓');
   }
 
   // ====================================================================
-  // 2. CRÉATION DE L'ÉCRAN
+  // 2. ÉCRAN MEILLEUR COMPO
   // ====================================================================
   
   function _ensureScreen() {
     let screen = document.getElementById('screen-meilleur-compo');
     if (screen) return screen;
     
-    // Trouver le conteneur des écrans
     const anyScreen = document.querySelector('[id^="screen-"]');
     if (!anyScreen) return null;
     
@@ -6924,112 +6914,170 @@ async function showLogDetail(logId) {
     
     screen.innerHTML = `
       <style>
-        #v312-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
-        #v312-header {
+        #v313-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        #v313-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8;
           flex-wrap: wrap; gap: 12px;
         }
-        #v312-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
-        #v312-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+        #v313-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
+        #v313-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
         
-        #v312-search {
+        #v313-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        #v313-search {
           padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
-          font-size: 14px; min-width: 280px; flex: 1; max-width: 400px;
+          font-size: 14px; min-width: 240px;
         }
+        .v313-toggle {
+          padding: 8px 14px; background: white; border: 1px solid #ddd;
+          border-radius: 8px; cursor: pointer; font-size: 12px;
+        }
+        .v313-toggle.active { background: #1D9E75; color: white; border-color: #1D9E75; }
         
-        #v312-stats {
+        #v313-stats {
           display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           gap: 10px; margin-bottom: 20px;
         }
-        .v312-stat-box {
+        .v313-stat-box {
           background: #fafafa; padding: 12px; border-radius: 8px;
           border: 1px solid #e8e8e8;
         }
-        .v312-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
-        .v312-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
+        .v313-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .v313-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
         
-        .v312-molecule {
+        .v313-molecule {
           background: white; border: 1px solid #e8e8e8;
           border-radius: 10px; margin-bottom: 14px; overflow: hidden;
         }
-        .v312-molecule-header {
+        .v313-molecule-header {
           padding: 12px 16px; background: #f5fbf8;
           font-weight: 600; color: #1D9E75; font-size: 15px;
           border-bottom: 1px solid #e1f5ee;
           display: flex; align-items: center; justify-content: space-between;
+          gap: 10px;
         }
-        .v312-molecule-count {
-          font-size: 12px; color: #888; font-weight: 400;
+        .v313-molecule-count { font-size: 12px; color: #888; font-weight: 400; }
+        .v313-edit-btn {
+          padding: 4px 10px; background: white; color: #1D9E75;
+          border: 1px solid #1D9E75; border-radius: 5px;
+          font-size: 11px; cursor: pointer;
         }
+        .v313-edit-btn:hover { background: #1D9E75; color: white; }
         
-        .v312-product-row {
+        .v313-product-row {
           display: grid;
           grid-template-columns: 30px 2.5fr 100px 80px 80px 80px 80px 110px;
           gap: 10px; padding: 10px 16px; align-items: center;
           border-bottom: 1px solid #f0f0f0; font-size: 12px;
         }
-        .v312-product-row:last-child { border-bottom: none; }
-        .v312-product-row.best { background: #fffdf2; }
-        .v312-product-row:hover { background: #fafafa; }
-        .v312-product-row.best:hover { background: #fff8e0; }
+        .v313-product-row:last-child { border-bottom: none; }
+        .v313-product-row.best { background: #fffdf2; }
+        .v313-product-row:hover { background: #fafafa; }
         
-        .v312-star { font-size: 14px; }
-        .v312-name { font-weight: 500; color: #333; line-height: 1.3; }
-        .v312-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
-        .v312-labo {
+        .v313-star { font-size: 14px; }
+        .v313-name { font-weight: 500; color: #333; line-height: 1.3; }
+        .v313-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
+        .v313-labo {
           background: #1D9E75; color: white; padding: 3px 8px;
           border-radius: 4px; font-size: 10px; font-weight: 500;
           display: inline-block; text-align: center;
         }
-        .v312-num { text-align: right; font-variant-numeric: tabular-nums; }
-        .v312-pct { text-align: right; color: #888; font-size: 11px; }
-        .v312-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
-        .v312-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
+        .v313-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .v313-pct { text-align: right; color: #888; font-size: 11px; }
+        .v313-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
+        .v313-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
         
-        #v312-sentinel { padding: 30px; text-align: center; color: #888; }
+        #v313-sentinel { padding: 30px; text-align: center; color: #888; }
         
-        @media (max-width: 900px) {
-          .v312-product-row { grid-template-columns: 1fr; gap: 4px; }
+        /* Modal édition */
+        #v313-edit-modal {
+          display: none; position: fixed; inset: 0;
+          background: rgba(0,0,0,0.5); z-index: 10000;
+          padding: 30px; overflow-y: auto;
         }
+        #v313-edit-modal .box {
+          max-width: 600px; margin: 0 auto; background: white;
+          border-radius: 12px; padding: 24px;
+        }
+        .v313-edit-graphie {
+          display: flex; align-items: center; gap: 8px;
+          padding: 6px 10px; background: #f5f5f5; border-radius: 6px;
+          margin-bottom: 6px; font-size: 13px;
+        }
+        .v313-edit-graphie input[type=checkbox] { margin: 0; }
       </style>
       
-      <div id="v312-container">
-        <div id="v312-header">
+      <div id="v313-container">
+        <div id="v313-header">
           <div>
-            <h1 id="v312-title">🏆 Meilleur compo générique</h1>
-            <div id="v312-subtitle">Comparatif des prix nets après application des contrats</div>
+            <h1 id="v313-title">🏆 Meilleur compo générique</h1>
+            <div id="v313-subtitle">Comparatif des prix nets après application des contrats</div>
           </div>
-          <input id="v312-search" type="text" placeholder="🔍 Rechercher une molécule, produit ou labo..."/>
+          <div id="v313-controls">
+            <input id="v313-search" type="text" placeholder="🔍 Rechercher..."/>
+            <button id="v313-toggle-suspects" class="v313-toggle">🔍 Afficher les noms suspects</button>
+          </div>
         </div>
         
-        <div id="v312-stats"></div>
-        
-        <div id="v312-list">
-          <div id="v312-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement des 6000+ produits...</div>
+        <div id="v313-stats"></div>
+        <div id="v313-list">
+          <div id="v313-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
         </div>
-        
-        <div id="v312-sentinel" style="display:none;">
-          ⏳ Faire défiler pour charger plus...
+        <div id="v313-sentinel" style="display:none;">⏳ Faire défiler...</div>
+      </div>
+      
+      <!-- Modal édition -->
+      <div id="v313-edit-modal">
+        <div class="box">
+          <div style="display:flex; justify-content:space-between; margin-bottom:14px;">
+            <h2 style="margin:0;">✏️ Éditer la molécule</h2>
+            <button id="v313-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
+          </div>
+          
+          <div style="margin-bottom:14px;">
+            <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom affiché :</label>
+            <input id="v313-edit-display" type="text" 
+              style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
+          </div>
+          
+          <div style="margin-bottom:14px;">
+            <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
+              Graphies sources actuellement regroupées (cocher pour fusionner) :
+            </label>
+            <div id="v313-edit-graphies"></div>
+          </div>
+          
+          <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button id="v313-edit-cancel" class="v313-toggle">Annuler</button>
+            <button id="v313-edit-save" class="v313-toggle active">💾 Sauvegarder</button>
+          </div>
+          <div id="v313-edit-status" style="margin-top:10px; font-size:12px;"></div>
         </div>
       </div>
     `;
     
     anyScreen.parentElement.appendChild(screen);
     
-    // Handler recherche
+    // Recherche
     let searchTimer = null;
-    const searchInput = screen.querySelector('#v312-search');
-    searchInput.addEventListener('input', () => {
+    screen.querySelector('#v313-search').addEventListener('input', (e) => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
-        _currentSearch = searchInput.value.trim().toLowerCase();
+        _currentSearch = e.target.value.trim().toLowerCase();
         _applyFilterAndRender();
       }, 300);
     });
     
+    // Toggle suspects
+    screen.querySelector('#v313-toggle-suspects').addEventListener('click', () => {
+      _showSuspects = !_showSuspects;
+      screen.querySelector('#v313-toggle-suspects').classList.toggle('active', _showSuspects);
+      _data = null;  // forcer rechargement
+      _loadData();
+    });
+    
     // Scroll infini
-    const sentinel = screen.querySelector('#v312-sentinel');
+    const sentinel = screen.querySelector('#v313-sentinel');
     const obs = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && _filteredData && _renderedCount < _filteredData.length) {
         _renderMore();
@@ -7037,27 +7085,27 @@ async function showLogDetail(logId) {
     }, { rootMargin: '300px' });
     obs.observe(sentinel);
     
+    // Modal handlers
+    screen.querySelector('#v313-edit-close').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v313-edit-cancel').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v313-edit-save').addEventListener('click', _saveEditModal);
+    screen.querySelector('#v313-edit-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'v313-edit-modal') _closeEditModal();
+    });
+    
     return screen;
   }
 
-  // ====================================================================
-  // 3. CHARGEMENT DES DONNÉES
-  // ====================================================================
-  
   async function _loadData() {
     try {
-      const r = await fetch(`${API}/generiqueur/meilleur-compo`, {
-        headers: { Authorization: 'Bearer ' + T() }
-      });
+      const url = `${API}/generiqueur/meilleur-compo?show_suspects=${_showSuspects}`;
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T() } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      _data = data;
+      _data = await r.json();
       _applyFilterAndRender();
     } catch (e) {
-      const list = document.getElementById('v312-list');
-      if (list) {
-        list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ Erreur : ${e.message}</div>`;
-      }
+      const list = document.getElementById('v313-list');
+      if (list) list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ ${e.message}</div>`;
     }
   }
 
@@ -7067,6 +7115,7 @@ async function showLogDetail(logId) {
     if (_currentSearch) {
       _filteredData = _data.molecules.filter(m =>
         m.molecule.toLowerCase().includes(_currentSearch) ||
+        m.canon.toLowerCase().includes(_currentSearch) ||
         m.produits.some(p => 
           (p.description || '').toLowerCase().includes(_currentSearch) ||
           (p.labo || '').toLowerCase().includes(_currentSearch) ||
@@ -7077,89 +7126,92 @@ async function showLogDetail(logId) {
       _filteredData = _data.molecules;
     }
     
-    // Stats
-    const statsEl = document.getElementById('v312-stats');
-    if (!statsEl) return;
-    
-    const totalProduits = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
+    const statsEl = document.getElementById('v313-stats');
+    const totalProd = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
     statsEl.innerHTML = `
-      <div class="v312-stat-box">
-        <div class="v312-stat-label">Molécules</div>
-        <div class="v312-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
+      <div class="v313-stat-box">
+        <div class="v313-stat-label">Molécules</div>
+        <div class="v313-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
       </div>
-      <div class="v312-stat-box">
-        <div class="v312-stat-label">Produits</div>
-        <div class="v312-stat-value">${totalProduits.toLocaleString('fr-FR')}</div>
+      <div class="v313-stat-box">
+        <div class="v313-stat-label">Produits</div>
+        <div class="v313-stat-value">${totalProd.toLocaleString('fr-FR')}</div>
       </div>
-      <div class="v312-stat-box">
-        <div class="v312-stat-label">Labos en contrat</div>
-        <div class="v312-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
+      <div class="v313-stat-box">
+        <div class="v313-stat-label">Labos en contrat</div>
+        <div class="v313-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
       </div>
-      <div class="v312-stat-box" title="${_data.labos_actifs.join(', ')}">
-        <div class="v312-stat-label">Avec offre active</div>
-        <div class="v312-stat-value" style="font-size:13px;">${_data.labos_actifs.slice(0,4).join(', ')}${_data.labos_actifs.length > 4 ? '…' : ''}</div>
+      <div class="v313-stat-box">
+        <div class="v313-stat-label">Suspects cachés</div>
+        <div class="v313-stat-value" style="color:#888;">${_data.nb_suspects_caches || 0}</div>
       </div>
     `;
     
-    // Render
     _renderedCount = 0;
-    const list = document.getElementById('v312-list');
-    if (list) list.innerHTML = '';
-    document.getElementById('v312-loading')?.remove();
+    document.getElementById('v313-list').innerHTML = '';
+    document.getElementById('v313-loading')?.remove();
     _renderMore();
   }
 
   function _renderMore() {
     if (!_filteredData) return;
-    
-    const list = document.getElementById('v312-list');
-    const sentinel = document.getElementById('v312-sentinel');
+    const list = document.getElementById('v313-list');
+    const sentinel = document.getElementById('v313-sentinel');
     if (!list || !sentinel) return;
     
     const slice = _filteredData.slice(_renderedCount, _renderedCount + PAGE_SIZE);
     
-    const html = slice.map(m => {
+    const html = slice.map((m, idx) => {
       const productsHtml = m.produits.map(p => {
         const star = p.meilleur_prix ? '⭐' : '';
         const ecartHtml = !p.meilleur_prix && p.ecart_eur > 0 
           ? `+${_fmtEuro(p.ecart_eur)}`
           : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
         return `
-          <div class="v312-product-row ${p.meilleur_prix ? 'best' : ''}">
-            <div class="v312-star">${star}</div>
+          <div class="v313-product-row ${p.meilleur_prix ? 'best' : ''}">
+            <div class="v313-star">${star}</div>
             <div>
-              <div class="v312-name">${(p.description || '').slice(0, 70)}</div>
-              <div class="v312-cip">CIP ${p.cip13 || '—'}</div>
+              <div class="v313-name">${(p.description || '').slice(0, 70)}</div>
+              <div class="v313-cip">CIP ${p.cip13 || '—'}</div>
             </div>
-            <div><span class="v312-labo">${p.labo}</span></div>
-            <div class="v312-num">${_fmtEuro(p.ppht)}</div>
-            <div class="v312-pct">-${p.rem_gross_pct}%</div>
-            <div class="v312-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
-            <div class="v312-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
-            <div class="v312-prix-net">
+            <div><span class="v313-labo">${p.labo}</span></div>
+            <div class="v313-num">${_fmtEuro(p.ppht)}</div>
+            <div class="v313-pct">-${p.rem_gross_pct}%</div>
+            <div class="v313-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
+            <div class="v313-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
+            <div class="v313-prix-net">
               ${_fmtEuro(p.prix_net)}
-              <div class="v312-ecart">${ecartHtml}</div>
+              <div class="v313-ecart">${ecartHtml}</div>
             </div>
           </div>
         `;
       }).join('');
       
+      const graphiesInfo = m.graphies_sources.length > 1 
+        ? `<span style="color:#888; font-size:11px;">(${m.graphies_sources.length} graphies)</span>` 
+        : '';
+      
       return `
-        <div class="v312-molecule">
-          <div class="v312-molecule-header">
-            <span>${m.molecule}</span>
-            <span class="v312-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+        <div class="v313-molecule">
+          <div class="v313-molecule-header">
+            <span>${m.molecule} ${graphiesInfo}</span>
+            <div>
+              <span class="v313-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+              <button class="v313-edit-btn" data-canon="${encodeURIComponent(m.canon)}" data-display="${encodeURIComponent(m.molecule)}" data-graphies="${encodeURIComponent(JSON.stringify(m.graphies_sources))}">
+                ✏️ Éditer
+              </button>
+            </div>
           </div>
           <div>
-            <div class="v312-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
+            <div class="v313-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
               <div></div>
               <div>Produit</div>
               <div>Labo</div>
-              <div class="v312-num">PPHT</div>
-              <div class="v312-pct">Rem. gross.</div>
-              <div class="v312-pct">Rem. contrat</div>
-              <div class="v312-pct">Total %</div>
-              <div class="v312-prix-net">Prix net</div>
+              <div class="v313-num">PPHT</div>
+              <div class="v313-pct">Rem. gross.</div>
+              <div class="v313-pct">Rem. contrat</div>
+              <div class="v313-pct">Total %</div>
+              <div class="v313-prix-net">Prix net</div>
             </div>
             ${productsHtml}
           </div>
@@ -7168,13 +7220,114 @@ async function showLogDetail(logId) {
     }).join('');
     
     list.insertAdjacentHTML('beforeend', html);
-    _renderedCount += slice.length;
     
+    // Attacher les handlers des boutons Éditer
+    list.querySelectorAll('.v313-edit-btn').forEach(btn => {
+      if (btn.dataset.attached) return;
+      btn.dataset.attached = '1';
+      btn.addEventListener('click', () => {
+        const canon = decodeURIComponent(btn.dataset.canon);
+        const display = decodeURIComponent(btn.dataset.display);
+        const graphies = JSON.parse(decodeURIComponent(btn.dataset.graphies));
+        _openEditModal(canon, display, graphies);
+      });
+    });
+    
+    _renderedCount += slice.length;
     if (_renderedCount >= _filteredData.length) {
       sentinel.style.display = 'none';
     } else {
       sentinel.style.display = 'block';
-      sentinel.innerHTML = `⏳ ${_renderedCount} / ${_filteredData.length} molécules — Faire défiler pour charger plus`;
+      sentinel.innerHTML = `⏳ ${_renderedCount} / ${_filteredData.length} molécules`;
+    }
+  }
+
+  // ====================================================================
+  // MODAL ÉDITION
+  // ====================================================================
+
+  let _editContext = null;
+
+  function _openEditModal(canon, display, graphies) {
+    _editContext = { canon, display, graphies };
+    const modal = document.getElementById('v313-edit-modal');
+    document.getElementById('v313-edit-display').value = display;
+    
+    // Liste des graphies (toutes cochées par défaut)
+    const graphiesEl = document.getElementById('v313-edit-graphies');
+    graphiesEl.innerHTML = graphies.map((g, i) => `
+      <div class="v313-edit-graphie">
+        <input type="checkbox" id="v313-graphie-${i}" data-graphie="${encodeURIComponent(g)}" checked/>
+        <label for="v313-graphie-${i}" style="cursor:pointer; flex:1;">${g}</label>
+      </div>
+    `).join('') + `
+      <div style="margin-top:10px;">
+        <label style="font-size:12px; color:#666;">+ Fusionner d'autres graphies (séparées par virgule) :</label>
+        <input id="v313-edit-extras" type="text" placeholder="Ex: Abacavir Lamivudine, ABACAVIR/LAMIVUDINE"
+          style="width:100%; padding:7px; border:1px solid #ddd; border-radius:5px; font-size:12px; margin-top:4px;"/>
+      </div>
+    `;
+    
+    document.getElementById('v313-edit-status').textContent = '';
+    modal.style.display = 'block';
+  }
+
+  function _closeEditModal() {
+    document.getElementById('v313-edit-modal').style.display = 'none';
+  }
+
+  async function _saveEditModal() {
+    if (!_editContext) return;
+    const status = document.getElementById('v313-edit-status');
+    const display = document.getElementById('v313-edit-display').value.trim();
+    
+    // Récupérer graphies cochées
+    const graphiesCheck = [...document.querySelectorAll('#v313-edit-graphies input[type=checkbox]:checked')]
+      .map(cb => decodeURIComponent(cb.dataset.graphie));
+    
+    const extras = document.getElementById('v313-edit-extras').value
+      .split(',').map(s => s.trim()).filter(Boolean);
+    
+    const allGraphies = [...new Set([...graphiesCheck, ...extras])];
+    
+    if (allGraphies.length === 0) {
+      status.textContent = '⚠️ Aucune graphie sélectionnée';
+      status.style.color = '#c0392b';
+      return;
+    }
+    
+    status.textContent = '⏳ Sauvegarde...';
+    status.style.color = '#888';
+    
+    try {
+      const r = await fetch(`${API}/admin/molecules/fusionner`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + T(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          canon: _editContext.canon,
+          display_name: display,
+          graphies_source: allGraphies,
+        }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        status.textContent = '✓ Sauvegardé · Rechargement...';
+        status.style.color = '#1D9E75';
+        setTimeout(() => {
+          _closeEditModal();
+          _data = null;
+          _loadData();
+        }, 800);
+      } else {
+        status.textContent = '✗ ' + (data.detail || 'Erreur');
+        status.style.color = '#c0392b';
+      }
+    } catch (e) {
+      status.textContent = '✗ ' + e.message;
+      status.style.color = '#c0392b';
     }
   }
 
@@ -7184,18 +7337,12 @@ async function showLogDetail(logId) {
       minimumFractionDigits: 2, maximumFractionDigits: 2 
     }) + ' €';
   }
-
   function _fmtPct(v) {
     if (v == null) return '—';
     return Number(v).toFixed(1) + '%';
   }
 
-  // ====================================================================
-  // 4. AFFICHAGE DE L'ÉCRAN
-  // ====================================================================
-  
   function _showScreen() {
-    // Cacher tous les autres écrans
     document.querySelectorAll('[id^="screen-"]').forEach(el => {
       if (el.id === 'screen-meilleur-compo') return;
       el.style.display = 'none';
@@ -7204,7 +7351,6 @@ async function showLogDetail(logId) {
     
     const screen = _ensureScreen();
     if (!screen) return;
-    
     screen.style.display = 'block';
     screen.classList.add('active');
     
@@ -7215,22 +7361,7 @@ async function showLogDetail(logId) {
     }
   }
 
-  // Lancer l'injection du bouton périodiquement (au cas où le menu se re-rend)
   setInterval(_injectNavButton, 1500);
-  
-  // Aussi : si l'utilisateur clique sur un autre bouton nav, on désactive le nôtre
-  setInterval(() => {
-    const nav = document.querySelector('nav.sidebar-nav');
-    if (!nav) return;
-    const ourBtn = document.getElementById('v312-nav-btn');
-    if (!ourBtn) return;
-    
-    // Si on n'est pas sur l'écran meilleur-compo, retirer .active du nôtre
-    const screen = document.getElementById('screen-meilleur-compo');
-    if (!screen || screen.style.display === 'none') {
-      ourBtn.classList.remove('active');
-    }
-  }, 500);
 
 })();
 
