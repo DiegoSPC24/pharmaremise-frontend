@@ -6851,15 +6851,14 @@ async function showLogDetail(logId) {
 
 
 
-// === V313_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.13 — Meilleur compo amélioré + Admin Molecules
-// ============================================================
-// - Bouton ✏️ inline pour renommer/fusionner depuis l'écran public
-// - Filtre auto des molécules suspectes (toggle)
-// - Page admin "Molécules" dans le menu Admin
 
-(function _v313_init() {
+
+// === V314_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.14 — Modale 2 onglets (Fusionner/Fractionner) + Masquage
+// ============================================================
+
+(function _v314_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
@@ -6870,19 +6869,32 @@ async function showLogDetail(logId) {
   const PAGE_SIZE = 20;
   let _currentSearch = '';
   let _showSuspects = false;
+  let _isAdmin = false;
 
   // ====================================================================
-  // 1. INJECTION DU BOUTON NAV "Meilleur compo"
+  // Détection admin
   // ====================================================================
-  
+  async function _checkAdmin() {
+    try {
+      const r = await fetch(`${API}/admin/me`, {
+        headers: { Authorization: 'Bearer ' + T() }
+      });
+      _isAdmin = r.ok;
+    } catch { _isAdmin = false; }
+    return _isAdmin;
+  }
+
+  // ====================================================================
+  // 1. INJECTION BOUTON NAV
+  // ====================================================================
   function _injectNavButton() {
     if (document.getElementById('v312-nav-btn')) return;
     const nav = document.querySelector('nav.sidebar-nav');
     if (!nav) return;
-    const generiqueurBtn = [...nav.querySelectorAll('button.nav-item')].find(b => 
+    const genBtn = [...nav.querySelectorAll('button.nav-item')].find(b => 
       /Génériqueur/i.test(b.textContent || '')
     );
-    if (!generiqueurBtn) return;
+    if (!genBtn) return;
     
     const btn = document.createElement('button');
     btn.id = 'v312-nav-btn';
@@ -6893,13 +6905,12 @@ async function showLogDetail(logId) {
       [...nav.querySelectorAll('button.nav-item')].forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
-    generiqueurBtn.parentElement.insertBefore(btn, generiqueurBtn.nextSibling);
+    genBtn.parentElement.insertBefore(btn, genBtn.nextSibling);
   }
 
   // ====================================================================
-  // 2. ÉCRAN MEILLEUR COMPO
+  // 2. ÉCRAN
   // ====================================================================
-  
   function _ensureScreen() {
     let screen = document.getElementById('screen-meilleur-compo');
     if (screen) return screen;
@@ -6914,153 +6925,222 @@ async function showLogDetail(logId) {
     
     screen.innerHTML = `
       <style>
-        #v313-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
-        #v313-header {
+        #v314-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        #v314-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8;
           flex-wrap: wrap; gap: 12px;
         }
-        #v313-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
-        #v313-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+        #v314-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
+        #v314-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
         
-        #v313-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        #v313-search {
+        #v314-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        #v314-search {
           padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
           font-size: 14px; min-width: 240px;
         }
-        .v313-toggle {
+        .v314-toggle {
           padding: 8px 14px; background: white; border: 1px solid #ddd;
           border-radius: 8px; cursor: pointer; font-size: 12px;
         }
-        .v313-toggle.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+        .v314-toggle.active { background: #1D9E75; color: white; border-color: #1D9E75; }
         
-        #v313-stats {
+        #v314-stats {
           display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           gap: 10px; margin-bottom: 20px;
         }
-        .v313-stat-box {
+        .v314-stat-box {
           background: #fafafa; padding: 12px; border-radius: 8px;
           border: 1px solid #e8e8e8;
         }
-        .v313-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
-        .v313-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
+        .v314-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .v314-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
         
-        .v313-molecule {
+        .v314-molecule {
           background: white; border: 1px solid #e8e8e8;
           border-radius: 10px; margin-bottom: 14px; overflow: hidden;
         }
-        .v313-molecule-header {
+        .v314-molecule-header {
           padding: 12px 16px; background: #f5fbf8;
           font-weight: 600; color: #1D9E75; font-size: 15px;
           border-bottom: 1px solid #e1f5ee;
           display: flex; align-items: center; justify-content: space-between;
           gap: 10px;
         }
-        .v313-molecule-count { font-size: 12px; color: #888; font-weight: 400; }
-        .v313-edit-btn {
+        .v314-molecule-count { font-size: 12px; color: #888; font-weight: 400; }
+        .v314-edit-btn {
           padding: 4px 10px; background: white; color: #1D9E75;
           border: 1px solid #1D9E75; border-radius: 5px;
           font-size: 11px; cursor: pointer;
         }
-        .v313-edit-btn:hover { background: #1D9E75; color: white; }
+        .v314-edit-btn:hover { background: #1D9E75; color: white; }
         
-        .v313-product-row {
+        .v314-product-row {
           display: grid;
           grid-template-columns: 30px 2.5fr 100px 80px 80px 80px 80px 110px;
           gap: 10px; padding: 10px 16px; align-items: center;
           border-bottom: 1px solid #f0f0f0; font-size: 12px;
         }
-        .v313-product-row:last-child { border-bottom: none; }
-        .v313-product-row.best { background: #fffdf2; }
-        .v313-product-row:hover { background: #fafafa; }
+        .v314-product-row:last-child { border-bottom: none; }
+        .v314-product-row.best { background: #fffdf2; }
+        .v314-product-row:hover { background: #fafafa; }
         
-        .v313-star { font-size: 14px; }
-        .v313-name { font-weight: 500; color: #333; line-height: 1.3; }
-        .v313-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
-        .v313-labo {
+        .v314-star { font-size: 14px; }
+        .v314-name { font-weight: 500; color: #333; line-height: 1.3; }
+        .v314-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
+        .v314-labo {
           background: #1D9E75; color: white; padding: 3px 8px;
           border-radius: 4px; font-size: 10px; font-weight: 500;
           display: inline-block; text-align: center;
         }
-        .v313-num { text-align: right; font-variant-numeric: tabular-nums; }
-        .v313-pct { text-align: right; color: #888; font-size: 11px; }
-        .v313-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
-        .v313-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
+        .v314-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .v314-pct { text-align: right; color: #888; font-size: 11px; }
+        .v314-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
+        .v314-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
         
-        #v313-sentinel { padding: 30px; text-align: center; color: #888; }
+        #v314-sentinel { padding: 30px; text-align: center; color: #888; }
         
-        /* Modal édition */
-        #v313-edit-modal {
+        /* MODAL */
+        #v314-edit-modal {
           display: none; position: fixed; inset: 0;
           background: rgba(0,0,0,0.5); z-index: 10000;
           padding: 30px; overflow-y: auto;
         }
-        #v313-edit-modal .box {
-          max-width: 600px; margin: 0 auto; background: white;
+        #v314-edit-modal .box {
+          max-width: 720px; margin: 0 auto; background: white;
           border-radius: 12px; padding: 24px;
         }
-        .v313-edit-graphie {
-          display: flex; align-items: center; gap: 8px;
-          padding: 6px 10px; background: #f5f5f5; border-radius: 6px;
-          margin-bottom: 6px; font-size: 13px;
+        .v314-tabs {
+          display: flex; gap: 0; border-bottom: 2px solid #e8e8e8;
+          margin-bottom: 16px;
         }
-        .v313-edit-graphie input[type=checkbox] { margin: 0; }
+        .v314-tab {
+          padding: 10px 20px; background: none; border: none;
+          font-size: 14px; cursor: pointer; color: #666;
+          border-bottom: 2px solid transparent; margin-bottom: -2px;
+        }
+        .v314-tab.active {
+          color: #1D9E75; border-bottom-color: #1D9E75; font-weight: 600;
+        }
+        .v314-tab-content { display: none; }
+        .v314-tab-content.active { display: block; }
+        
+        .v314-edit-graphie, .v314-frac-row {
+          display: flex; align-items: center; gap: 8px;
+          padding: 7px 10px; background: #f5f5f5; border-radius: 6px;
+          margin-bottom: 5px; font-size: 12px;
+        }
+        .v314-frac-row.checked { background: #e1f5ee; }
+        .v314-frac-row label {
+          display: flex; flex-direction: column; cursor: pointer; flex: 1;
+        }
+        .v314-frac-row .desc { font-weight: 500; color: #333; }
+        .v314-frac-row .meta { font-size: 10px; color: #888; }
+        
+        .v314-mask-box {
+          background: #fff5f5; border: 1px solid #fdd; padding: 10px 14px;
+          border-radius: 8px; margin-bottom: 16px;
+          display: flex; align-items: center; gap: 10px;
+        }
+        .v314-mask-box label {
+          font-size: 13px; cursor: pointer; user-select: none;
+        }
       </style>
       
-      <div id="v313-container">
-        <div id="v313-header">
+      <div id="v314-container">
+        <div id="v314-header">
           <div>
-            <h1 id="v313-title">🏆 Meilleur compo générique</h1>
-            <div id="v313-subtitle">Comparatif des prix nets après application des contrats</div>
+            <h1 id="v314-title">🏆 Meilleur compo générique</h1>
+            <div id="v314-subtitle">Comparatif des prix nets après application des contrats</div>
           </div>
-          <div id="v313-controls">
-            <input id="v313-search" type="text" placeholder="🔍 Rechercher..."/>
-            <button id="v313-toggle-suspects" class="v313-toggle">🔍 Afficher les noms suspects</button>
+          <div id="v314-controls">
+            <input id="v314-search" type="text" placeholder="🔍 Rechercher..."/>
+            <button id="v314-toggle-suspects" class="v314-toggle">🔍 Afficher noms suspects</button>
           </div>
         </div>
         
-        <div id="v313-stats"></div>
-        <div id="v313-list">
-          <div id="v313-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
+        <div id="v314-stats"></div>
+        <div id="v314-list">
+          <div id="v314-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
         </div>
-        <div id="v313-sentinel" style="display:none;">⏳ Faire défiler...</div>
+        <div id="v314-sentinel" style="display:none;">⏳ Faire défiler...</div>
       </div>
       
-      <!-- Modal édition -->
-      <div id="v313-edit-modal">
+      <!-- MODAL ÉDITION -->
+      <div id="v314-edit-modal">
         <div class="box">
           <div style="display:flex; justify-content:space-between; margin-bottom:14px;">
-            <h2 style="margin:0;">✏️ Éditer la molécule</h2>
-            <button id="v313-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
+            <h2 id="v314-edit-title" style="margin:0;">✏️ Éditer la molécule</h2>
+            <button id="v314-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
           </div>
           
-          <div style="margin-bottom:14px;">
-            <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom affiché :</label>
-            <input id="v313-edit-display" type="text" 
-              style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
-          </div>
-          
-          <div style="margin-bottom:14px;">
-            <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
-              Graphies sources actuellement regroupées (cocher pour fusionner) :
+          <!-- Case Masquer (admin) -->
+          <div id="v314-mask-section" class="v314-mask-box" style="display:none;">
+            <input type="checkbox" id="v314-mask-cb"/>
+            <label for="v314-mask-cb">
+              🚫 <strong>Ne pas afficher</strong> cette molécule dans l'écran Meilleur compo (admin uniquement)
             </label>
-            <div id="v313-edit-graphies"></div>
           </div>
           
-          <div style="display:flex; gap:10px; justify-content:flex-end;">
-            <button id="v313-edit-cancel" class="v313-toggle">Annuler</button>
-            <button id="v313-edit-save" class="v313-toggle active">💾 Sauvegarder</button>
+          <!-- Onglets -->
+          <div class="v314-tabs">
+            <button id="v314-tab-fusionner" class="v314-tab active" data-tab="fusionner">✏️ Fusionner</button>
+            <button id="v314-tab-fractionner" class="v314-tab" data-tab="fractionner">✂️ Fractionner</button>
           </div>
-          <div id="v313-edit-status" style="margin-top:10px; font-size:12px;"></div>
+          
+          <!-- Onglet FUSIONNER -->
+          <div id="v314-content-fusionner" class="v314-tab-content active">
+            <div style="margin-bottom:14px;">
+              <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom affiché :</label>
+              <input id="v314-fus-display" type="text" 
+                style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
+            </div>
+            <div style="margin-bottom:14px;">
+              <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
+                Graphies sources actuelles (cocher pour fusionner) :
+              </label>
+              <div id="v314-fus-graphies"></div>
+              <div style="margin-top:10px;">
+                <label style="font-size:12px; color:#666;">+ Fusionner d'autres graphies (séparées par virgule) :</label>
+                <input id="v314-fus-extras" type="text" 
+                  style="width:100%; padding:7px; border:1px solid #ddd; border-radius:5px; font-size:12px; margin-top:4px;"/>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Onglet FRACTIONNER -->
+          <div id="v314-content-fractionner" class="v314-tab-content">
+            <div style="background:#fffbeb; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:12px; color:#7a5d00;">
+              💡 Cochez les produits à <strong>séparer</strong> dans une nouvelle sous-molécule. Utile par ex. pour distinguer "Bisoprolol 5mg 30cp" et "Bisoprolol 10mg 90cp".
+            </div>
+            <div style="margin-bottom:14px;">
+              <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom du nouveau groupe :</label>
+              <input id="v314-frac-name" type="text" placeholder="Ex: Bisoprolol 10mg 90cp"
+                style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
+            </div>
+            <div style="margin-bottom:14px;">
+              <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
+                Produits actuellement dans cette molécule (cocher ceux à sortir) :
+              </label>
+              <div id="v314-frac-products" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:14px; border-top:1px solid #eee;">
+            <button id="v314-edit-cancel" class="v314-toggle">Annuler</button>
+            <button id="v314-edit-save" class="v314-toggle active">💾 Sauvegarder</button>
+          </div>
+          <div id="v314-edit-status" style="margin-top:10px; font-size:12px;"></div>
         </div>
       </div>
     `;
     
     anyScreen.parentElement.appendChild(screen);
     
-    // Recherche
+    // Search
     let searchTimer = null;
-    screen.querySelector('#v313-search').addEventListener('input', (e) => {
+    screen.querySelector('#v314-search').addEventListener('input', (e) => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
         _currentSearch = e.target.value.trim().toLowerCase();
@@ -7069,15 +7149,15 @@ async function showLogDetail(logId) {
     });
     
     // Toggle suspects
-    screen.querySelector('#v313-toggle-suspects').addEventListener('click', () => {
+    screen.querySelector('#v314-toggle-suspects').addEventListener('click', () => {
       _showSuspects = !_showSuspects;
-      screen.querySelector('#v313-toggle-suspects').classList.toggle('active', _showSuspects);
-      _data = null;  // forcer rechargement
+      screen.querySelector('#v314-toggle-suspects').classList.toggle('active', _showSuspects);
+      _data = null;
       _loadData();
     });
     
     // Scroll infini
-    const sentinel = screen.querySelector('#v313-sentinel');
+    const sentinel = screen.querySelector('#v314-sentinel');
     const obs = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && _filteredData && _renderedCount < _filteredData.length) {
         _renderMore();
@@ -7086,14 +7166,29 @@ async function showLogDetail(logId) {
     obs.observe(sentinel);
     
     // Modal handlers
-    screen.querySelector('#v313-edit-close').addEventListener('click', _closeEditModal);
-    screen.querySelector('#v313-edit-cancel').addEventListener('click', _closeEditModal);
-    screen.querySelector('#v313-edit-save').addEventListener('click', _saveEditModal);
-    screen.querySelector('#v313-edit-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'v313-edit-modal') _closeEditModal();
+    screen.querySelector('#v314-edit-close').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v314-edit-cancel').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v314-edit-save').addEventListener('click', _saveEditModal);
+    screen.querySelector('#v314-edit-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'v314-edit-modal') _closeEditModal();
+    });
+    
+    // Tabs
+    screen.querySelectorAll('.v314-tab').forEach(t => {
+      t.addEventListener('click', () => _switchTab(t.dataset.tab));
     });
     
     return screen;
+  }
+
+  function _switchTab(tab) {
+    document.querySelectorAll('.v314-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    document.querySelectorAll('.v314-tab-content').forEach(c => {
+      c.classList.remove('active');
+    });
+    document.getElementById(`v314-content-${tab}`).classList.add('active');
   }
 
   async function _loadData() {
@@ -7104,7 +7199,7 @@ async function showLogDetail(logId) {
       _data = await r.json();
       _applyFilterAndRender();
     } catch (e) {
-      const list = document.getElementById('v313-list');
+      const list = document.getElementById('v314-list');
       if (list) list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ ${e.message}</div>`;
     }
   }
@@ -7126,92 +7221,103 @@ async function showLogDetail(logId) {
       _filteredData = _data.molecules;
     }
     
-    const statsEl = document.getElementById('v313-stats');
+    const statsEl = document.getElementById('v314-stats');
     const totalProd = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
     statsEl.innerHTML = `
-      <div class="v313-stat-box">
-        <div class="v313-stat-label">Molécules</div>
-        <div class="v313-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
+      <div class="v314-stat-box">
+        <div class="v314-stat-label">Molécules</div>
+        <div class="v314-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
       </div>
-      <div class="v313-stat-box">
-        <div class="v313-stat-label">Produits</div>
-        <div class="v313-stat-value">${totalProd.toLocaleString('fr-FR')}</div>
+      <div class="v314-stat-box">
+        <div class="v314-stat-label">Produits</div>
+        <div class="v314-stat-value">${totalProd.toLocaleString('fr-FR')}</div>
       </div>
-      <div class="v313-stat-box">
-        <div class="v313-stat-label">Labos en contrat</div>
-        <div class="v313-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
+      <div class="v314-stat-box">
+        <div class="v314-stat-label">Labos en contrat</div>
+        <div class="v314-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
       </div>
-      <div class="v313-stat-box">
-        <div class="v313-stat-label">Suspects cachés</div>
-        <div class="v313-stat-value" style="color:#888;">${_data.nb_suspects_caches || 0}</div>
+      <div class="v314-stat-box">
+        <div class="v314-stat-label">Suspects cachés</div>
+        <div class="v314-stat-value" style="color:#888;">${_data.nb_suspects_caches || 0}</div>
       </div>
+      ${_data.nb_hidden ? `
+      <div class="v314-stat-box">
+        <div class="v314-stat-label">Masquées admin</div>
+        <div class="v314-stat-value" style="color:#c0392b;">${_data.nb_hidden}</div>
+      </div>` : ''}
     `;
     
     _renderedCount = 0;
-    document.getElementById('v313-list').innerHTML = '';
-    document.getElementById('v313-loading')?.remove();
+    document.getElementById('v314-list').innerHTML = '';
+    document.getElementById('v314-loading')?.remove();
     _renderMore();
   }
 
   function _renderMore() {
     if (!_filteredData) return;
-    const list = document.getElementById('v313-list');
-    const sentinel = document.getElementById('v313-sentinel');
+    const list = document.getElementById('v314-list');
+    const sentinel = document.getElementById('v314-sentinel');
     if (!list || !sentinel) return;
     
     const slice = _filteredData.slice(_renderedCount, _renderedCount + PAGE_SIZE);
     
-    const html = slice.map((m, idx) => {
+    const html = slice.map(m => {
       const productsHtml = m.produits.map(p => {
         const star = p.meilleur_prix ? '⭐' : '';
-        const ecartHtml = !p.meilleur_prix && p.ecart_eur > 0 
+        const ecart = !p.meilleur_prix && p.ecart_eur > 0 
           ? `+${_fmtEuro(p.ecart_eur)}`
           : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
         return `
-          <div class="v313-product-row ${p.meilleur_prix ? 'best' : ''}">
-            <div class="v313-star">${star}</div>
+          <div class="v314-product-row ${p.meilleur_prix ? 'best' : ''}">
+            <div class="v314-star">${star}</div>
             <div>
-              <div class="v313-name">${(p.description || '').slice(0, 70)}</div>
-              <div class="v313-cip">CIP ${p.cip13 || '—'}</div>
+              <div class="v314-name">${(p.description || '').slice(0, 70)}</div>
+              <div class="v314-cip">CIP ${p.cip13 || '—'}</div>
             </div>
-            <div><span class="v313-labo">${p.labo}</span></div>
-            <div class="v313-num">${_fmtEuro(p.ppht)}</div>
-            <div class="v313-pct">-${p.rem_gross_pct}%</div>
-            <div class="v313-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
-            <div class="v313-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
-            <div class="v313-prix-net">
+            <div><span class="v314-labo">${p.labo}</span></div>
+            <div class="v314-num">${_fmtEuro(p.ppht)}</div>
+            <div class="v314-pct">-${p.rem_gross_pct}%</div>
+            <div class="v314-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
+            <div class="v314-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
+            <div class="v314-prix-net">
               ${_fmtEuro(p.prix_net)}
-              <div class="v313-ecart">${ecartHtml}</div>
+              <div class="v314-ecart">${ecart}</div>
             </div>
           </div>
         `;
       }).join('');
       
-      const graphiesInfo = m.graphies_sources.length > 1 
+      const graphInfo = m.graphies_sources.length > 1 
         ? `<span style="color:#888; font-size:11px;">(${m.graphies_sources.length} graphies)</span>` 
         : '';
       
+      const moleculeData = encodeURIComponent(JSON.stringify({
+        canon: m.canon,
+        display: m.molecule,
+        graphies: m.graphies_sources,
+        produits: m.produits,
+        is_hidden: m.is_hidden || false,
+      }));
+      
       return `
-        <div class="v313-molecule">
-          <div class="v313-molecule-header">
-            <span>${m.molecule} ${graphiesInfo}</span>
+        <div class="v314-molecule">
+          <div class="v314-molecule-header">
+            <span>${m.molecule} ${graphInfo}</span>
             <div>
-              <span class="v313-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
-              <button class="v313-edit-btn" data-canon="${encodeURIComponent(m.canon)}" data-display="${encodeURIComponent(m.molecule)}" data-graphies="${encodeURIComponent(JSON.stringify(m.graphies_sources))}">
-                ✏️ Éditer
-              </button>
+              <span class="v314-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+              <button class="v314-edit-btn" data-molecule="${moleculeData}">✏️ Éditer</button>
             </div>
           </div>
           <div>
-            <div class="v313-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
+            <div class="v314-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
               <div></div>
               <div>Produit</div>
               <div>Labo</div>
-              <div class="v313-num">PPHT</div>
-              <div class="v313-pct">Rem. gross.</div>
-              <div class="v313-pct">Rem. contrat</div>
-              <div class="v313-pct">Total %</div>
-              <div class="v313-prix-net">Prix net</div>
+              <div class="v314-num">PPHT</div>
+              <div class="v314-pct">Rem. gross.</div>
+              <div class="v314-pct">Rem. contrat</div>
+              <div class="v314-pct">Total %</div>
+              <div class="v314-prix-net">Prix net</div>
             </div>
             ${productsHtml}
           </div>
@@ -7221,15 +7327,12 @@ async function showLogDetail(logId) {
     
     list.insertAdjacentHTML('beforeend', html);
     
-    // Attacher les handlers des boutons Éditer
-    list.querySelectorAll('.v313-edit-btn').forEach(btn => {
+    list.querySelectorAll('.v314-edit-btn').forEach(btn => {
       if (btn.dataset.attached) return;
       btn.dataset.attached = '1';
       btn.addEventListener('click', () => {
-        const canon = decodeURIComponent(btn.dataset.canon);
-        const display = decodeURIComponent(btn.dataset.display);
-        const graphies = JSON.parse(decodeURIComponent(btn.dataset.graphies));
-        _openEditModal(canon, display, graphies);
+        const m = JSON.parse(decodeURIComponent(btn.dataset.molecule));
+        _openEditModal(m);
       });
     });
     
@@ -7243,88 +7346,153 @@ async function showLogDetail(logId) {
   }
 
   // ====================================================================
-  // MODAL ÉDITION
+  // MODALE
   // ====================================================================
-
   let _editContext = null;
 
-  function _openEditModal(canon, display, graphies) {
-    _editContext = { canon, display, graphies };
-    const modal = document.getElementById('v313-edit-modal');
-    document.getElementById('v313-edit-display').value = display;
+  function _openEditModal(m) {
+    _editContext = m;
+    const modal = document.getElementById('v314-edit-modal');
     
-    // Liste des graphies (toutes cochées par défaut)
-    const graphiesEl = document.getElementById('v313-edit-graphies');
-    graphiesEl.innerHTML = graphies.map((g, i) => `
-      <div class="v313-edit-graphie">
-        <input type="checkbox" id="v313-graphie-${i}" data-graphie="${encodeURIComponent(g)}" checked/>
-        <label for="v313-graphie-${i}" style="cursor:pointer; flex:1;">${g}</label>
-      </div>
-    `).join('') + `
-      <div style="margin-top:10px;">
-        <label style="font-size:12px; color:#666;">+ Fusionner d'autres graphies (séparées par virgule) :</label>
-        <input id="v313-edit-extras" type="text" placeholder="Ex: Abacavir Lamivudine, ABACAVIR/LAMIVUDINE"
-          style="width:100%; padding:7px; border:1px solid #ddd; border-radius:5px; font-size:12px; margin-top:4px;"/>
-      </div>
-    `;
+    // Titre
+    document.getElementById('v314-edit-title').textContent = `✏️ ${m.display}`;
     
-    document.getElementById('v313-edit-status').textContent = '';
+    // Onglet Fusionner
+    document.getElementById('v314-fus-display').value = m.display;
+    const fusEl = document.getElementById('v314-fus-graphies');
+    fusEl.innerHTML = m.graphies.map((g, i) => `
+      <div class="v314-edit-graphie">
+        <input type="checkbox" id="v314-fus-g-${i}" data-graphie="${encodeURIComponent(g)}" checked/>
+        <label for="v314-fus-g-${i}" style="cursor:pointer; flex:1;">${g}</label>
+      </div>
+    `).join('');
+    document.getElementById('v314-fus-extras').value = '';
+    
+    // Onglet Fractionner
+    document.getElementById('v314-frac-name').value = '';
+    const fracEl = document.getElementById('v314-frac-products');
+    fracEl.innerHTML = m.produits.map((p, i) => `
+      <div class="v314-frac-row" id="v314-frac-row-${i}">
+        <input type="checkbox" id="v314-frac-${i}" data-cip="${p.cip13}"/>
+        <label for="v314-frac-${i}">
+          <span class="desc">${(p.description || '').slice(0, 60)}</span>
+          <span class="meta">${p.labo} · CIP ${p.cip13} · ${_fmtEuro(p.prix_net)}</span>
+        </label>
+      </div>
+    `).join('');
+    
+    // Handler check pour highlight
+    fracEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const row = cb.closest('.v314-frac-row');
+        row.classList.toggle('checked', cb.checked);
+      });
+    });
+    
+    // Case Masquer (admin uniquement)
+    const maskSection = document.getElementById('v314-mask-section');
+    if (_isAdmin) {
+      maskSection.style.display = 'flex';
+      document.getElementById('v314-mask-cb').checked = m.is_hidden || false;
+    } else {
+      maskSection.style.display = 'none';
+    }
+    
+    // Reset à onglet Fusionner
+    _switchTab('fusionner');
+    
+    document.getElementById('v314-edit-status').textContent = '';
     modal.style.display = 'block';
   }
 
   function _closeEditModal() {
-    document.getElementById('v313-edit-modal').style.display = 'none';
+    document.getElementById('v314-edit-modal').style.display = 'none';
   }
 
   async function _saveEditModal() {
     if (!_editContext) return;
-    const status = document.getElementById('v313-edit-status');
-    const display = document.getElementById('v313-edit-display').value.trim();
-    
-    // Récupérer graphies cochées
-    const graphiesCheck = [...document.querySelectorAll('#v313-edit-graphies input[type=checkbox]:checked')]
-      .map(cb => decodeURIComponent(cb.dataset.graphie));
-    
-    const extras = document.getElementById('v313-edit-extras').value
-      .split(',').map(s => s.trim()).filter(Boolean);
-    
-    const allGraphies = [...new Set([...graphiesCheck, ...extras])];
-    
-    if (allGraphies.length === 0) {
-      status.textContent = '⚠️ Aucune graphie sélectionnée';
-      status.style.color = '#c0392b';
-      return;
-    }
+    const status = document.getElementById('v314-edit-status');
+    const activeTab = document.querySelector('.v314-tab.active')?.dataset.tab || 'fusionner';
     
     status.textContent = '⏳ Sauvegarde...';
     status.style.color = '#888';
     
     try {
-      const r = await fetch(`${API}/admin/molecules/fusionner`, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + T(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          canon: _editContext.canon,
-          display_name: display,
-          graphies_source: allGraphies,
-        }),
-      });
-      const data = await r.json();
-      if (data.ok) {
-        status.textContent = '✓ Sauvegardé · Rechargement...';
-        status.style.color = '#1D9E75';
-        setTimeout(() => {
-          _closeEditModal();
-          _data = null;
-          _loadData();
-        }, 800);
-      } else {
-        status.textContent = '✗ ' + (data.detail || 'Erreur');
-        status.style.color = '#c0392b';
+      // 1. Masquage admin
+      if (_isAdmin) {
+        const wantHidden = document.getElementById('v314-mask-cb').checked;
+        if (wantHidden !== (_editContext.is_hidden || false)) {
+          await fetch(`${API}/admin/molecules/masquer`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + T(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ canon: _editContext.canon, hidden: wantHidden }),
+          });
+        }
       }
+      
+      // 2. Onglet actif
+      if (activeTab === 'fusionner') {
+        const display = document.getElementById('v314-fus-display').value.trim();
+        const graphies = [...document.querySelectorAll('#v314-fus-graphies input:checked')]
+          .map(cb => decodeURIComponent(cb.dataset.graphie));
+        const extras = document.getElementById('v314-fus-extras').value
+          .split(',').map(s => s.trim()).filter(Boolean);
+        const all = [...new Set([...graphies, ...extras])];
+        
+        if (all.length === 0) {
+          status.textContent = '⚠️ Aucune graphie cochée';
+          status.style.color = '#c0392b';
+          return;
+        }
+        
+        const r = await fetch(`${API}/admin/molecules/fusionner`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + T(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            canon: _editContext.canon,
+            display_name: display,
+            graphies_source: all,
+          }),
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.detail || 'Erreur fusion');
+      }
+      else if (activeTab === 'fractionner') {
+        const newName = document.getElementById('v314-frac-name').value.trim();
+        if (!newName) {
+          status.textContent = '⚠️ Donne un nom au nouveau groupe';
+          status.style.color = '#c0392b';
+          return;
+        }
+        const cips = [...document.querySelectorAll('#v314-frac-products input:checked')]
+          .map(cb => cb.dataset.cip);
+        if (cips.length === 0) {
+          status.textContent = '⚠️ Coche au moins 1 produit';
+          status.style.color = '#c0392b';
+          return;
+        }
+        
+        const r = await fetch(`${API}/admin/molecules/fractionner`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + T(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            new_canon: newName,
+            display_name: newName,
+            cips: cips,
+          }),
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.detail || 'Erreur fractionnement');
+      }
+      
+      status.textContent = '✓ Sauvegardé · Rechargement...';
+      status.style.color = '#1D9E75';
+      setTimeout(() => {
+        _closeEditModal();
+        _data = null;
+        _loadData();
+      }, 800);
+      
     } catch (e) {
       status.textContent = '✗ ' + e.message;
       status.style.color = '#c0392b';
@@ -7355,7 +7523,7 @@ async function showLogDetail(logId) {
     screen.classList.add('active');
     
     if (!_data) {
-      _loadData();
+      _checkAdmin().then(() => _loadData());
     } else {
       _applyFilterAndRender();
     }
