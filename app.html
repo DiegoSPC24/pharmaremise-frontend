@@ -7720,6 +7720,179 @@ async function showLogDetail(logId) {
 
 })();
 
+
+
+// === V318_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.18 — Onglets dans l'écran Paramètres
+// ============================================================
+// 3 onglets : 🚚 Grossistes / 💊 Génériqueurs / 👤 Mon compte
+// Les cards existantes sont catégorisées et masquées/affichées selon l'onglet
+
+(function _v318_init() {
+
+  // Mapping : titre exact de la card → onglet
+  // (on identifie par le texte du .card-title)
+  const CARD_TO_TAB = [
+    { match: /contrats grossistes/i,        tab: 'grossistes' },
+    { match: /mes g[ée]n[ée]riqueurs/i,      tab: 'generiqueurs' },
+    { match: /modifications pinceau/i,       tab: 'generiqueurs' },
+    { match: /r[ée]f[ée]rentiels g[ée]n[ée]riques/i, tab: 'generiqueurs' },
+    { match: /mon compte/i,                  tab: 'moncompte' },
+  ];
+  
+  // Onglet par défaut
+  let _currentTab = 'grossistes';
+  
+  function _injectTabs() {
+    const content = document.getElementById('parametres-content');
+    if (!content) return;
+    
+    // Déjà injecté ? skip
+    if (document.getElementById('v318-tabs')) {
+      _applyTabFilter();  // au cas où le DOM a été re-rendu par _renderParametres
+      return;
+    }
+    
+    // Créer la barre d'onglets
+    const tabsBar = document.createElement('div');
+    tabsBar.id = 'v318-tabs';
+    tabsBar.innerHTML = `
+      <style>
+        #v318-tabs {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 20px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #e8e8e8;
+        }
+        .v318-tab {
+          padding: 10px 20px;
+          background: white;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          color: #666;
+          transition: all 0.15s;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .v318-tab:hover {
+          background: #f5fbf8;
+          border-color: #1D9E75;
+          color: #1D9E75;
+        }
+        .v318-tab.active {
+          background: #1D9E75;
+          color: white;
+          border-color: #1D9E75;
+        }
+        .v318-tab-icon { font-size: 16px; }
+        
+        /* Masquage des cards selon onglet */
+        .v318-card-hidden {
+          display: none !important;
+        }
+      </style>
+      <button class="v318-tab active" data-tab="grossistes">
+        <span class="v318-tab-icon">🚚</span>
+        <span>Grossistes</span>
+      </button>
+      <button class="v318-tab" data-tab="generiqueurs">
+        <span class="v318-tab-icon">💊</span>
+        <span>Génériqueurs</span>
+      </button>
+      <button class="v318-tab" data-tab="moncompte">
+        <span class="v318-tab-icon">👤</span>
+        <span>Mon compte</span>
+      </button>
+    `;
+    
+    // Insérer en tout début du #parametres-content
+    content.insertBefore(tabsBar, content.firstChild);
+    
+    // Handlers
+    tabsBar.querySelectorAll('.v318-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _currentTab = btn.dataset.tab;
+        tabsBar.querySelectorAll('.v318-tab').forEach(b => 
+          b.classList.toggle('active', b.dataset.tab === _currentTab)
+        );
+        _applyTabFilter();
+      });
+    });
+    
+    _applyTabFilter();
+  }
+  
+  function _applyTabFilter() {
+    const content = document.getElementById('parametres-content');
+    if (!content) return;
+    
+    const cards = content.querySelectorAll('.card');
+    cards.forEach(card => {
+      // Récupérer le titre de la card
+      const titleEl = card.querySelector('.card-title');
+      if (!titleEl) {
+        card.classList.remove('v318-card-hidden');
+        return;
+      }
+      const title = (titleEl.textContent || '').trim();
+      
+      // Trouver l'onglet pour cette card
+      const mapping = CARD_TO_TAB.find(m => m.match.test(title));
+      const cardTab = mapping ? mapping.tab : null;
+      
+      if (!cardTab) {
+        // Card non catégorisée → toujours visible
+        card.classList.remove('v318-card-hidden');
+      } else {
+        // Card catégorisée → visible seulement si onglet correspond
+        card.classList.toggle('v318-card-hidden', cardTab !== _currentTab);
+      }
+    });
+  }
+  
+  // Détecter quand l'écran Paramètres devient visible
+  function _checkAndInject() {
+    const screen = document.getElementById('screen-parametres');
+    if (!screen) return;
+    
+    // Visible ?
+    const visible = screen.offsetParent !== null || 
+                    screen.classList.contains('active');
+    if (!visible) return;
+    
+    _injectTabs();
+  }
+  
+  // Injecter au chargement initial + observer les changements
+  setInterval(_checkAndInject, 800);
+  
+  // Aussi : observer si le contenu de parametres-content change (re-render)
+  // pour réappliquer le filtre automatiquement
+  const obs = new MutationObserver(() => {
+    if (document.getElementById('v318-tabs')) {
+      _applyTabFilter();
+    }
+  });
+  
+  // Démarrer l'observation dès que possible
+  function _startObserver() {
+    const content = document.getElementById('parametres-content');
+    if (content) {
+      obs.observe(content, { childList: true, subtree: true });
+    } else {
+      setTimeout(_startObserver, 1000);
+    }
+  }
+  _startObserver();
+
+})();
+
 </script>
 </body>
 </html>
