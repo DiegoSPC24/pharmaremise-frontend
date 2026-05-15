@@ -6857,12 +6857,16 @@ async function showLogDetail(logId) {
 
 
 
-// === V316_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.0.16 — Sous-groupes par PPHT dans chaque molécule
-// ============================================================
 
-(function _v316_init() {
+
+// === V317_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.0.17 — Mode pharmacien : liste pure, aucun contrôle admin
+// ============================================================
+// Admin connecté → voit tout (éditer, masquer, toggles avancés)
+// Pharmacien → voit JUSTE la liste avec sous-groupes PPHT + recherche
+
+(function _v317_init() {
 
   const API = 'https://web-production-2202b.up.railway.app';
   const T = () => localStorage.getItem('pharmaremise_token');
@@ -6873,16 +6877,19 @@ async function showLogDetail(logId) {
   const PAGE_SIZE = 20;
   let _currentSearch = '';
   let _showSuspects = false;
-  let _groupByPpht = true;  // ON par défaut (le nouveau tri intelligent)
+  let _groupByPpht = true;  // toujours ON pour pharmacien (pas modifiable)
   let _isAdmin = false;
+  let _adminChecked = false;
 
   async function _checkAdmin() {
+    if (_adminChecked) return _isAdmin;
     try {
       const r = await fetch(`${API}/admin/me`, {
         headers: { Authorization: 'Bearer ' + T() }
       });
       _isAdmin = r.ok;
     } catch { _isAdmin = false; }
+    _adminChecked = true;
     return _isAdmin;
   }
 
@@ -6927,269 +6934,268 @@ async function showLogDetail(logId) {
     
     screen.innerHTML = `
       <style>
-        #v316-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
-        #v316-header {
+        #v317-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        #v317-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8;
           flex-wrap: wrap; gap: 12px;
         }
-        #v316-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
-        #v316-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+        #v317-title { font-size: 24px; font-weight: 600; color: #222; margin: 0; }
+        #v317-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
         
-        #v316-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        #v316-search {
+        #v317-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        #v317-search {
           padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
           font-size: 14px; min-width: 240px;
         }
-        .v316-toggle {
+        .v317-toggle {
           padding: 8px 14px; background: white; border: 1px solid #ddd;
           border-radius: 8px; cursor: pointer; font-size: 12px;
         }
-        .v316-toggle.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+        .v317-toggle.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+        .v317-admin-badge {
+          background: #c0392b; color: white; padding: 3px 8px;
+          border-radius: 4px; font-size: 10px; font-weight: 600;
+          text-transform: uppercase;
+        }
         
-        #v316-stats {
+        #v317-stats {
           display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           gap: 10px; margin-bottom: 20px;
         }
-        .v316-stat-box {
+        .v317-stat-box {
           background: #fafafa; padding: 12px; border-radius: 8px;
           border: 1px solid #e8e8e8;
         }
-        .v316-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
-        .v316-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
+        .v317-stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .v317-stat-value { font-size: 18px; font-weight: 600; color: #1D9E75; margin-top: 4px; }
         
-        .v316-molecule {
+        .v317-molecule {
           background: white; border: 1px solid #e8e8e8;
           border-radius: 10px; margin-bottom: 14px; overflow: hidden;
         }
-        .v316-molecule.hidden-mol {
+        .v317-molecule.hidden-mol {
           opacity: 0.55; background: #fafafa;
         }
-        .v316-molecule-header {
+        .v317-molecule-header {
           padding: 12px 16px; background: #f5fbf8;
           font-weight: 600; color: #1D9E75; font-size: 15px;
           border-bottom: 1px solid #e1f5ee;
           display: flex; align-items: center; justify-content: space-between;
           gap: 10px;
         }
-        .v316-molecule.hidden-mol .v316-molecule-header { background: #fafafa; }
-        .v316-mol-left { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
-        .v316-mol-right { display: flex; align-items: center; gap: 8px; }
-        .v316-mask-inline {
+        .v317-molecule.hidden-mol .v317-molecule-header { background: #fafafa; }
+        .v317-mol-left { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
+        .v317-mol-right { display: flex; align-items: center; gap: 8px; }
+        .v317-mask-inline {
           display: flex; align-items: center; gap: 5px;
           font-size: 11px; color: #c0392b; font-weight: 500;
           cursor: pointer; user-select: none;
           padding: 3px 8px; border-radius: 5px;
           background: white; border: 1px solid #fdd;
         }
-        .v316-mask-inline input { margin: 0; cursor: pointer; }
-        .v316-mask-inline:hover { background: #fff5f5; }
-        .v316-molecule-count { font-size: 12px; color: #888; font-weight: 400; }
-        .v316-edit-btn {
+        .v317-mask-inline input { margin: 0; cursor: pointer; }
+        .v317-mask-inline:hover { background: #fff5f5; }
+        .v317-molecule-count { font-size: 12px; color: #888; font-weight: 400; }
+        .v317-edit-btn {
           padding: 4px 10px; background: white; color: #1D9E75;
           border: 1px solid #1D9E75; border-radius: 5px;
           font-size: 11px; cursor: pointer;
         }
-        .v316-edit-btn:hover { background: #1D9E75; color: white; }
+        .v317-edit-btn:hover { background: #1D9E75; color: white; }
         
-        /* SOUS-GROUPE PPHT (v3.0.16) */
-        .v316-sgroup {
-          border-bottom: 2px solid #e1f5ee;
-        }
-        .v316-sgroup:last-child { border-bottom: none; }
-        .v316-sgroup-header {
+        .v317-sgroup { border-bottom: 2px solid #e1f5ee; }
+        .v317-sgroup:last-child { border-bottom: none; }
+        .v317-sgroup-header {
           padding: 8px 16px; background: #fdfdfa;
           font-size: 12px; color: #666; font-weight: 500;
           display: flex; align-items: center; gap: 12px;
           border-bottom: 1px solid #f0f0f0;
         }
-        .v316-sgroup-ppht {
+        .v317-sgroup-ppht {
           background: white; padding: 2px 8px; border-radius: 4px;
           border: 1px solid #ddd; font-family: monospace;
           font-size: 12px; color: #1D9E75; font-weight: 600;
         }
         
-        .v316-product-row {
+        .v317-product-row {
           display: grid;
           grid-template-columns: 30px 2.5fr 100px 80px 80px 80px 80px 110px;
           gap: 10px; padding: 10px 16px; align-items: center;
           border-bottom: 1px solid #f0f0f0; font-size: 12px;
         }
-        .v316-product-row:last-child { border-bottom: none; }
-        .v316-product-row.best { background: #fffdf2; }
-        .v316-product-row:hover { background: #fafafa; }
+        .v317-product-row:last-child { border-bottom: none; }
+        .v317-product-row.best { background: #fffdf2; }
+        .v317-product-row:hover { background: #fafafa; }
         
-        .v316-star { font-size: 14px; }
-        .v316-name { font-weight: 500; color: #333; line-height: 1.3; }
-        .v316-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
-        .v316-labo {
+        .v317-star { font-size: 14px; }
+        .v317-name { font-weight: 500; color: #333; line-height: 1.3; }
+        .v317-cip { font-family: monospace; font-size: 10px; color: #888; margin-top: 2px; }
+        .v317-labo {
           background: #1D9E75; color: white; padding: 3px 8px;
           border-radius: 4px; font-size: 10px; font-weight: 500;
           display: inline-block; text-align: center;
         }
-        .v316-num { text-align: right; font-variant-numeric: tabular-nums; }
-        .v316-pct { text-align: right; color: #888; font-size: 11px; }
-        .v316-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
-        .v316-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
+        .v317-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .v317-pct { text-align: right; color: #888; font-size: 11px; }
+        .v317-prix-net { text-align: right; font-weight: 700; color: #1D9E75; }
+        .v317-ecart { text-align: right; font-size: 10px; color: #c0392b; margin-top: 2px; }
         
-        #v316-sentinel { padding: 30px; text-align: center; color: #888; }
+        #v317-sentinel { padding: 30px; text-align: center; color: #888; }
         
-        /* MODAL */
-        #v316-edit-modal {
+        /* MODAL (admin only) */
+        #v317-edit-modal {
           display: none; position: fixed; inset: 0;
           background: rgba(0,0,0,0.5); z-index: 10000;
           padding: 30px; overflow-y: auto;
         }
-        #v316-edit-modal .box {
+        #v317-edit-modal .box {
           max-width: 780px; margin: 0 auto; background: white;
           border-radius: 12px; padding: 24px;
         }
-        .v316-tabs {
+        .v317-tabs {
           display: flex; gap: 0; border-bottom: 2px solid #e8e8e8;
           margin-bottom: 16px;
         }
-        .v316-tab {
+        .v317-tab {
           padding: 10px 20px; background: none; border: none;
           font-size: 14px; cursor: pointer; color: #666;
           border-bottom: 2px solid transparent; margin-bottom: -2px;
         }
-        .v316-tab.active {
+        .v317-tab.active {
           color: #1D9E75; border-bottom-color: #1D9E75; font-weight: 600;
         }
-        .v316-tab-content { display: none; }
-        .v316-tab-content.active { display: block; }
+        .v317-tab-content { display: none; }
+        .v317-tab-content.active { display: block; }
         
-        .v316-edit-graphie, .v316-frac-row {
+        .v317-edit-graphie, .v317-frac-row {
           display: flex; align-items: center; gap: 8px;
           padding: 7px 10px; background: #f5f5f5; border-radius: 6px;
           margin-bottom: 5px; font-size: 12px;
         }
-        .v316-frac-row.checked { background: #e1f5ee; }
-        .v316-frac-row label {
+        .v317-frac-row.checked { background: #e1f5ee; }
+        .v317-frac-row label {
           display: flex; flex-direction: column; cursor: pointer; flex: 1;
         }
-        .v316-frac-row .desc { font-weight: 500; color: #333; }
-        .v316-frac-row .meta { font-size: 10px; color: #888; }
+        .v317-frac-row .desc { font-weight: 500; color: #333; }
+        .v317-frac-row .meta { font-size: 10px; color: #888; }
         
-        .v316-frac-actions {
+        .v317-frac-actions {
           display: flex; gap: 8px; padding: 8px 0;
           background: white; position: sticky; top: 0; z-index: 1;
         }
-        .v316-frac-btn-small {
+        .v317-frac-btn-small {
           padding: 4px 8px; font-size: 11px; cursor: pointer;
           border: 1px solid #ddd; background: white; border-radius: 4px;
         }
         
-        #v316-frac-history {
+        #v317-frac-history {
           background: #f0f9f4; padding: 10px 14px; border-radius: 6px;
           margin-bottom: 14px; font-size: 12px; color: #155;
           border-left: 3px solid #1D9E75;
         }
-        #v316-frac-history-list { margin-top: 6px; }
+        #v317-frac-history-list { margin-top: 6px; }
       </style>
       
-      <div id="v316-container">
-        <div id="v316-header">
+      <div id="v317-container">
+        <div id="v317-header">
           <div>
-            <h1 id="v316-title">🏆 Meilleur compo générique</h1>
-            <div id="v316-subtitle">Comparatif des prix nets après application des contrats</div>
+            <h1 id="v317-title">🏆 Meilleur compo générique</h1>
+            <div id="v317-subtitle">Comparatif des prix nets après application de vos contrats</div>
           </div>
-          <div id="v316-controls">
-            <input id="v316-search" type="text" placeholder="🔍 Rechercher..."/>
-            <button id="v316-toggle-ppht" class="v316-toggle active">📊 Grouper par PPHT</button>
-            <button id="v316-toggle-suspects" class="v316-toggle">🔍 Noms suspects</button>
+          <div id="v317-controls">
+            <input id="v317-search" type="text" placeholder="🔍 Rechercher..."/>
+            <!-- Toggles admin (cachés par défaut) -->
+            <button id="v317-toggle-ppht" class="v317-toggle active" style="display:none;">📊 Grouper par PPHT</button>
+            <button id="v317-toggle-suspects" class="v317-toggle" style="display:none;">🔍 Noms suspects</button>
+            <span id="v317-admin-tag" class="v317-admin-badge" style="display:none;">ADMIN</span>
           </div>
         </div>
         
-        <div id="v316-stats"></div>
-        <div id="v316-list">
-          <div id="v316-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
+        <div id="v317-stats"></div>
+        <div id="v317-list">
+          <div id="v317-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
         </div>
-        <div id="v316-sentinel" style="display:none;">⏳ Faire défiler...</div>
+        <div id="v317-sentinel" style="display:none;">⏳ Faire défiler...</div>
       </div>
       
-      <!-- MODAL ÉDITION -->
-      <div id="v316-edit-modal">
+      <!-- MODAL ÉDITION (admin only) -->
+      <div id="v317-edit-modal">
         <div class="box">
           <div style="display:flex; justify-content:space-between; margin-bottom:14px;">
-            <h2 id="v316-edit-title" style="margin:0;">✏️ Éditer la molécule</h2>
-            <button id="v316-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
+            <h2 id="v317-edit-title" style="margin:0;">✏️ Éditer la molécule</h2>
+            <button id="v317-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
           </div>
           
-          <div class="v316-tabs">
-            <button id="v316-tab-fusionner" class="v316-tab active" data-tab="fusionner">✏️ Fusionner</button>
-            <button id="v316-tab-fractionner" class="v316-tab" data-tab="fractionner">✂️ Fractionner</button>
+          <div class="v317-tabs">
+            <button id="v317-tab-fusionner" class="v317-tab active" data-tab="fusionner">✏️ Fusionner</button>
+            <button id="v317-tab-fractionner" class="v317-tab" data-tab="fractionner">✂️ Fractionner</button>
           </div>
           
-          <div id="v316-content-fusionner" class="v316-tab-content active">
+          <div id="v317-content-fusionner" class="v317-tab-content active">
             <div style="margin-bottom:14px;">
               <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom affiché :</label>
-              <input id="v316-fus-display" type="text" 
+              <input id="v317-fus-display" type="text" 
                 style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
             </div>
             <div style="margin-bottom:14px;">
               <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
                 Graphies sources actuelles (cocher pour fusionner) :
               </label>
-              <div id="v316-fus-graphies"></div>
+              <div id="v317-fus-graphies"></div>
               <div style="margin-top:10px;">
                 <label style="font-size:12px; color:#666;">+ Fusionner d'autres graphies (séparées par virgule) :</label>
-                <input id="v316-fus-extras" type="text" 
+                <input id="v317-fus-extras" type="text" 
                   style="width:100%; padding:7px; border:1px solid #ddd; border-radius:5px; font-size:12px; margin-top:4px;"/>
               </div>
             </div>
             <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:14px; border-top:1px solid #eee;">
-              <button id="v316-fus-cancel" class="v316-toggle">Fermer</button>
-              <button id="v316-fus-save" class="v316-toggle active">💾 Sauvegarder fusion</button>
+              <button id="v317-fus-cancel" class="v317-toggle">Fermer</button>
+              <button id="v317-fus-save" class="v317-toggle active">💾 Sauvegarder fusion</button>
             </div>
           </div>
           
-          <div id="v316-content-fractionner" class="v316-tab-content">
+          <div id="v317-content-fractionner" class="v317-tab-content">
             <div style="background:#fffbeb; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:12px; color:#7a5d00;">
               💡 Coche les produits à <strong>sortir</strong> dans une nouvelle sous-molécule. Tu peux fractionner <strong>plusieurs fois</strong> sans fermer.
             </div>
-            
-            <div id="v316-frac-history" style="display:none;">
+            <div id="v317-frac-history" style="display:none;">
               <strong>✓ Sous-groupes créés dans cette session :</strong>
-              <div id="v316-frac-history-list"></div>
+              <div id="v317-frac-history-list"></div>
             </div>
-            
             <div style="margin-bottom:14px;">
               <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">Nom du nouveau groupe :</label>
-              <input id="v316-frac-name" type="text" placeholder="Ex: Acébutolol 200mg 30cp"
+              <input id="v317-frac-name" type="text" placeholder="Ex: Acébutolol 200mg 30cp"
                 style="width:100%; padding:9px; border:1px solid #ddd; border-radius:6px; font-size:14px;"/>
             </div>
-            
             <div style="margin-bottom:14px;">
               <label style="display:block; font-size:12px; color:#666; margin-bottom:6px;">
-                <span id="v316-frac-count">0</span> produit(s) restant(s) (cocher ceux à sortir) :
+                <span id="v317-frac-count">0</span> produit(s) restant(s) (cocher ceux à sortir) :
               </label>
-              <div class="v316-frac-actions">
-                <button class="v316-frac-btn-small" id="v316-frac-all">Tout cocher</button>
-                <button class="v316-frac-btn-small" id="v316-frac-none">Tout décocher</button>
-                <input id="v316-frac-filter" type="text" placeholder="Filtrer (ex: 200mg 30cp)" 
+              <div class="v317-frac-actions">
+                <button class="v317-frac-btn-small" id="v317-frac-all">Tout cocher</button>
+                <button class="v317-frac-btn-small" id="v317-frac-none">Tout décocher</button>
+                <input id="v317-frac-filter" type="text" placeholder="Filtrer (ex: 200mg 30cp)" 
                   style="flex:1; padding:4px 8px; font-size:11px; border:1px solid #ddd; border-radius:4px;"/>
               </div>
-              <div id="v316-frac-products" style="max-height:340px; overflow-y:auto; margin-top:6px;"></div>
+              <div id="v317-frac-products" style="max-height:340px; overflow-y:auto; margin-top:6px;"></div>
             </div>
-            
             <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:14px; border-top:1px solid #eee;">
-              <button id="v316-frac-close" class="v316-toggle">Fermer</button>
-              <button id="v316-frac-save-continue" class="v316-toggle active">✂️ Créer et continuer</button>
-              <button id="v316-frac-save-finish" class="v316-toggle">✓ Créer et fermer</button>
+              <button id="v317-frac-close" class="v317-toggle">Fermer</button>
+              <button id="v317-frac-save-continue" class="v317-toggle active">✂️ Créer et continuer</button>
+              <button id="v317-frac-save-finish" class="v317-toggle">✓ Créer et fermer</button>
             </div>
           </div>
           
-          <div id="v316-edit-status" style="margin-top:10px; font-size:12px;"></div>
+          <div id="v317-edit-status" style="margin-top:10px; font-size:12px;"></div>
         </div>
       </div>
     `;
     
     anyScreen.parentElement.appendChild(screen);
     
-    // Search
     let searchTimer = null;
-    screen.querySelector('#v316-search').addEventListener('input', (e) => {
+    screen.querySelector('#v317-search').addEventListener('input', (e) => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
         _currentSearch = e.target.value.trim().toLowerCase();
@@ -7197,24 +7203,21 @@ async function showLogDetail(logId) {
       }, 300);
     });
     
-    // Toggle PPHT
-    screen.querySelector('#v316-toggle-ppht').addEventListener('click', () => {
+    screen.querySelector('#v317-toggle-ppht').addEventListener('click', () => {
       _groupByPpht = !_groupByPpht;
-      screen.querySelector('#v316-toggle-ppht').classList.toggle('active', _groupByPpht);
+      screen.querySelector('#v317-toggle-ppht').classList.toggle('active', _groupByPpht);
       _data = null;
       _loadData();
     });
     
-    // Toggle suspects
-    screen.querySelector('#v316-toggle-suspects').addEventListener('click', () => {
+    screen.querySelector('#v317-toggle-suspects').addEventListener('click', () => {
       _showSuspects = !_showSuspects;
-      screen.querySelector('#v316-toggle-suspects').classList.toggle('active', _showSuspects);
+      screen.querySelector('#v317-toggle-suspects').classList.toggle('active', _showSuspects);
       _data = null;
       _loadData();
     });
     
-    // Scroll infini
-    const sentinel = screen.querySelector('#v316-sentinel');
+    const sentinel = screen.querySelector('#v317-sentinel');
     const obs = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && _filteredData && _renderedCount < _filteredData.length) {
         _renderMore();
@@ -7223,38 +7226,38 @@ async function showLogDetail(logId) {
     obs.observe(sentinel);
     
     // Modal handlers
-    screen.querySelector('#v316-edit-close').addEventListener('click', _closeEditModal);
-    screen.querySelector('#v316-fus-cancel').addEventListener('click', _closeEditModal);
-    screen.querySelector('#v316-frac-close').addEventListener('click', _closeEditModal);
-    screen.querySelector('#v316-fus-save').addEventListener('click', _saveFusion);
-    screen.querySelector('#v316-frac-save-continue').addEventListener('click', () => _saveFraction(true));
-    screen.querySelector('#v316-frac-save-finish').addEventListener('click', () => _saveFraction(false));
-    screen.querySelector('#v316-edit-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'v316-edit-modal') _closeEditModal();
+    screen.querySelector('#v317-edit-close').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v317-fus-cancel').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v317-frac-close').addEventListener('click', _closeEditModal);
+    screen.querySelector('#v317-fus-save').addEventListener('click', _saveFusion);
+    screen.querySelector('#v317-frac-save-continue').addEventListener('click', () => _saveFraction(true));
+    screen.querySelector('#v317-frac-save-finish').addEventListener('click', () => _saveFraction(false));
+    screen.querySelector('#v317-edit-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'v317-edit-modal') _closeEditModal();
     });
     
-    screen.querySelectorAll('.v316-tab').forEach(t => {
+    screen.querySelectorAll('.v317-tab').forEach(t => {
       t.addEventListener('click', () => _switchTab(t.dataset.tab));
     });
     
-    screen.querySelector('#v316-frac-all').addEventListener('click', () => {
-      document.querySelectorAll('#v316-frac-products input[type=checkbox]:not(:disabled)').forEach(cb => {
-        const row = cb.closest('.v316-frac-row');
+    screen.querySelector('#v317-frac-all').addEventListener('click', () => {
+      document.querySelectorAll('#v317-frac-products input[type=checkbox]:not(:disabled)').forEach(cb => {
+        const row = cb.closest('.v317-frac-row');
         if (row.style.display !== 'none') {
           cb.checked = true;
           row.classList.add('checked');
         }
       });
     });
-    screen.querySelector('#v316-frac-none').addEventListener('click', () => {
-      document.querySelectorAll('#v316-frac-products input[type=checkbox]').forEach(cb => {
+    screen.querySelector('#v317-frac-none').addEventListener('click', () => {
+      document.querySelectorAll('#v317-frac-products input[type=checkbox]').forEach(cb => {
         cb.checked = false;
-        cb.closest('.v316-frac-row').classList.remove('checked');
+        cb.closest('.v317-frac-row').classList.remove('checked');
       });
     });
-    screen.querySelector('#v316-frac-filter').addEventListener('input', (e) => {
+    screen.querySelector('#v317-frac-filter').addEventListener('input', (e) => {
       const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('#v316-frac-products .v316-frac-row').forEach(row => {
+      document.querySelectorAll('#v317-frac-products .v317-frac-row').forEach(row => {
         const txt = row.textContent.toLowerCase();
         row.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
       });
@@ -7263,14 +7266,20 @@ async function showLogDetail(logId) {
     return screen;
   }
 
+  function _showAdminControls() {
+    document.getElementById('v317-toggle-ppht').style.display = 'inline-block';
+    document.getElementById('v317-toggle-suspects').style.display = 'inline-block';
+    document.getElementById('v317-admin-tag').style.display = 'inline-block';
+  }
+
   function _switchTab(tab) {
-    document.querySelectorAll('.v316-tab').forEach(t => {
+    document.querySelectorAll('.v317-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === tab);
     });
-    document.querySelectorAll('.v316-tab-content').forEach(c => {
+    document.querySelectorAll('.v317-tab-content').forEach(c => {
       c.classList.remove('active');
     });
-    document.getElementById(`v316-content-${tab}`).classList.add('active');
+    document.getElementById(`v317-content-${tab}`).classList.add('active');
   }
 
   async function _loadData() {
@@ -7281,7 +7290,7 @@ async function showLogDetail(logId) {
       _data = await r.json();
       _applyFilterAndRender();
     } catch (e) {
-      const list = document.getElementById('v316-list');
+      const list = document.getElementById('v317-list');
       if (list) list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ ${e.message}</div>`;
     }
   }
@@ -7303,44 +7312,44 @@ async function showLogDetail(logId) {
       _filteredData = _data.molecules;
     }
     
-    const statsEl = document.getElementById('v316-stats');
+    const statsEl = document.getElementById('v317-stats');
     const totalProd = _filteredData.reduce((s, m) => s + m.nb_produits, 0);
     const totalSousGroupes = _groupByPpht 
       ? _filteredData.reduce((s, m) => s + (m.nb_sous_groupes || 0), 0)
       : 0;
     
     statsEl.innerHTML = `
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Molécules</div>
-        <div class="v316-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Molécules</div>
+        <div class="v317-stat-value">${_filteredData.length.toLocaleString('fr-FR')}</div>
       </div>
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Produits</div>
-        <div class="v316-stat-value">${totalProd.toLocaleString('fr-FR')}</div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Produits</div>
+        <div class="v317-stat-value">${totalProd.toLocaleString('fr-FR')}</div>
       </div>
       ${_groupByPpht ? `
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Sous-groupes (PPHT)</div>
-        <div class="v316-stat-value">${totalSousGroupes.toLocaleString('fr-FR')}</div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Sous-groupes (PPHT)</div>
+        <div class="v317-stat-value">${totalSousGroupes.toLocaleString('fr-FR')}</div>
       </div>` : ''}
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Labos en contrat</div>
-        <div class="v316-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
-      </div>
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Suspects cachés</div>
-        <div class="v316-stat-value" style="color:#888;">${_data.nb_suspects_caches || 0}</div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Labos en contrat</div>
+        <div class="v317-stat-value">${_data.labos_actifs.length} / ${_data.nb_labos}</div>
       </div>
       ${_isAdmin ? `
-      <div class="v316-stat-box">
-        <div class="v316-stat-label">Masquées (admin)</div>
-        <div class="v316-stat-value" style="color:#c0392b;">${(_data.molecules || []).filter(m => m.is_hidden).length}</div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Suspects cachés</div>
+        <div class="v317-stat-value" style="color:#888;">${_data.nb_suspects_caches || 0}</div>
+      </div>
+      <div class="v317-stat-box">
+        <div class="v317-stat-label">Masquées (admin)</div>
+        <div class="v317-stat-value" style="color:#c0392b;">${(_data.molecules || []).filter(m => m.is_hidden).length}</div>
       </div>` : ''}
     `;
     
     _renderedCount = 0;
-    document.getElementById('v316-list').innerHTML = '';
-    document.getElementById('v316-loading')?.remove();
+    document.getElementById('v317-list').innerHTML = '';
+    document.getElementById('v317-loading')?.remove();
     _renderMore();
   }
 
@@ -7350,20 +7359,20 @@ async function showLogDetail(logId) {
       ? `+${_fmtEuro(p.ecart_eur)}`
       : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
     return `
-      <div class="v316-product-row ${p.meilleur_prix ? 'best' : ''}">
-        <div class="v316-star">${star}</div>
+      <div class="v317-product-row ${p.meilleur_prix ? 'best' : ''}">
+        <div class="v317-star">${star}</div>
         <div>
-          <div class="v316-name">${(p.description || '').slice(0, 70)}</div>
-          <div class="v316-cip">CIP ${p.cip13 || '—'}</div>
+          <div class="v317-name">${(p.description || '').slice(0, 70)}</div>
+          <div class="v317-cip">CIP ${p.cip13 || '—'}</div>
         </div>
-        <div><span class="v316-labo">${p.labo}</span></div>
-        <div class="v316-num">${_fmtEuro(p.ppht)}</div>
-        <div class="v316-pct">-${p.rem_gross_pct}%</div>
-        <div class="v316-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
-        <div class="v316-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
-        <div class="v316-prix-net">
+        <div><span class="v317-labo">${p.labo}</span></div>
+        <div class="v317-num">${_fmtEuro(p.ppht)}</div>
+        <div class="v317-pct">-${p.rem_gross_pct}%</div>
+        <div class="v317-pct">-${p.rem_contrat_pct}%${p.rdp_pct > 0 ? '<br><span style="color:#1D9E75;">RDP -' + p.rdp_pct + '%</span>' : ''}</div>
+        <div class="v317-pct" style="font-weight:600;">−${_fmtPct(p.total_remise_pct)}</div>
+        <div class="v317-prix-net">
           ${_fmtEuro(p.prix_net)}
-          <div class="v316-ecart">${ecart}</div>
+          <div class="v317-ecart">${ecart}</div>
         </div>
       </div>
     `;
@@ -7371,22 +7380,22 @@ async function showLogDetail(logId) {
 
   function _renderMore() {
     if (!_filteredData) return;
-    const list = document.getElementById('v316-list');
-    const sentinel = document.getElementById('v316-sentinel');
+    const list = document.getElementById('v317-list');
+    const sentinel = document.getElementById('v317-sentinel');
     if (!list || !sentinel) return;
     
     const slice = _filteredData.slice(_renderedCount, _renderedCount + PAGE_SIZE);
     
     const tableHeader = `
-      <div class="v316-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
+      <div class="v317-product-row" style="background:#f8f8f8; font-size:10px; color:#666; text-transform:uppercase; font-weight:600;">
         <div></div>
         <div>Produit</div>
         <div>Labo</div>
-        <div class="v316-num">PPHT</div>
-        <div class="v316-pct">Rem. gross.</div>
-        <div class="v316-pct">Rem. contrat</div>
-        <div class="v316-pct">Total %</div>
-        <div class="v316-prix-net">Prix net</div>
+        <div class="v317-num">PPHT</div>
+        <div class="v317-pct">Rem. gross.</div>
+        <div class="v317-pct">Rem. contrat</div>
+        <div class="v317-pct">Total %</div>
+        <div class="v317-prix-net">Prix net</div>
       </div>`;
     
     const html = slice.map(m => {
@@ -7395,28 +7404,26 @@ async function showLogDetail(logId) {
         ? `<span style="color:#888; font-size:11px;">(${m.graphies_sources.length} graphies)</span>` 
         : '';
       
+      // 🔒 ADMIN ONLY : case Masquer + bouton Éditer
       const maskBox = _isAdmin ? `
-        <label class="v316-mask-inline" title="Masquer cette molécule pour tous les utilisateurs">
-          <input type="checkbox" class="v316-mask-cb" data-canon="${encodeURIComponent(m.canon)}" ${isHidden ? 'checked' : ''}/>
+        <label class="v317-mask-inline" title="Masquer cette molécule pour tous les utilisateurs">
+          <input type="checkbox" class="v317-mask-cb" data-canon="${encodeURIComponent(m.canon)}" ${isHidden ? 'checked' : ''}/>
           🚫 Ne pas afficher
         </label>` : '';
       
-      const moleculeData = encodeURIComponent(JSON.stringify({
-        canon: m.canon,
-        display: m.molecule,
-        graphies: m.graphies_sources,
-        produits: m.produits || [],
-        is_hidden: isHidden,
-      }));
+      const editBtn = _isAdmin ? `
+        <button class="v317-edit-btn" data-molecule="${encodeURIComponent(JSON.stringify({
+          canon: m.canon, display: m.molecule, graphies: m.graphies_sources,
+          produits: m.produits || [], is_hidden: isHidden
+        }))}">✏️ Éditer</button>` : '';
       
-      // ── Mode GROUPÉ PAR PPHT ──
       let bodyHtml;
       if (_groupByPpht && m.sous_groupes && m.sous_groupes.length > 0) {
         const sgCount = m.sous_groupes.length;
         bodyHtml = m.sous_groupes.map(sg => `
-          <div class="v316-sgroup">
-            <div class="v316-sgroup-header">
-              <span class="v316-sgroup-ppht">PPHT ~ ${_fmtEuro(sg.ppht_groupe)}</span>
+          <div class="v317-sgroup">
+            <div class="v317-sgroup-header">
+              <span class="v317-sgroup-ppht">PPHT ~ ${_fmtEuro(sg.ppht_groupe)}</span>
               <span>${sg.nb_produits} produit${sg.nb_produits > 1 ? 's' : ''} · ${sg.nb_labos} labo${sg.nb_labos > 1 ? 's' : ''}</span>
             </div>
             ${tableHeader}
@@ -7425,16 +7432,16 @@ async function showLogDetail(logId) {
         `).join('');
         
         return `
-          <div class="v316-molecule ${isHidden ? 'hidden-mol' : ''}">
-            <div class="v316-molecule-header">
-              <div class="v316-mol-left">
+          <div class="v317-molecule ${isHidden ? 'hidden-mol' : ''}">
+            <div class="v317-molecule-header">
+              <div class="v317-mol-left">
                 <span>${m.molecule} ${graphInfo}</span>
                 <span style="color:#888; font-size:11px;">${sgCount} dosage${sgCount > 1 ? 's' : ''}</span>
                 ${maskBox}
               </div>
-              <div class="v316-mol-right">
-                <span class="v316-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
-                <button class="v316-edit-btn" data-molecule="${moleculeData}">✏️ Éditer</button>
+              <div class="v317-mol-right">
+                <span class="v317-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+                ${editBtn}
               </div>
             </div>
             ${bodyHtml}
@@ -7442,18 +7449,17 @@ async function showLogDetail(logId) {
         `;
       }
       
-      // ── Mode PLAT (legacy) ──
       bodyHtml = (m.produits || []).map(p => _renderProductRow(p)).join('');
       return `
-        <div class="v316-molecule ${isHidden ? 'hidden-mol' : ''}">
-          <div class="v316-molecule-header">
-            <div class="v316-mol-left">
+        <div class="v317-molecule ${isHidden ? 'hidden-mol' : ''}">
+          <div class="v317-molecule-header">
+            <div class="v317-mol-left">
               <span>${m.molecule} ${graphInfo}</span>
               ${maskBox}
             </div>
-            <div class="v316-mol-right">
-              <span class="v316-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
-              <button class="v316-edit-btn" data-molecule="${moleculeData}">✏️ Éditer</button>
+            <div class="v317-mol-right">
+              <span class="v317-molecule-count">${m.nb_produits} produit${m.nb_produits > 1 ? 's' : ''}</span>
+              ${editBtn}
             </div>
           </div>
           <div>
@@ -7466,43 +7472,44 @@ async function showLogDetail(logId) {
     
     list.insertAdjacentHTML('beforeend', html);
     
-    list.querySelectorAll('.v316-edit-btn').forEach(btn => {
-      if (btn.dataset.attached) return;
-      btn.dataset.attached = '1';
-      btn.addEventListener('click', () => {
-        const m = JSON.parse(decodeURIComponent(btn.dataset.molecule));
-        _openEditModal(m);
+    if (_isAdmin) {
+      list.querySelectorAll('.v317-edit-btn').forEach(btn => {
+        if (btn.dataset.attached) return;
+        btn.dataset.attached = '1';
+        btn.addEventListener('click', () => {
+          const m = JSON.parse(decodeURIComponent(btn.dataset.molecule));
+          _openEditModal(m);
+        });
       });
-    });
-    
-    list.querySelectorAll('.v316-mask-cb').forEach(cb => {
-      if (cb.dataset.attached) return;
-      cb.dataset.attached = '1';
-      cb.addEventListener('change', async () => {
-        const canon = decodeURIComponent(cb.dataset.canon);
-        const wantHidden = cb.checked;
-        cb.disabled = true;
-        try {
-          const r = await fetch(`${API}/admin/molecules/masquer`, {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + T(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ canon, hidden: wantHidden }),
-          });
-          const data = await r.json();
-          if (!data.ok) throw new Error(data.detail || 'Erreur');
-          const mol = cb.closest('.v316-molecule');
-          mol.classList.toggle('hidden-mol', wantHidden);
-          const found = (_data.molecules || []).find(m => m.canon === canon);
-          if (found) found.is_hidden = wantHidden;
-          _applyFilterAndRender_softCount();
-        } catch (e) {
-          alert('Erreur: ' + e.message);
-          cb.checked = !wantHidden;
-        } finally {
-          cb.disabled = false;
-        }
+      
+      list.querySelectorAll('.v317-mask-cb').forEach(cb => {
+        if (cb.dataset.attached) return;
+        cb.dataset.attached = '1';
+        cb.addEventListener('change', async () => {
+          const canon = decodeURIComponent(cb.dataset.canon);
+          const wantHidden = cb.checked;
+          cb.disabled = true;
+          try {
+            const r = await fetch(`${API}/admin/molecules/masquer`, {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + T(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ canon, hidden: wantHidden }),
+            });
+            const data = await r.json();
+            if (!data.ok) throw new Error(data.detail || 'Erreur');
+            const mol = cb.closest('.v317-molecule');
+            mol.classList.toggle('hidden-mol', wantHidden);
+            const found = (_data.molecules || []).find(m => m.canon === canon);
+            if (found) found.is_hidden = wantHidden;
+          } catch (e) {
+            alert('Erreur: ' + e.message);
+            cb.checked = !wantHidden;
+          } finally {
+            cb.disabled = false;
+          }
+        });
       });
-    });
+    }
     
     _renderedCount += slice.length;
     if (_renderedCount >= _filteredData.length) {
@@ -7513,17 +7520,8 @@ async function showLogDetail(logId) {
     }
   }
 
-  function _applyFilterAndRender_softCount() {
-    const statsEl = document.getElementById('v316-stats');
-    if (!statsEl || !_data) return;
-    const masquees = (_data.molecules || []).filter(m => m.is_hidden).length;
-    const boxes = statsEl.querySelectorAll('.v316-stat-box');
-    const lastBox = boxes[boxes.length - 1]?.querySelector('.v316-stat-value');
-    if (lastBox && _isAdmin) lastBox.textContent = masquees;
-  }
-
   // ====================================================================
-  // MODALE
+  // MODALE (admin only)
   // ====================================================================
   let _editContext = null;
   let _editProducts = [];
@@ -7531,46 +7529,47 @@ async function showLogDetail(logId) {
   let _editHistory = [];
 
   function _openEditModal(m) {
+    if (!_isAdmin) return;  // sécurité supplémentaire
     _editContext = m;
     _editProducts = [...(m.produits || [])];
     _editGraphies = [...m.graphies];
     _editHistory = [];
     
-    document.getElementById('v316-edit-title').textContent = `✏️ ${m.display}`;
-    document.getElementById('v316-fus-display').value = m.display;
+    document.getElementById('v317-edit-title').textContent = `✏️ ${m.display}`;
+    document.getElementById('v317-fus-display').value = m.display;
     _renderFusionGraphies();
-    document.getElementById('v316-fus-extras').value = '';
-    document.getElementById('v316-frac-name').value = '';
-    document.getElementById('v316-frac-filter').value = '';
-    document.getElementById('v316-frac-history').style.display = 'none';
-    document.getElementById('v316-frac-history-list').innerHTML = '';
+    document.getElementById('v317-fus-extras').value = '';
+    document.getElementById('v317-frac-name').value = '';
+    document.getElementById('v317-frac-filter').value = '';
+    document.getElementById('v317-frac-history').style.display = 'none';
+    document.getElementById('v317-frac-history-list').innerHTML = '';
     _renderFracProducts();
     _switchTab('fusionner');
-    document.getElementById('v316-edit-status').textContent = '';
-    document.getElementById('v316-edit-modal').style.display = 'block';
+    document.getElementById('v317-edit-status').textContent = '';
+    document.getElementById('v317-edit-modal').style.display = 'block';
   }
 
   function _renderFusionGraphies() {
-    const fusEl = document.getElementById('v316-fus-graphies');
+    const fusEl = document.getElementById('v317-fus-graphies');
     fusEl.innerHTML = _editGraphies.map((g, i) => `
-      <div class="v316-edit-graphie">
-        <input type="checkbox" id="v316-fus-g-${i}" data-graphie="${encodeURIComponent(g)}" checked/>
-        <label for="v316-fus-g-${i}" style="cursor:pointer; flex:1;">${g}</label>
+      <div class="v317-edit-graphie">
+        <input type="checkbox" id="v317-fus-g-${i}" data-graphie="${encodeURIComponent(g)}" checked/>
+        <label for="v317-fus-g-${i}" style="cursor:pointer; flex:1;">${g}</label>
       </div>
     `).join('');
   }
 
   function _renderFracProducts() {
-    const fracEl = document.getElementById('v316-frac-products');
-    document.getElementById('v316-frac-count').textContent = _editProducts.length;
+    const fracEl = document.getElementById('v317-frac-products');
+    document.getElementById('v317-frac-count').textContent = _editProducts.length;
     if (_editProducts.length === 0) {
       fracEl.innerHTML = `<div style="padding:20px; text-align:center; color:#888;">✓ Tous les produits ont été fractionnés.</div>`;
       return;
     }
     fracEl.innerHTML = _editProducts.map((p, i) => `
-      <div class="v316-frac-row" data-cip="${p.cip13}">
-        <input type="checkbox" id="v316-frac-${i}" data-cip="${p.cip13}"/>
-        <label for="v316-frac-${i}">
+      <div class="v317-frac-row" data-cip="${p.cip13}">
+        <input type="checkbox" id="v317-frac-${i}" data-cip="${p.cip13}"/>
+        <label for="v317-frac-${i}">
           <span class="desc">${(p.description || '').slice(0, 70)}</span>
           <span class="meta">${p.labo} · PPHT ${_fmtEuro(p.ppht)} · CIP ${p.cip13} · Net ${_fmtEuro(p.prix_net)}</span>
         </label>
@@ -7578,13 +7577,13 @@ async function showLogDetail(logId) {
     `).join('');
     fracEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
-        cb.closest('.v316-frac-row').classList.toggle('checked', cb.checked);
+        cb.closest('.v317-frac-row').classList.toggle('checked', cb.checked);
       });
     });
   }
 
   function _closeEditModal() {
-    document.getElementById('v316-edit-modal').style.display = 'none';
+    document.getElementById('v317-edit-modal').style.display = 'none';
     if (_editHistory.length > 0) {
       _data = null;
       _loadData();
@@ -7592,12 +7591,12 @@ async function showLogDetail(logId) {
   }
 
   async function _saveFusion() {
-    if (!_editContext) return;
-    const status = document.getElementById('v316-edit-status');
-    const display = document.getElementById('v316-fus-display').value.trim();
-    const graphies = [...document.querySelectorAll('#v316-fus-graphies input:checked')]
+    if (!_editContext || !_isAdmin) return;
+    const status = document.getElementById('v317-edit-status');
+    const display = document.getElementById('v317-fus-display').value.trim();
+    const graphies = [...document.querySelectorAll('#v317-fus-graphies input:checked')]
       .map(cb => decodeURIComponent(cb.dataset.graphie));
-    const extras = document.getElementById('v316-fus-extras').value
+    const extras = document.getElementById('v317-fus-extras').value
       .split(',').map(s => s.trim()).filter(Boolean);
     const all = [...new Set([...graphies, ...extras])];
     if (all.length === 0) {
@@ -7633,15 +7632,15 @@ async function showLogDetail(logId) {
   }
 
   async function _saveFraction(continueAfter) {
-    if (!_editContext) return;
-    const status = document.getElementById('v316-edit-status');
-    const newName = document.getElementById('v316-frac-name').value.trim();
+    if (!_editContext || !_isAdmin) return;
+    const status = document.getElementById('v317-edit-status');
+    const newName = document.getElementById('v317-frac-name').value.trim();
     if (!newName) {
       status.textContent = '⚠️ Donne un nom au nouveau groupe';
       status.style.color = '#c0392b';
       return;
     }
-    const cips = [...document.querySelectorAll('#v316-frac-products input:checked')]
+    const cips = [...document.querySelectorAll('#v317-frac-products input:checked')]
       .map(cb => cb.dataset.cip);
     if (cips.length === 0) {
       status.textContent = '⚠️ Coche au moins 1 produit';
@@ -7663,8 +7662,8 @@ async function showLogDetail(logId) {
       const data = await r.json();
       if (!data.ok) throw new Error(data.detail || 'Erreur');
       _editHistory.push({ name: newName, nb: cips.length });
-      const histEl = document.getElementById('v316-frac-history');
-      const histList = document.getElementById('v316-frac-history-list');
+      const histEl = document.getElementById('v317-frac-history');
+      const histList = document.getElementById('v317-frac-history-list');
       histEl.style.display = 'block';
       histList.innerHTML = _editHistory.map(h => 
         `<div style="margin-top:3px;">• <strong>${h.name}</strong> (${h.nb} produit${h.nb > 1 ? 's' : ''})</div>`
@@ -7674,8 +7673,8 @@ async function showLogDetail(logId) {
       status.textContent = `✓ "${newName}" créé (${cips.length} produit${cips.length > 1 ? 's' : ''})`;
       status.style.color = '#1D9E75';
       if (continueAfter) {
-        document.getElementById('v316-frac-name').value = '';
-        document.getElementById('v316-frac-filter').value = '';
+        document.getElementById('v317-frac-name').value = '';
+        document.getElementById('v317-frac-filter').value = '';
         _renderFracProducts();
       } else {
         setTimeout(() => _closeEditModal(), 800);
@@ -7708,7 +7707,10 @@ async function showLogDetail(logId) {
     screen.style.display = 'block';
     screen.classList.add('active');
     if (!_data) {
-      _checkAdmin().then(() => _loadData());
+      _checkAdmin().then((isAdmin) => {
+        if (isAdmin) _showAdminControls();
+        _loadData();
+      });
     } else {
       _applyFilterAndRender();
     }
