@@ -1281,7 +1281,10 @@ async function loadGrossiste() {
         <button class="btn btn-outline btn-sm" onclick="ouvrirModaleReleve()">📋 Analyser un relevé</button>
         <button class="btn btn-outline btn-sm" onclick="ouvrirListeReleves()">📂 Mes relevés</button>
         <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()">📊 Export PDF période</button>
-        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 Export PDF mois</button>
+        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 PDF mois (tous)</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('cerp')">📄 CERP</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('ocp')">📄 OCP</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('alliance')">📄 Alliance</button>
       </div>
       ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
@@ -1474,10 +1477,12 @@ async function reinitialiserStatut() {
 }
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
-async function exportPDFGrossiste() {
-  toast('Génération du bilan PDF...')
+async function exportPDFGrossiste(source) {
+  const _src = source || null  /* V341_PDF_PAR_GROSSISTE */
+  toast(_src ? `Génération du bilan ${_src.toUpperCase()}...` : 'Génération du bilan PDF...')
   try {
-    const r = await fetch(`${API}/grossiste/export/pdf`, {
+    const _u = `${API}/grossiste/export/pdf` + (_src ? `?source=${encodeURIComponent(_src)}` : '')
+    const r = await fetch(_u, {
       method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
       body: JSON.stringify({ mois:CURRENT_MOIS, annee:CURRENT_ANNEE })
     })
@@ -1486,7 +1491,7 @@ async function exportPDFGrossiste() {
     if (blob.size < 100) { toast('PDF vide','red'); return }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url
-    a.download=`bilan_grossiste_${String(CURRENT_MOIS).padStart(2,'0')}_${CURRENT_ANNEE}.pdf`
+    a.download=`bilan_grossiste_${_src ? _src+'_' : ''}${String(CURRENT_MOIS).padStart(2,'0')}_${CURRENT_ANNEE}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url); toast('Bilan PDF téléchargé !', 'green')
   } catch(e) { toast('Erreur réseau','red') }
