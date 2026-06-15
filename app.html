@@ -7893,6 +7893,133 @@ async function showLogDetail(logId) {
 
 })();
 
+
+// === V319_FRONTEND_INJECTED_MARKER ===
+// ============================================================
+// v3.1.9 — Masquage fournisseur (mode confidentialite)
+// Remplace CERP / OCP / Alliance par des alias neutres dans toute l'UI.
+// 100% frontend, reversible (desactivation = rechargement).
+// ============================================================
+(function _v319_masquage() {
+  const LS_KEY = 'pharmaremise_masquage';
+  const DEFAULTS = { cerp: 'Grossiste A', ocp: 'Grossiste B', alliance: 'Grossiste C' };
+
+  function loadCfg() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveCfg(c) { localStorage.setItem(LS_KEY, JSON.stringify(c)); }
+  function isOn() { return !!loadCfg().on; }
+  function aliasFor(key) {
+    const c = loadCfg();
+    const v = (c[key] || '').trim();
+    return v || DEFAULTS[key];
+  }
+
+  // --- Remplacement des noms dans le DOM (texte uniquement) ---
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'NOSCRIPT']);
+  // Un alias ne doit jamais contenir un nom de grossiste (sinon boucle de remplacement)
+  const DANGEROUS = /CERP|OCP|Alliance/i;
+
+  function maskOnce() {
+    if (!isOn()) return;
+    const aliases = { cerp: aliasFor('cerp'), ocp: aliasFor('ocp'), alliance: aliasFor('alliance') };
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const p = node.parentNode;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (SKIP_TAGS.has(p.nodeName)) return NodeFilter.FILTER_REJECT;
+        // Ne pas toucher la carte de reglage (elle affiche les vrais noms comme libelles)
+        if (p.closest && p.closest('[data-masquage-card]')) return NodeFilter.FILTER_REJECT;
+        // Ne JAMAIS masquer les boutons "Sauvegarder CERP/OCP/Alliance" :
+        // le moteur de config V307 lit leur texte pour savoir quel grossiste sauver.
+        const btn = p.closest && p.closest('button');
+        if (btn && /Sauvegarder/i.test(btn.textContent)) return NodeFilter.FILTER_REJECT;
+        if (!/CERP|OCP|Alliance/i.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+
+    const toFix = [];
+    let n;
+    while ((n = walker.nextNode())) toFix.push(n);
+
+    toFix.forEach(node => {
+      let t = node.nodeValue;
+      if (!DANGEROUS.test(aliases.cerp)) t = t.replace(/CERP/g, aliases.cerp);
+      if (!DANGEROUS.test(aliases.ocp)) t = t.replace(/OCP/g, aliases.ocp);
+      if (!DANGEROUS.test(aliases.alliance)) t = t.replace(/Alliance/gi, aliases.alliance);
+      if (t !== node.nodeValue) node.nodeValue = t;
+    });
+  }
+  setInterval(maskOnce, 1200);
+
+  // --- Carte de reglage, injectee dans Parametres -> Grossistes ---
+  function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
+
+  function injectCard() {
+    // On n'injecte la carte que sur l'ecran config grossiste (ancre = bloc remises V307)
+    const anchor = document.querySelector('.v307-remises-block');
+    if (!anchor) return;
+    if (document.querySelector('[data-masquage-card]')) return;
+
+    const c = loadCfg();
+    const card = document.createElement('div');
+    card.setAttribute('data-masquage-card', '1');
+    card.style.cssText = 'margin:0 0 20px 0; padding:20px; background:#f4f0ff; border:1px solid #d9caff; border-radius:10px;';
+    card.innerHTML =
+      '<div style="font-weight:600; color:#6b46c1; font-size:16px; margin-bottom:6px;">' +
+      '\uD83D\uDD76\uFE0F Mode confidentialite \u2014 masquage fournisseur</div>' +
+      '<div style="font-size:13px; color:#666; margin-bottom:14px;">Remplace les noms des grossistes ' +
+      '(CERP / OCP / Alliance) par des alias neutres partout dans l\'application. ' +
+      'Utile pour presenter l\'outil sans devoiler tes fournisseurs.</div>' +
+      '<label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:14px; font-size:14px;">' +
+      '<input type="checkbox" id="v319-on" ' + (c.on ? 'checked' : '') + '>' +
+      '<span>Activer le masquage</span></label>' +
+      '<div style="display:grid; grid-template-columns:90px 1fr; gap:10px 12px; align-items:center; max-width:420px;">' +
+      '<div style="font-size:14px; color:#555;">CERP \u2192</div>' +
+      '<input type="text" id="v319-cerp" value="' + esc(c.cerp) + '" placeholder="Grossiste A" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
+      '<div style="font-size:14px; color:#555;">OCP \u2192</div>' +
+      '<input type="text" id="v319-ocp" value="' + esc(c.ocp) + '" placeholder="Grossiste B" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
+      '<div style="font-size:14px; color:#555;">Alliance \u2192</div>' +
+      '<input type="text" id="v319-alliance" value="' + esc(c.alliance) + '" placeholder="Grossiste C" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
+      '</div>' +
+      '<div style="margin-top:14px; display:flex; align-items:center; gap:12px;">' +
+      '<button id="v319-save" style="background:#6b46c1; color:white; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px;">Enregistrer</button>' +
+      '<span id="v319-status" style="font-size:13px;"></span></div>';
+
+    anchor.parentElement.insertBefore(card, anchor);
+
+    card.querySelector('#v319-save').addEventListener('click', () => {
+      const wasOn = isOn();
+      const cfg = {
+        on: card.querySelector('#v319-on').checked,
+        cerp: card.querySelector('#v319-cerp').value.trim(),
+        ocp: card.querySelector('#v319-ocp').value.trim(),
+        alliance: card.querySelector('#v319-alliance').value.trim(),
+      };
+      saveCfg(cfg);
+      const st = card.querySelector('#v319-status');
+      // Avertir si un alias contient encore un nom de grossiste (ne sera pas applique)
+      const bad = [cfg.cerp, cfg.ocp, cfg.alliance].some(a => a && DANGEROUS.test(a));
+      if (bad) {
+        st.textContent = '\u26A0\uFE0F Un alias contient un nom de grossiste : il sera ignore.';
+        st.style.color = '#c0392b';
+      } else {
+        st.textContent = '\u2713 Enregistre';
+        st.style.color = '#1D9E75';
+      }
+      // Desactivation -> on recharge pour restaurer les vrais noms proprement
+      if (wasOn && !cfg.on) {
+        st.textContent = '\u2713 Desactive \u2014 rechargement...';
+        setTimeout(() => location.reload(), 500);
+      }
+    });
+  }
+  setInterval(injectCard, 1200);
+})();
+
 </script>
 </body>
 </html>
