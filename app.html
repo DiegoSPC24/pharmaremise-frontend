@@ -3470,6 +3470,7 @@ async function uploadFactureAuto(file) {
     if (res.ok) {
       const src = SOURCE_LABELS[data.source] || data.source
       div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
+      try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='⚠️ écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
     } else {
       div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
     }
