@@ -2906,12 +2906,29 @@ async function loadParametres() {
   _renderParametres()
 }
 
+/* V392_MODE_TOGGLE : choix simplifie/detaille exclusif + grisage */
+function _ensureParamModeStyle(){
+  if (document.getElementById('param-mode-style')) return
+  const s = document.createElement('style'); s.id='param-mode-style'
+  s.textContent = '.seg-mode button{border:none;background:none;padding:9px 18px;border-radius:7px;font-size:13.5px;font-weight:600;color:#7a8884;cursor:pointer;transition:all .15s}.seg-mode button.on{background:#fff;color:#1D9E75;box-shadow:0 1px 4px rgba(0,0,0,.10)}.seg-mode{display:inline-flex;background:#f1f3f2;border-radius:10px;padding:4px;gap:4px;margin-bottom:18px}.param-grise{opacity:.4;pointer-events:none;filter:grayscale(.4)}'
+  document.head.appendChild(s)
+}
+function _setParamMode(mode, source){
+  _ensureParamModeStyle()
+  document.querySelectorAll('.seg-mode-'+source+' button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-mode')===mode))
+  const simpl = document.getElementById('bloc-simplifie-'+source)
+  if (simpl) simpl.classList.toggle('param-grise', mode!=='simple')
+  const det = document.querySelector('.v390-block[data-v307-source="'+source+'"]')
+  if (det) det.classList.toggle('param-grise', mode!=='detail')
+  window._PARAM_MODE = window._PARAM_MODE || {}; window._PARAM_MODE[source] = mode
+}
 function _renderParametres() {
   const el = document.getElementById('parametres-content')
   const source = _PARAM_TAB
   const cfg = CONFIGS_GROSSISTE[source] || {}
   const label = SOURCE_LABELS[source] || source
   const color = SOURCE_COLORS[source] || 'var(--sub)'
+  const isSimple = (cfg.mode_calcul === 'simple')
 
   el.innerHTML = `
     <div class="card">
@@ -2929,23 +2946,30 @@ function _renderParametres() {
           <div style="font-size:12px;color:var(--sub)">Paramètres du contrat de remise arrière</div>
         </div>
       </div>
-      <div class="three-col">
-        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
-          <input type="number" id="p-taux" value="${cfg.taux_remise_pct||4}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
-          <input type="number" id="p-seuil" value="${cfg.seuil_cher||465}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
-        <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label>
-          <input type="number" id="p-forfait" value="${cfg.forfait_cher||10}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+      <div class="seg-mode seg-mode-${source}">
+        <button type="button" data-mode="simple" class="${isSimple?'on':''}" onclick="_setParamMode('simple','${source}')">Calcul simplifié</button>
+        <button type="button" data-mode="detail" class="${!isSimple?'on':''}" onclick="_setParamMode('detail','${source}')">Calcul détaillé</button>
       </div>
-      <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
-        ${checkBox('p-tva20','Exclure TVA 20%',cfg.exclure_tva20)}
-        ${checkBox('p-biosim','Exclure biosimilaires',cfg.exclure_biosim)}
-        ${checkBox('p-frigo','Exclure frigo',cfg.exclure_frigo)}
-        ${checkBox('p-stup','Exclure stupéfiants',cfg.exclure_stupefiants)}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
-        <button class="btn btn-green" style="background:${color}" onclick="ouvrirModaleSauvegarde('${source}')">Sauvegarder ${label}</button>
-        <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')">🔄 Recalculer une période</button>
+      <div id="bloc-simplifie-${source}" class="${!isSimple?'param-grise':''}">
+        <div class="three-col">
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
+            <input type="number" id="p-taux" value="${cfg.taux_remise_pct||4}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
+            <input type="number" id="p-seuil" value="${cfg.seuil_cher||465}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil sortie hospitalière (€)</label>
+            <input type="number" id="p-seuil-hospi" value="${cfg.seuil_sortie_hospi||1500}" step="100" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait produit cher (€/boîte)</label>
+            <input type="number" id="p-forfait" value="${cfg.forfait_cher||10}" step="0.5" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+          <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Forfait sortie hospitalière (€/boîte)</label>
+            <input type="number" id="p-forfait-hospi" value="${cfg.forfait_sortie_hospi||50}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+        </div>
+        <div style="font-size:12px;color:var(--sub);margin-top:12px;background:#f8faf9;border:1px dashed var(--border);border-radius:8px;padding:10px 12px">
+          En calcul simplifié : <b>générique</b> et <b>produits déjà remisés</b> sont exclus. Produit cher et sortie hospitalière sont au forfait/boîte.
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn btn-green" style="background:${color}" onclick="ouvrirModaleSauvegarde('${source}')">Sauvegarder ${label}</button>
+          <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')">🔄 Recalculer une période</button>
+        </div>
       </div>
     </div>
     ${MODULES.includes('generiqueur') ? `
@@ -3034,6 +3058,7 @@ async function confirmerSauvegarde() {
   const [m, a] = document.getElementById('sauv-date').value.split('-').map(Number)
   const recalculer = document.getElementById('sauv-recalc').checked
 
+  const _cfgCur = CONFIGS_GROSSISTE[source] || {}
   const body = {
     source,
     date_debut_mois: m,
@@ -3042,12 +3067,23 @@ async function confirmerSauvegarde() {
     taux_remise_pct: parseFloat(document.getElementById('p-taux').value),
     seuil_cher:      parseFloat(document.getElementById('p-seuil').value),
     forfait_cher:    parseFloat(document.getElementById('p-forfait').value),
-    exclure_tva20:       document.getElementById('p-tva20').checked,
-    exclure_biosim:      document.getElementById('p-biosim').checked,
-    exclure_frigo:       document.getElementById('p-frigo').checked,
-    exclure_stupefiants: document.getElementById('p-stup').checked,
+    exclure_tva20:       !!_cfgCur.exclure_tva20,
+    exclure_biosim:      !!_cfgCur.exclure_biosim,
+    exclure_frigo:       !!_cfgCur.exclure_frigo,
+    exclure_stupefiants: !!_cfgCur.exclure_stupefiants,
     exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
   }
+  // V392 : persister seuils/forfaits sortie hospi + mode simplifie via config-v3
+  try {
+    const _sh = document.getElementById('p-seuil-hospi'); const _fh = document.getElementById('p-forfait-hospi')
+    const _put = Object.assign({}, _cfgCur, {
+      source, mode_calcul:'simple',
+      taux_remise_pct: body.taux_remise_pct, seuil_cher: body.seuil_cher, forfait_cher: body.forfait_cher,
+      seuil_sortie_hospi: _sh ? (parseFloat(_sh.value)||1500) : (_cfgCur.seuil_sortie_hospi||1500),
+      forfait_sortie_hospi: _fh ? (parseFloat(_fh.value)||50) : (_cfgCur.forfait_sortie_hospi||50)
+    })
+    await fetch(`${API}/grossiste/config-v3`, { method:'PUT', headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'}, body: JSON.stringify(_put) })
+  } catch(e) {}
 
   fermerModaleSauvegarde()
   toast('💾 Sauvegarde en cours...')
@@ -6593,6 +6629,7 @@ async function showLogDetail(logId) {
       card.appendChild(block);
       attach(block, source);
       apiGet(`/grossiste/config-detail/${source}`).then(d => applyDetail(block, d)).catch(()=>{});
+      if (window._setParamMode) { const _m=(window._PARAM_MODE&&window._PARAM_MODE[source])||((cfg&&cfg.mode_calcul==='simple')?'simple':'detail'); _setParamMode(_m, source); }
     });
   }
 
