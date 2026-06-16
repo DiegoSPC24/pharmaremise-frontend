@@ -6336,311 +6336,258 @@ async function showLogDetail(logId) {
 // v3.0.7 — Mode simple OU mode détail dans Paramètres
 // ============================================================
 
-(function _v307_init() {
+(function _v390_detail() {
+  // === V390_DETAIL_FORM === nouveau mode de calcul detaille
+  const API = 'https://web-production-2202b.up.railway.app';
+  const SRC = { cerp:'CERP', alliance:'Alliance', ocp:'OCP' };
+  const DEF = {
+    base_calcul:'facture', generique_actif:false, sortie_hospi_actif:false,
+    princeps_actif:false, princeps_rem_mode:'exclu', princeps_rem_taux:0,
+    princeps_norem_mode:'exclu', princeps_norem_taux:0,
+    tva20_actif:false, tva20_rem_mode:'exclu', tva20_rem_taux:0,
+    tva20_norem_mode:'exclu', tva20_norem_taux:0
+  };
+  const tk = () => localStorage.getItem('pharmaremise_token');
 
-  const CATEGORIES = [
-    { key: "generique",     label: "Générique",    field: "taux_generique_pct"    },
-    { key: "princeps",      label: "Princeps",     field: "taux_princeps_pct"     },
-    { key: "biosimilaire",  label: "Biosimilaire", field: "taux_biosimilaire_pct" },
-    { key: "tva_20",        label: "TVA 20%",      field: "taux_tva20_pct"        },
-  ];
+  function ensureStyle(){
+    if (document.getElementById('v390-style')) return;
+    const s = document.createElement('style'); s.id='v390-style';
+    s.textContent = `
+    .v390-card{margin-top:22px;background:#fff;border:1px solid #e8ebea;border-radius:14px;padding:24px 26px}
+    .v390-h{font-size:17px;font-weight:700;margin-bottom:4px;color:#1c2b27}
+    .v390-lead{color:#7a8884;font-size:12.5px;margin:0 0 22px}
+    .v390-eyebrow{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#1D9E75;margin:0 0 12px}
+    .v390-sec{margin-bottom:26px}
+    .v390-seg{display:inline-flex;background:#f1f3f2;border-radius:10px;padding:4px;gap:4px}
+    .v390-seg button{border:none;background:none;padding:9px 18px;border-radius:7px;font-size:13.5px;font-weight:600;color:#7a8884;cursor:pointer;transition:all .15s}
+    .v390-seg button.on{background:#fff;color:#1D9E75;box-shadow:0 1px 4px rgba(0,0,0,.10)}
+    .v390-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .v390-f label{display:block;font-size:12px;color:#7a8884;margin-bottom:6px;font-weight:600}
+    .v390-inp{display:flex;align-items:center;border:1px solid #d8dddb;border-radius:9px;overflow:hidden;background:#fff}
+    .v390-inp input{border:none;outline:none;padding:10px 12px;font-size:14px;width:100%;background:transparent}
+    .v390-inp .u{padding:0 12px;color:#7a8884;font-size:13px;background:#f6f8f7;align-self:stretch;display:flex;align-items:center;border-left:1px solid #eef1f0}
+    .v390-cat{border:1px solid #e8ebea;border-radius:12px;margin-bottom:13px;overflow:hidden;transition:border-color .15s}
+    .v390-cat.active{border-color:#cfe9df}
+    .v390-cat-head{display:flex;align-items:center;gap:14px;padding:15px 18px;cursor:pointer;user-select:none;margin:0}
+    .v390-cat-head:hover{background:#fafbfb}
+    .v390-switch{position:relative;width:42px;height:24px;flex:0 0 auto}
+    .v390-switch input{opacity:0;width:0;height:0;position:absolute}
+    .v390-slider{position:absolute;inset:0;background:#d3d8d6;border-radius:24px;transition:.2s}
+    .v390-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+    .v390-switch input:checked + .v390-slider{background:#1D9E75}
+    .v390-switch input:checked + .v390-slider:before{transform:translateX(18px)}
+    .v390-cat-name{font-size:15px;font-weight:600;flex:1}
+    .v390-cat-state{font-size:12px;font-weight:600;color:#7a8884}
+    .v390-cat.active .v390-cat-state{color:#1D9E75}
+    .v390-body{display:none;padding:4px 18px 18px;border-top:1px solid #e8ebea;background:#fcfdfd}
+    .v390-cat.active .v390-body{display:block}
+    .v390-st{font-size:13px;font-weight:700;margin:14px 0 9px;display:flex;align-items:center;gap:8px}
+    .v390-tag{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px}
+    .v390-tag.rem{background:#FFFBEB;color:#9a6a16;border:1px solid #F0E2B8}
+    .v390-tag.norem{background:#eef4f2;color:#4a6a5f;border:1px solid #d9e6e1}
+    .v390-choice{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .v390-opt{display:flex;align-items:center;gap:8px;border:1px solid #d8dddb;border-radius:9px;padding:9px 13px;cursor:pointer;font-size:13.5px;transition:all .15s;background:#fff}
+    .v390-opt.sel{border-color:#1D9E75;background:#EAF7F1;color:#178A66;font-weight:600}
+    .v390-opt input{accent-color:#1D9E75}
+    .v390-taux{display:flex;align-items:center;border:1px solid #d8dddb;border-radius:9px;overflow:hidden;width:120px}
+    .v390-taux input{border:none;outline:none;padding:8px 10px;font-size:14px;width:100%}
+    .v390-taux .u{padding:0 10px;color:#7a8884;font-size:13px;background:#f6f8f7;align-self:stretch;display:flex;align-items:center}
+    .v390-taux.off{background:#f3f4f4}
+    .v390-taux.off input{color:#b3bbb8}
+    .v390-save-row{display:flex;align-items:center;gap:14px;margin-top:8px}
+    .v390-save{background:#1D9E75;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer}
+    .v390-save:hover{background:#178A66}
+    @media(max-width:560px){.v390-grid{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  }
 
-  function _renderRemisesV307Block(cfg, source) {
-    cfg = cfg || {};
-    const seuilCher          = cfg.seuil_cher ?? 465;
-    const forfaitCher        = cfg.forfait_cher ?? 10;
-    const seuilSortieHospi   = cfg.seuil_sortie_hospi ?? 1500;
-    const forfaitSortieHospi = cfg.forfait_sortie_hospi ?? 50;
-    const exclureSortieHospi = cfg.exclure_sortie_hospi ?? false;
-    const tauxLegacy         = cfg.taux_remise_pct_legacy ?? null;
-    const modeCalcul         = cfg.mode_calcul || "detail";
-    const modeSimpleTaux     = cfg.mode_simple_taux_pct ?? (tauxLegacy ?? 4);
-    
-    const isSimple = modeCalcul === "simple";
-
-    // Lignes catégories %
-    const rows = CATEGORIES.map(cat => {
-      let taux = cfg[cat.field];
-      let exclu;
-      let inputVal;
-      if (taux === null || taux === undefined) {
-        exclu = false;
-        inputVal = tauxLegacy ?? 0;
-      } else {
-        exclu = false;
-        inputVal = taux;
-      }
-      const checked = exclu ? "checked" : "";
-      const disabled = exclu ? "disabled" : "";
-      const inputBg = exclu ? "background:#f0f0f0; color:#aaa;" : "";
-
-      return `
-        <div class="v307-cat-row" data-cat="${cat.key}" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee;">
-          <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
-            <input type="checkbox" class="v307-cat-exclu" ${checked} data-field="${cat.field}">
-            <span>Exclure ${cat.label}</span>
-          </label>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <input type="number" class="v307-cat-taux" data-field="${cat.field}" 
-                   value="${inputVal}" ${disabled} step="0.01" min="0" max="100"
-                   style="width:90px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; ${inputBg}">
-            <span style="color:#888; font-size:13px;">%</span>
-          </div>
+  function sub(cat){
+    return ['rem','norem'].map(sc=>{
+      const t = sc==='rem' ? 'd\u00e9j\u00e0 remis\u00e9es' : 'non remis\u00e9es';
+      const cls = sc==='rem' ? 'rem' : 'norem';
+      return `<div style="margin-top:2px">
+        <div class="v390-st">Lignes <span class="v390-tag ${cls}">${t}</span></div>
+        <div class="v390-choice" data-cat="${cat}" data-scope="${sc}">
+          <label class="v390-opt sel"><input type="radio" name="v390-${cat}-${sc}" value="exclu" checked> Exclues</label>
+          <label class="v390-opt"><input type="radio" name="v390-${cat}-${sc}" value="taux"> Taux appliqu\u00e9</label>
+          <span class="v390-taux off"><input type="number" step="0.01" min="0" value="0" disabled><span class="u">%</span></span>
         </div>
-      `;
+      </div>`;
     }).join('');
-
-    // Bloc mode détail
-    const blocDetail = `
-      <div class="v307-mode-detail" style="display:${isSimple ? 'none' : 'block'};">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #ddd;">
-          <div>
-            <label style="font-size:13px; color:#555;">Seuil "produit cher" (€) :</label>
-            <input type="number" class="v307-seuil-cher" value="${seuilCher}" step="50" min="0"
-                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
-          </div>
-          <div>
-            <label style="font-size:13px; color:#555;">Forfait par boîte (€) :</label>
-            <input type="number" class="v307-forfait-cher" value="${forfaitCher}" step="0.5" min="0"
-                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
-          </div>
-          <div>
-            <label style="font-size:13px; color:#555;">Seuil "sortie hospitalière" (€) :</label>
-            <input type="number" class="v307-seuil-hospi" value="${seuilSortieHospi}" step="100" min="0"
-                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
-          </div>
-          <div>
-            <label style="font-size:13px; color:#555;">Forfait sortie hospi (€/boîte) :</label>
-            <input type="number" class="v307-forfait-hospi" value="${forfaitSortieHospi}" step="1" min="0"
-                   style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
-          </div>
-        </div>
-
-        ${rows}
-
-        <div class="v307-cat-row" style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; margin-top:6px;">
-          <label style="display:flex; align-items:center; gap:8px; min-width:240px; cursor:pointer; font-size:14px;">
-            <input type="checkbox" class="v307-exclure-hospi" ${exclureSortieHospi ? 'checked' : ''}>
-            <span>Exclure Sortie hospitalière</span>
-          </label>
-          <span style="color:#888; font-size:12px;">(sinon : forfait par boîte ci-dessus)</span>
-        </div>
-      </div>
-    `;
-
-    // Bloc mode simple
-    const blocSimple = `
-      <div class="v307-mode-simple" style="display:${isSimple ? 'block' : 'none'}; padding:16px; background:#fffbf0; border:1px solid #f0d890; border-radius:8px;">
-        <div style="font-size:13px; color:#666; margin-bottom:12px;">
-          🎯 <strong>Mode simple</strong> : taux unique appliqué à toutes les lignes,<br>
-          sauf <strong>Génériques</strong> et <strong>produits déjà remisés sur facture</strong> (exclus d'office).
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <label style="font-size:14px;">Taux unique :</label>
-          <input type="number" class="v307-taux-simple" value="${modeSimpleTaux}" step="0.01" min="0" max="100"
-                 style="width:100px; padding:6px 10px; border:1px solid #ccc; border-radius:6px;">
-          <span style="color:#888; font-size:13px;">%</span>
-        </div>
-      </div>
-    `;
-
-    return `
-      <div class="v307-remises-block" data-v307-source="${source}" style="margin-top:24px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #e8e8e8;">
-        <div style="font-weight:600; margin-bottom:14px; color:#1D9E75; font-size:16px;">📋 Remises par catégorie — ${source.toUpperCase()}</div>
-        
-        <!-- Toggle mode -->
-        <div style="margin-bottom:18px; padding:12px; background:white; border:1px solid #ddd; border-radius:8px;">
-          <div style="font-size:13px; color:#666; margin-bottom:8px; font-weight:500;">Mode de calcul :</div>
-          <label style="display:inline-flex; align-items:center; gap:6px; margin-right:24px; cursor:pointer;">
-            <input type="radio" name="v307-mode-${source}" value="detail" ${!isSimple ? 'checked' : ''}>
-            <span style="font-size:14px;">🔬 Mode détaillé (5 catégories)</span>
-          </label>
-          <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="radio" name="v307-mode-${source}" value="simple" ${isSimple ? 'checked' : ''}>
-            <span style="font-size:14px;">🎯 Mode simple (taux unique)</span>
-          </label>
-        </div>
-
-        ${blocDetail}
-        ${blocSimple}
-
-        <div style="margin-top:14px; font-size:12px; color:#888; line-height:1.5;">
-          ☐ Décocher = catégorie incluse (% objectif renseigné)<br>
-          ☑ Cocher = catégorie exclue (aucune remise calculée)
-        </div>
-
-        <div style="margin-top:16px; display:flex; align-items:center; gap:12px;">
-          <button class="v307-btn-save" style="background:#1D9E75; color:white; padding:9px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px;">
-            💾 Sauvegarder + Recalculer
-          </button>
-          <span class="v307-save-status" style="font-size:13px;"></span>
-        </div>
-      </div>
-    `;
   }
 
-  function _attachV307Handlers(block, source) {
-    // Toggle mode simple/détail
-    block.querySelectorAll(`input[name="v307-mode-${source}"]`).forEach(radio => {
-      radio.addEventListener('change', () => {
-        const isSimple = radio.value === 'simple';
-        const detail = block.querySelector('.v307-mode-detail');
-        const simple = block.querySelector('.v307-mode-simple');
-        if (detail) detail.style.display = isSimple ? 'none' : 'block';
-        if (simple) simple.style.display = isSimple ? 'block' : 'none';
-      });
-    });
-
-    // Toggle catégorie excluse
-    block.querySelectorAll('.v307-cat-exclu').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const row = cb.closest('.v307-cat-row');
-        const input = row.querySelector('.v307-cat-taux');
-        if (cb.checked) {
-          input.disabled = true;
-          input.style.background = '#f0f0f0';
-          input.style.color = '#aaa';
-        } else {
-          input.disabled = false;
-          input.style.background = '';
-          input.style.color = '';
-          input.focus();
-        }
-      });
-    });
-
-    // Bouton Sauvegarder
-    const btn = block.querySelector('.v307-btn-save');
-    if (!btn) return;
-    btn.addEventListener('click', async () => {
-      const status = block.querySelector('.v307-save-status');
-      status.textContent = '⏳ Sauvegarde + recalcul...';
-      status.style.color = '#888';
-
-      const modeRadio = block.querySelector(`input[name="v307-mode-${source}"]:checked`);
-      const mode = modeRadio?.value || 'detail';
-
-      const payload = {
-        source: source,
-        recalculer: true,
-        mode_calcul: mode,
-      };
-
-      if (mode === 'simple') {
-        const tauxSimple = parseFloat(block.querySelector('.v307-taux-simple').value) || 0;
-        payload.mode_simple_taux_pct = tauxSimple;
-      } else {
-        // Mode détail
-        payload.seuil_cher           = parseFloat(block.querySelector('.v307-seuil-cher').value) || 465;
-        payload.forfait_cher         = parseFloat(block.querySelector('.v307-forfait-cher').value) || 10;
-        payload.seuil_sortie_hospi   = parseFloat(block.querySelector('.v307-seuil-hospi').value) || 1500;
-        payload.forfait_sortie_hospi = parseFloat(block.querySelector('.v307-forfait-hospi').value) || 50;
-        payload.exclure_sortie_hospi = block.querySelector('.v307-exclure-hospi').checked;
-        
-        block.querySelectorAll('.v307-cat-row').forEach(row => {
-          const cb = row.querySelector('.v307-cat-exclu');
-          if (!cb) return;
-          const input = row.querySelector('.v307-cat-taux');
-          const field = cb.getAttribute('data-field');
-          if (cb.checked) {
-            payload[field] = null;
-          } else {
-            const v = parseFloat(input.value);
-            payload[field] = isNaN(v) ? 0 : v;
-          }
-        });
-      }
-
-      try {
-        const T = localStorage.getItem('pharmaremise_token');
-        const r = await fetch('https://web-production-2202b.up.railway.app/grossiste/config-v3', {
-          method: 'PUT',
-          headers: { 'Authorization': 'Bearer ' + T, 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await r.json();
-        if (data.ok) {
-          const nb = data.recalcul?.nb_factures_recalculees ?? 0;
-          const total = data.recalcul?.remise_totale_calculee ?? 0;
-          status.textContent = `✓ ${nb} facture(s) · ${total}€ remises (mode ${mode})`;
-          status.style.color = '#1D9E75';
-          window._v307ConfigCache = null;
-        } else {
-          status.textContent = '✗ ' + (data.detail || JSON.stringify(data).slice(0, 200));
-          status.style.color = '#c0392b';
-        }
-      } catch (e) {
-        status.textContent = '✗ ' + e.message;
-        status.style.color = '#c0392b';
-      }
-    });
+  function catRow(cat, name, hasSub){
+    return `<div class="v390-cat" data-cat="${cat}">
+      <label class="v390-cat-head">
+        <span class="v390-switch"><input type="checkbox" class="v390-toggle"><span class="v390-slider"></span></span>
+        <span class="v390-cat-name">${name}</span>
+        <span class="v390-cat-state">Non \u00e9ligible</span>
+      </label>
+      ${hasSub ? `<div class="v390-body">${sub(cat)}</div>` : ''}
+    </div>`;
   }
 
-  async function _injectRemisesV307() {
-    const buttons = [...document.querySelectorAll('button')].filter(b => 
-      /^Sauvegarder\s+(CERP|OCP|Alliance|ALLIANCE)$/i.test(b.textContent.trim())
-    );
-    if (buttons.length === 0) return;
+  function render(cfg, source){
+    cfg = cfg || {};
+    const sc = (cfg.seuil_cher!=null)?cfg.seuil_cher:465;
+    const fc = (cfg.forfait_cher!=null)?cfg.forfait_cher:10;
+    const sh = (cfg.seuil_sortie_hospi!=null)?cfg.seuil_sortie_hospi:1500;
+    const fh = (cfg.forfait_sortie_hospi!=null)?cfg.forfait_sortie_hospi:50;
+    return `<div class="v307-remises-block v390-block v390-card" data-v307-source="${source}">
+      <div class="v390-h">Mode de calcul d\u00e9taill\u00e9 \u2014 ${SRC[source]||source}</div>
+      <p class="v390-lead">D\u00e9finissez ce qui entre dans le calcul de la remise arri\u00e8re et \u00e0 quel taux.</p>
 
-    if (!window._v307ConfigCache || Date.now() - (window._v307CacheTs || 0) > 30000) {
-      try {
-        window._v307ConfigCache = await apiGet('/grossiste/config-v3');
-        window._v307CacheTs = Date.now();
-      } catch (e) { return; }
+      <div class="v390-sec">
+        <p class="v390-eyebrow">Base de calcul</p>
+        <div class="v390-seg">
+          <button class="on" data-v="facture" type="button">Prix factur\u00e9 HT</button>
+          <button data-v="pfht" type="button">PFHT</button>
+        </div>
+      </div>
+
+      <div class="v390-sec">
+        <p class="v390-eyebrow">Seuils &amp; forfaits</p>
+        <div class="v390-grid">
+          <div class="v390-f"><label>Seuil produit cher (\u20ac)</label><div class="v390-inp"><input type="number" class="v390-seuil-cher" value="${sc}" step="50"><span class="u">\u20ac</span></div></div>
+          <div class="v390-f"><label>Forfait produit cher (\u20ac/bo\u00eete)</label><div class="v390-inp"><input type="number" class="v390-forfait-cher" value="${fc}" step="0.5"><span class="u">\u20ac</span></div></div>
+          <div class="v390-f"><label>Seuil sortie hospitali\u00e8re (\u20ac)</label><div class="v390-inp"><input type="number" class="v390-seuil-hospi" value="${sh}" step="100"><span class="u">\u20ac</span></div></div>
+          <div class="v390-f"><label>Forfait sortie hospitali\u00e8re (\u20ac/bo\u00eete)</label><div class="v390-inp"><input type="number" class="v390-forfait-hospi" value="${fh}" step="1"><span class="u">\u20ac</span></div></div>
+        </div>
+      </div>
+
+      <div class="v390-sec">
+        <p class="v390-eyebrow">Cat\u00e9gories incluses dans le calcul</p>
+        <p class="v390-lead" style="margin-bottom:14px">D\u00e9sactiv\u00e9es par d\u00e9faut (non \u00e9ligibles). Activez celles \u00e0 compter.</p>
+        ${catRow('generique','G\u00e9n\u00e9rique',false)}
+        ${catRow('hospi','Sortie hospitali\u00e8re',false)}
+        ${catRow('princeps','Princeps',true)}
+        ${catRow('tva20','TVA 20 %',true)}
+        <p class="v390-lead" style="margin-top:10px">G\u00e9n\u00e9rique \u2192 au taux de remise standard. Sortie hospitali\u00e8re \u2192 au forfait/bo\u00eete ci-dessus.</p>
+      </div>
+
+      <div class="v390-save-row">
+        <button class="v390-save" type="button">Enregistrer + Recalculer</button>
+        <span class="v390-status" style="font-size:13px"></span>
+      </div>
+    </div>`;
+  }
+
+  function applyDetail(block, d){
+    d = Object.assign({}, DEF, d||{});
+    block.querySelectorAll('.v390-seg button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-v')===d.base_calcul));
+    function setCat(key, on){
+      const c=block.querySelector(`.v390-cat[data-cat="${key}"]`); if(!c) return;
+      c.querySelector('.v390-toggle').checked=!!on;
+      c.classList.toggle('active',!!on);
+      c.querySelector('.v390-cat-state').textContent = on ? 'Activ\u00e9' : 'Non \u00e9ligible';
+    }
+    setCat('generique', d.generique_actif);
+    setCat('hospi', d.sortie_hospi_actif);
+    setCat('princeps', d.princeps_actif);
+    setCat('tva20', d.tva20_actif);
+    function setScope(key,sc,mode,taux){
+      const g=block.querySelector(`.v390-choice[data-cat="${key}"][data-scope="${sc}"]`); if(!g) return;
+      g.querySelectorAll('input[type=radio]').forEach(r=>{ r.checked=(r.value===mode); });
+      g.querySelectorAll('.v390-opt').forEach(o=>o.classList.toggle('sel',o.querySelector('input').checked));
+      const box=g.querySelector('.v390-taux'), inp=box.querySelector('input'), isT=(mode==='taux');
+      box.classList.toggle('off',!isT); inp.disabled=!isT; inp.value=taux||0;
+    }
+    setScope('princeps','rem',d.princeps_rem_mode,d.princeps_rem_taux);
+    setScope('princeps','norem',d.princeps_norem_mode,d.princeps_norem_taux);
+    setScope('tva20','rem',d.tva20_rem_mode,d.tva20_rem_taux);
+    setScope('tva20','norem',d.tva20_norem_mode,d.tva20_norem_taux);
+  }
+
+  function attach(block, source){
+    block.querySelectorAll('.v390-seg button').forEach(b=>{
+      b.addEventListener('click',()=>{ block.querySelectorAll('.v390-seg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
+    });
+    block.querySelectorAll('.v390-toggle').forEach(t=>{
+      t.addEventListener('change',()=>{
+        const c=t.closest('.v390-cat');
+        c.classList.toggle('active',t.checked);
+        c.querySelector('.v390-cat-state').textContent = t.checked ? 'Activ\u00e9' : 'Non \u00e9ligible';
+      });
+    });
+    block.querySelectorAll('.v390-choice').forEach(g=>{
+      const box=g.querySelector('.v390-taux'), inp=box.querySelector('input');
+      function sync(){
+        g.querySelectorAll('.v390-opt').forEach(o=>o.classList.toggle('sel',o.querySelector('input').checked));
+        const isT=g.querySelector('input[value=taux]').checked;
+        box.classList.toggle('off',!isT); inp.disabled=!isT;
+      }
+      g.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',sync));
+      sync();
+    });
+    const btn = block.querySelector('.v390-save');
+    if (btn) btn.addEventListener('click',()=>save(block, source));
+  }
+
+  async function save(block, source){
+    const status = block.querySelector('.v390-status');
+    status.textContent='\u23f3 Enregistrement...'; status.style.color='#888';
+    const baseBtn = block.querySelector('.v390-seg button.on');
+    const base = baseBtn ? baseBtn.getAttribute('data-v') : 'facture';
+    const catOn = k => { const c=block.querySelector(`.v390-cat[data-cat="${k}"] .v390-toggle`); return c?c.checked:false; };
+    const mode = (k,sc) => { const r=block.querySelector(`input[name="v390-${k}-${sc}"]:checked`); return r?r.value:'exclu'; };
+    const taux = (k,sc) => { const e=block.querySelector(`.v390-choice[data-cat="${k}"][data-scope="${sc}"] .v390-taux input`); return e?(parseFloat(e.value)||0):0; };
+    const detail = {
+      base_calcul: base,
+      generique_actif: catOn('generique'),
+      sortie_hospi_actif: catOn('hospi'),
+      princeps_actif: catOn('princeps'),
+      princeps_rem_mode: mode('princeps','rem'), princeps_rem_taux: taux('princeps','rem'),
+      princeps_norem_mode: mode('princeps','norem'), princeps_norem_taux: taux('princeps','norem'),
+      tva20_actif: catOn('tva20'),
+      tva20_rem_mode: mode('tva20','rem'), tva20_rem_taux: taux('tva20','rem'),
+      tva20_norem_mode: mode('tva20','norem'), tva20_norem_taux: taux('tva20','norem')
+    };
+    const num = (sel,def)=>{ const e=block.querySelector(sel); const v=e?parseFloat(e.value):NaN; return isNaN(v)?def:v; };
+    let cfgPayload = Object.assign({}, (window._v390CfgBySource && window._v390CfgBySource[source]) || {}, {
+      source: source, recalculer:true, mode_calcul:'detail',
+      seuil_cher:num('.v390-seuil-cher',465), forfait_cher:num('.v390-forfait-cher',10),
+      seuil_sortie_hospi:num('.v390-seuil-hospi',1500), forfait_sortie_hospi:num('.v390-forfait-hospi',50)
+    });
+    const tEl = document.getElementById('p-taux'); if (tEl) cfgPayload.taux_remise_pct = parseFloat(tEl.value)||0;
+    try {
+      const T = tk();
+      await fetch(`${API}/grossiste/config-detail/${source}`, {method:'POST',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(detail)});
+      await fetch(`${API}/grossiste/config-v3`, {method:'PUT',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(cfgPayload)});
+      status.textContent='\u2713 Enregistr\u00e9'; status.style.color='#1D9E75';
+      window._v307ConfigCache=null;
+    } catch(e){ status.textContent='\u2717 '+(e.message||'erreur'); status.style.color='#c0392b'; }
+  }
+
+  async function inject(){
+    const buttons = [...document.querySelectorAll('button')].filter(b => /^Sauvegarder\s+(CERP|OCP|Alliance|ALLIANCE)$/i.test(b.textContent.trim()));
+    if (!buttons.length) return;
+    if (!window._v307ConfigCache || Date.now() - (window._v307CacheTs||0) > 30000) {
+      try { window._v307ConfigCache = await apiGet('/grossiste/config-v3'); window._v307CacheTs = Date.now(); } catch(e){ return; }
     }
     const configs = window._v307ConfigCache || [];
-
+    window._v390CfgBySource = {};
+    configs.forEach(c => { if (c && c.source) window._v390CfgBySource[c.source] = c; });
+    ensureStyle();
     buttons.forEach(btn => {
       const txt = btn.textContent.toLowerCase();
-      let source = null;
-      if (txt.includes('cerp')) source = 'cerp';
-      else if (txt.includes('alliance')) source = 'alliance';
-      else if (txt.includes('ocp')) source = 'ocp';
+      let source = txt.includes('cerp')?'cerp':txt.includes('alliance')?'alliance':txt.includes('ocp')?'ocp':null;
       if (!source) return;
-
-      let container = btn.closest('.tab-content, .card, [class*="config"]') || btn.parentElement?.parentElement;
-      if (!container) container = btn.parentElement;
-
-      // Anti-doublon (toutes versions)
-      if (container.querySelector(`.v307-remises-block[data-v307-source="${source}"]`)) return;
-      // Supprimer les anciens blocs v3xx
-      container.querySelectorAll('.v300-remises-block, .v301-remises-block, .v307-remises-block').forEach(el => {
-        if (el.classList.contains('v307-remises-block')) return; // garde les v307
-        el.remove();
-      });
-
+      const card = btn.closest('.card') || btn.parentElement;
+      if (!card) return;
+      if (card.querySelector(`.v390-block[data-v307-source="${source}"]`)) return;
+      card.querySelectorAll('.v300-remises-block, .v301-remises-block, .v307-remises-block').forEach(el => el.remove());
       const cfg = configs.find(c => c.source === source);
-      const html = _renderRemisesV307Block(cfg, source);
-
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = html.trim();
-      const newBlock = wrapper.firstElementChild;
-
-      const btnRow = btn.closest('div');
-      if (btnRow && btnRow.parentElement) {
-        btnRow.parentElement.insertBefore(newBlock, btnRow.nextSibling);
-      } else {
-        btn.parentElement.appendChild(newBlock);
-      }
-
-      _attachV307Handlers(newBlock, source);
+      const wrap = document.createElement('div');
+      wrap.innerHTML = render(cfg, source).trim();
+      const block = wrap.firstElementChild;
+      card.appendChild(block);
+      attach(block, source);
+      apiGet(`/grossiste/config-detail/${source}`).then(d => applyDetail(block, d)).catch(()=>{});
     });
   }
 
-  setInterval(_injectRemisesV307, 1500);
-
-  // Cacher anciennes cases
-  function _cleanupOldExclusionCheckboxes() {
-    const TO_HIDE = ['Exclure TVA 20%', 'Exclure biosimilaires', 'Exclure frigo', 'Exclure stupéfiants'];
-    [...document.querySelectorAll('label')].forEach(lbl => {
-      if (lbl.closest('.v307-remises-block')) return;
-      const txt = lbl.textContent.trim();
-      if (TO_HIDE.some(t => txt === t)) {
-        lbl.style.display = 'none';
-      }
-    });
-  }
-  setInterval(_cleanupOldExclusionCheckboxes, 1500);
+  setInterval(inject, 1500);
 })();
 
 
