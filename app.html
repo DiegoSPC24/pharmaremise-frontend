@@ -651,13 +651,18 @@ async function init() {
 function logout() { localStorage.clear(); window.location.href = '/index.html' }
 
 function goTo(screen, btn) {
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
-  document.getElementById('screen-'+screen).classList.add('active')
+  /* V372_NAV_SYNC : surlignage ET page derives du meme 'screen' -> plus de desync */
+  const scr = document.getElementById('screen-'+screen)
+  if (!scr) return
   CURRENT_SCREEN = screen
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  scr.classList.add('active')
+  document.querySelectorAll('.nav-item').forEach(b => {
+    const on = b.getAttribute('onclick') || ''
+    b.classList.toggle('active', on.indexOf("'" + screen + "'") !== -1)
+  })
   const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
-  document.getElementById('topbar-title').textContent = titles[screen] || screen
+  const tt = document.getElementById('topbar-title'); if (tt) tt.textContent = titles[screen] || screen
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
   if (screen === 'parametres')  loadParametres()
