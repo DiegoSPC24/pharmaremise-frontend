@@ -2919,7 +2919,7 @@ function _renderParametres() {
       <div class="tabs">
         ${['cerp','alliance','ocp'].map(s => `
           <button class="tab-btn ${s===source?'active':''}" onclick="_PARAM_TAB='${s}';_renderParametres()" style="${s===source?'color:'+SOURCE_COLORS[s]:''}">
-            ${SOURCE_RANG[s]} — ${SOURCE_LABELS[s]}
+            ${SOURCE_LABELS[s]}
           </button>`).join('')}
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
@@ -6345,7 +6345,9 @@ async function showLogDetail(logId) {
     princeps_actif:false, princeps_rem_mode:'exclu', princeps_rem_taux:0,
     princeps_norem_mode:'exclu', princeps_norem_taux:0,
     tva20_actif:false, tva20_rem_mode:'exclu', tva20_rem_taux:0,
-    tva20_norem_mode:'exclu', tva20_norem_taux:0
+    tva20_norem_mode:'exclu', tva20_norem_taux:0,
+    biosim_actif:false, biosim_rem_mode:'exclu', biosim_rem_taux:0,
+    biosim_norem_mode:'exclu', biosim_norem_taux:0 /* V391_BIOSIM */
   };
   const tk = () => localStorage.getItem('pharmaremise_token');
 
@@ -6463,6 +6465,7 @@ async function showLogDetail(logId) {
         ${catRow('hospi','Sortie hospitali\u00e8re',false)}
         ${catRow('princeps','Princeps',true)}
         ${catRow('tva20','TVA 20 %',true)}
+        ${catRow('biosim','Biosimilaire',true)}
         <p class="v390-lead" style="margin-top:10px">G\u00e9n\u00e9rique \u2192 au taux de remise standard. Sortie hospitali\u00e8re \u2192 au forfait/bo\u00eete ci-dessus.</p>
       </div>
 
@@ -6486,6 +6489,7 @@ async function showLogDetail(logId) {
     setCat('hospi', d.sortie_hospi_actif);
     setCat('princeps', d.princeps_actif);
     setCat('tva20', d.tva20_actif);
+    setCat('biosim', d.biosim_actif);
     function setScope(key,sc,mode,taux){
       const g=block.querySelector(`.v390-choice[data-cat="${key}"][data-scope="${sc}"]`); if(!g) return;
       g.querySelectorAll('input[type=radio]').forEach(r=>{ r.checked=(r.value===mode); });
@@ -6497,6 +6501,8 @@ async function showLogDetail(logId) {
     setScope('princeps','norem',d.princeps_norem_mode,d.princeps_norem_taux);
     setScope('tva20','rem',d.tva20_rem_mode,d.tva20_rem_taux);
     setScope('tva20','norem',d.tva20_norem_mode,d.tva20_norem_taux);
+    setScope('biosim','rem',d.biosim_rem_mode,d.biosim_rem_taux);
+    setScope('biosim','norem',d.biosim_norem_mode,d.biosim_norem_taux);
   }
 
   function attach(block, source){
@@ -6541,7 +6547,10 @@ async function showLogDetail(logId) {
       princeps_norem_mode: mode('princeps','norem'), princeps_norem_taux: taux('princeps','norem'),
       tva20_actif: catOn('tva20'),
       tva20_rem_mode: mode('tva20','rem'), tva20_rem_taux: taux('tva20','rem'),
-      tva20_norem_mode: mode('tva20','norem'), tva20_norem_taux: taux('tva20','norem')
+      tva20_norem_mode: mode('tva20','norem'), tva20_norem_taux: taux('tva20','norem'),
+      biosim_actif: catOn('biosim'),
+      biosim_rem_mode: mode('biosim','rem'), biosim_rem_taux: taux('biosim','rem'),
+      biosim_norem_mode: mode('biosim','norem'), biosim_norem_taux: taux('biosim','norem')
     };
     const num = (sel,def)=>{ const e=block.querySelector(sel); const v=e?parseFloat(e.value):NaN; return isNaN(v)?def:v; };
     let cfgPayload = Object.assign({}, (window._v390CfgBySource && window._v390CfgBySource[source]) || {}, {
