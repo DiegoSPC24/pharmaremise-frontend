@@ -825,33 +825,185 @@ function refreshData() { goTo(CURRENT_SCREEN, document.querySelector('.nav-item.
 let _ACCUEIL_MODE = 'periode'  // 'periode' ou 'annee'
 let _ACCUEIL_DATA = null
 
+/* V370_TRESORERIE : Accueil = suivi remises attendues vs percues */
+let _TRESO_ANNEE = (typeof CURRENT_ANNEE !== 'undefined' && CURRENT_ANNEE) ? CURRENT_ANNEE : new Date().getFullYear()
+const _MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+
 async function loadAccueil() {
   const el = document.getElementById('accueil-content')
-  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement dashboard...</div>'
-
-  // Déterminer les dates selon le mode
-  let dateDebut, dateFin
-  if (_ACCUEIL_MODE === 'annee') {
-    const y = new Date().getFullYear()
-    dateDebut = `${y}-01-01`
-    dateFin = `${y}-12-31`
-  } else if (_PERIODE_MODE && _PERIODE_DEBUT && _PERIODE_FIN) {
-    dateDebut = `${_PERIODE_DEBUT.annee}-${String(_PERIODE_DEBUT.mois).padStart(2,'0')}-01`
-    const lastDay = new Date(_PERIODE_FIN.annee, _PERIODE_FIN.mois, 0).getDate()
-    dateFin = `${_PERIODE_FIN.annee}-${String(_PERIODE_FIN.mois).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
-  } else {
-    dateDebut = `${CURRENT_ANNEE}-${String(CURRENT_MOIS).padStart(2,'0')}-01`
-    const lastDay = new Date(CURRENT_ANNEE, CURRENT_MOIS, 0).getDate()
-    dateFin = `${CURRENT_ANNEE}-${String(CURRENT_MOIS).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
-  }
-
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  const annee = _TRESO_ANNEE
+  const mois = [1,2,3,4,5,6,7,8,9,10,11,12]
   try {
-    const data = await apiGet(`/accueil/dashboard?date_debut=${dateDebut}&date_fin=${dateFin}`)
-    _ACCUEIL_DATA = { data, dateDebut, dateFin }
-    renderAccueilPage()
+    const results = await Promise.all([
+      apiGet(`/grossiste/remise-annuelle?annee=${annee}`).catch(()=>({par_mois:{}})),
+      apiGet(`/grossiste/tresorerie?annee=${annee}`).catch(()=>[]),
+      ...mois.map(m => apiGet(`/generiqueur/synthese?mois=${m}&annee=${annee}`).catch(()=>({})))
+    ])
+    const gAnnuel = results[0] || {par_mois:{}}
+    const percus = results[1] || []
+    const genSynth = results.slice(2)
+    const attendu = { grossiste:{}, generique:{} }
+    const percu = { grossiste:{}, generique:{} }
+    const rattrapage = { grossiste:[], generique:[] }
+    mois.forEach((m,i)=>{
+      attendu.grossiste[m] = (gAnnuel.par_mois && gAnnuel.par_mois[m]) || 0
+      const t = (genSynth[i] && genSynth[i].totaux) || {}
+      attendu.generique[m] = t.remise_totale || t.remise_totale_e || 0
+    })
+    percus.forEach(r=>{
+      const ty = (r.type === 'generique') ? 'generique' : 'grossiste'
+      if (r.is_rattrapage) rattrapage[ty].push(r)
+      else percu[ty][r.mois] = r
+    })
+    el.innerHTML = _renderTreso(annee, attendu, percu, rattrapage)
   } catch(e) {
-    el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement du dashboard</div>'
+    el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
+    console.error(e)
   }
+}
+
+function _sommeAttendu(att){ let s=0; for(let m=1;m<=12;m++) s += (att[m]||0); return s }
+function _sommePercuMois(pc){ let s=0; for(let m=1;m<=12;m++) s += (pc[m] ? (pc[m].montant_ht||0) : 0); return s }
+function _sommeRattrapage(rl){ return (rl||[]).reduce((a,r)=>a+(r.montant_ht||0),0) }
+
+function _renderTreso(annee, attendu, percu, rattrapage){
+  const dehorsG = _sommeAttendu(attendu.grossiste) - _sommePercuMois(percu.grossiste) - _sommeRattrapage(rattrapage.grossiste)
+  const dehorsGen = _sommeAttendu(attendu.generique) - _sommePercuMois(percu.generique) - _sommeRattrapage(rattrapage.generique)
+  const dehorsTotal = dehorsG + dehorsGen
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+    <div>
+      <div style="font-size:20px;font-weight:700">Suivi des remises arrière</div>
+      <div style="font-size:13px;color:var(--sub)">Remise attendue (calculée) vs perçue (saisie) — tout en HT</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="_changerAnneeTreso(-1)">◂</button>
+      <span style="font-size:18px;font-weight:700;min-width:64px;text-align:center">${annee}</span>
+      <button class="btn btn-outline btn-sm" onclick="_changerAnneeTreso(1)">▸</button>
+    </div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi-card" style="border:1.5px solid #E8A33D"><div class="kpi-lbl">💰 Argent dehors (total)</div><div class="kpi-val" style="font-size:24px;color:#E8A33D;font-weight:700">${eur(dehorsTotal)}</div><div style="font-size:11px;color:var(--sub)">attendu non encore perçu</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:18px">${eur(dehorsG)}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:18px">${eur(dehorsGen)}</div></div>
+  </div>
+  ${_tableTreso('grossiste','🚚 Grossistes', attendu.grossiste, percu.grossiste, rattrapage.grossiste)}
+  ${_tableTreso('generique','💊 Génériqueurs', attendu.generique, percu.generique, rattrapage.generique)}
+  `
+}
+
+function _tableTreso(type, titre, attendu, percu, rattrapage){
+  let rows = '', totAtt = 0, totPercu = 0
+  for(let m=1;m<=12;m++){
+    const att = attendu[m]||0
+    const pc = percu[m]
+    const pcHt = pc ? (pc.montant_ht||0) : 0
+    const diff = att - pcHt
+    totAtt += att; totPercu += pcHt
+    const dateStr = (pc && pc.date_encaissement) ? ` <span style="font-size:10px;color:var(--sub)">(${pc.date_encaissement})</span>` : ''
+    const diffColor = Math.abs(diff) < 0.01 ? 'var(--sub)' : (diff > 0 ? '#E8A33D' : 'var(--green)')
+    rows += `<tr>
+      <td>${_MOIS_NOMS[m-1]}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(att)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${pc ? eur(pcHt) : '—'}${dateStr}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:${diffColor}">${eur(diff)}</td>
+      <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="_saisirPercu('${type}',${m})">${pc ? '✏️' : 'Saisir'}</button></td>
+    </tr>`
+  }
+  let ratRows = ''
+  ;(rattrapage||[]).forEach(r=>{
+    const d = r.date_encaissement ? ` <span style="font-size:10px;color:var(--sub)">(${r.date_encaissement})</span>` : ''
+    ratRows += `<tr style="background:#FFFBEB">
+      <td>↳ Rattrapage${r.libelle ? ' — '+r.libelle : ''}</td>
+      <td></td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(r.montant_ht||0)}${d}</td>
+      <td></td>
+      <td style="text-align:right"><button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="_supprRattrapage('${r.id}')">✕</button></td>
+    </tr>`
+  })
+  const totRat = _sommeRattrapage(rattrapage)
+  const totDiff = totAtt - totPercu - totRat
+  return `<div class="card" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:16px;font-weight:700">${titre}</div>
+      <button class="btn btn-outline btn-sm" onclick="_saisirRattrapage('${type}')">+ Rattrapage fin d'année</button>
+    </div>
+    <table>
+      <thead><tr><th>Mois</th><th style="text-align:right">Remise attendue</th><th style="text-align:right">Remise perçue (HT)</th><th style="text-align:right">Différence</th><th></th></tr></thead>
+      <tbody>${rows}${ratRows}</tbody>
+      <tfoot><tr style="font-weight:700;border-top:2px solid var(--green)">
+        <td>TOTAL</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${eur(totAtt)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(totPercu+totRat)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${totDiff>0?'#E8A33D':'var(--green)'}">${eur(totDiff)}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>
+  </div>`
+}
+
+function _changerAnneeTreso(d){ _TRESO_ANNEE += d; loadAccueil() }
+function _fermerModalTreso(){ const o=document.getElementById('treso-modal'); if(o) o.remove() }
+function _saisirPercu(type, mois){ _modalTreso(type, mois, false) }
+function _saisirRattrapage(type){ _modalTreso(type, 0, true) }
+
+function _modalTreso(type, mois, isRat){
+  _fermerModalTreso()
+  const tt = (type==='generique') ? 'Génériqueur' : 'Grossiste'
+  const titre = isRat ? ('Rattrapage — '+tt) : ('Remise perçue — '+tt+' — '+_MOIS_NOMS[mois-1])
+  const o = document.createElement('div')
+  o.id = 'treso-modal'
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999'
+  o.onclick = _fermerModalTreso
+  o.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-width:92vw" onclick="event.stopPropagation()">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">${titre}</div>
+    ${isRat ? `<label style="font-size:12px;color:var(--sub)">Libellé (optionnel)</label><input id="tr-lib" type="text" placeholder="ex : RFA 2024" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">` : ''}
+    <label style="font-size:12px;color:var(--sub)">Date d'encaissement</label>
+    <input id="tr-date" type="date" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">
+    <label style="font-size:12px;color:var(--sub)">Montant saisi en</label>
+    <div style="display:flex;gap:10px;margin:6px 0 10px">
+      <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ht" checked> HT</label>
+      <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ttc"> TTC (→ HT à 20%)</label>
+    </div>
+    <input id="tr-montant" type="number" step="0.01" placeholder="0.00" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:18px;box-sizing:border-box">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="_fermerModalTreso()">Annuler</button>
+      <button class="btn btn-green btn-sm" onclick="_enregistrerPercu('${type}',${mois},${isRat?1:0})">Enregistrer</button>
+    </div>
+  </div>`
+  document.body.appendChild(o)
+}
+
+async function _enregistrerPercu(type, mois, isRat){
+  const montant = parseFloat((document.getElementById('tr-montant')||{}).value || '0') || 0
+  const baseEl = document.querySelector('input[name="tr-base"]:checked')
+  const base = baseEl ? baseEl.value : 'ht'
+  const date = (document.getElementById('tr-date')||{}).value || null
+  const libEl = document.getElementById('tr-lib')
+  const lib = libEl ? (libEl.value || null) : null
+  let ht, ttc
+  if (base === 'ttc') { ttc = montant; ht = Math.round((montant/1.20)*100)/100 }
+  else { ht = montant; ttc = Math.round((montant*1.20)*100)/100 }
+  try {
+    await apiPost('/grossiste/tresorerie', {
+      type: type, annee: _TRESO_ANNEE, mois: isRat ? 0 : mois,
+      is_rattrapage: !!isRat, libelle: lib, date_encaissement: date,
+      montant_ttc: ttc, montant_ht: ht
+    })
+    _fermerModalTreso()
+    toast('Enregistré', 'green')
+    loadAccueil()
+  } catch(e) { toast('Erreur lors de l\'enregistrement', 'red'); console.error(e) }
+}
+
+async function _supprRattrapage(id){
+  if (!confirm('Supprimer ce rattrapage ?')) return
+  try {
+    await fetch(`${API}/grossiste/tresorerie/${id}`, { method:'DELETE', headers:{ Authorization:`Bearer ${TOKEN}` } })
+    toast('Supprimé', 'green')
+    loadAccueil()
+  } catch(e) { toast('Erreur', 'red') }
 }
 
 function renderAccueilPage() {
