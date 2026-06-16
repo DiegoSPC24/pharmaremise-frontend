@@ -663,12 +663,13 @@ function goTo(screen, btn) {
     const on = b.getAttribute('onclick') || ''
     b.classList.toggle('active', on.indexOf("'" + screen + "'") !== -1)
   })
-  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres' }
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires' }
   const tt = document.getElementById('topbar-title'); if (tt) tt.textContent = titles[screen] || screen
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
   if (screen === 'parametres')  loadParametres()
   if (screen === 'comparateur') loadComparateur()
+  if (screen === 'biosimilaires') loadBiosimilaires()
 }
 
 function onMoisChange() {
@@ -5006,6 +5007,7 @@ async function loadAdminDashboard() {
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
           <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')">🧬 Biosimilaires</button>
         </div>
       </div>
     `;
@@ -5441,6 +5443,8 @@ function adminGoTo(section) {
       screenId = 'screen-admin-pharmacies'; title = 'Admin — Pharmacies'; loader = loadAdminPharmacies; break;
     case 'classifications':
       screenId = 'screen-admin-classifications'; title = 'Admin — Classifications'; loader = loadAdminClassifications; break;
+    case 'biosimilaires':
+      screenId = 'screen-admin-biosimilaires'; title = 'Admin — Biosimilaires'; loader = loadAdminBiosimilaires; break;
     default:
       screenId = 'screen-admin-dashboard'; title = 'Admin'; loader = loadAdminDashboard;
   }
@@ -5552,6 +5556,7 @@ async function loadAdminDashboardReseau() {
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
           <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')">🧬 Biosimilaires</button>
         </div>
       </div>
     `;
@@ -8098,6 +8103,187 @@ async function showLogDetail(logId) {
 
 
 /* masquage fournisseur V319 retire — remplace par filtre actif/inactif V322 */
+
+
+/* >>> V394_BIOSIM injected <<< */
+/* ===================== V394_BIOSIM_SCREENS ===================== */
+(function(){
+  if (window.__v394_biosim) return; window.__v394_biosim = true;
+
+  function injectNav(){
+    if (document.getElementById('nav-biosim')) return;
+    var gen = document.getElementById('nav-generiqueur');
+    if (!gen) return;
+    gen.insertAdjacentHTML('afterend',
+      '<button class="nav-item" id="nav-biosim" onclick="goTo(\'biosimilaires\',this)"><span class="icon">\uD83E\uDDEC</span> Biosimilaires</button>');
+  }
+  function injectScreens(){
+    var ref = document.getElementById('screen-grossiste');
+    if (!ref) return;
+    var parent = ref.parentNode;
+    if (!document.getElementById('screen-biosimilaires')){
+      var s1 = document.createElement('div'); s1.id='screen-biosimilaires'; s1.className='screen';
+      s1.innerHTML = '<div id="biosim-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>';
+      parent.appendChild(s1);
+    }
+    if (!document.getElementById('screen-admin-biosimilaires')){
+      var s2 = document.createElement('div'); s2.id='screen-admin-biosimilaires'; s2.className='screen';
+      s2.innerHTML = '<div id="admin-biosim-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>';
+      parent.appendChild(s2);
+    }
+  }
+  injectNav(); injectScreens();
+  setInterval(function(){ injectNav(); injectScreens(); }, 1500);
+
+  function eurx(v){ try { return eur(v); } catch(e){ return (parseFloat(v||0)).toFixed(2)+' \u20AC'; } }
+  function esc(s){ try { return escapeHtml(s); } catch(e){ return (s==null?'':String(s)); } }
+  function val(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+
+  function kpi(label, value){
+    return '<div class="card" style="flex:1;min-width:150px;margin-bottom:0">'
+      + '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">'+label+'</div>'
+      + '<div style="font-size:22px;font-weight:700;margin-top:4px">'+value+'</div></div>';
+  }
+  function inp(id, ph){
+    return '<input id="'+id+'" placeholder="'+ph+'" style="padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px;width:100%;font-family:inherit"/>';
+  }
+
+  /* ---------- Pharmacien : biosimilaires consommes + parts de marche ---------- */
+  window.loadBiosimilaires = async function(){
+    var el = document.getElementById('biosim-content'); if(!el) return;
+    el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+    try {
+      var url = '/grossiste/biosimilaires-consommes?annee='+CURRENT_ANNEE+(CURRENT_MOIS?('&mois='+CURRENT_MOIS):'');
+      var d = await apiGet(url);
+      if (!d || !d.lignes || d.lignes.length===0){
+        el.innerHTML = '<div class="card"><div class="card-title">\uD83E\uDDEC Biosimilaires consomm\u00e9s</div>'
+          + '<div style="color:var(--sub);padding:24px;text-align:center">Aucun biosimilaire consomm\u00e9 sur la p\u00e9riode.<br>'
+          + '<span style="font-size:12px">(V\u00e9rifie que le r\u00e9f\u00e9rentiel admin est rempli et que des factures grossistes sont import\u00e9es.)</span></div></div>';
+        return;
+      }
+      var kpis = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+        + kpi('Total HT biosimilaires', eurx(d.total_ht))
+        + kpi('Pr\u00e9sentations', d.nb_presentations)
+        + kpi('Laboratoires', d.nb_labos) + '</div>';
+
+      var maxht = Math.max.apply(null, d.parts_marche.map(function(p){return p.total_ht;}).concat([1]));
+      var parts = d.parts_marche.map(function(p){
+        var w = Math.round(100*p.total_ht/maxht);
+        return '<div style="margin-bottom:12px">'
+          + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
+          + '<span style="font-weight:600">'+esc(p.labo)+'</span>'
+          + '<span style="font-family:\'DM Mono\',monospace">'+p.part_pct+'% \u00b7 '+eurx(p.total_ht)+'</span></div>'
+          + '<div style="background:#eef2f0;border-radius:5px;height:10px"><div style="width:'+w+'%;height:10px;background:#2563EB;border-radius:5px"></div></div></div>';
+      }).join('');
+      var partsCard = '<div class="card"><div class="card-title">Parts de march\u00e9 par laboratoire</div>'+parts+'</div>';
+
+      var mols = d.molecules.map(function(m){
+        var rows = m.labos.map(function(x){
+          return '<tr><td>'+esc(x.labo)+'</td><td style="text-align:right">'+eurx(x.total_ht)+'</td>'
+            + '<td style="text-align:right;font-weight:600">'+x.part_pct+'%</td></tr>';
+        }).join('');
+        return '<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:5px">'
+          + esc(m.substance)+' <span style="color:var(--sub);font-weight:400">\u2014 '+eurx(m.total_ht)+'</span></div>'
+          + '<table class="admin-table" style="font-size:12px"><tbody>'+rows+'</tbody></table></div>';
+      }).join('');
+      var molCard = '<div class="card"><div class="card-title">R\u00e9partition par mol\u00e9cule</div>'+mols+'</div>';
+
+      var lr = d.lignes.map(function(l){
+        return '<tr><td>'+esc(l.nom)+'</td>'
+          + '<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+l.cip13+'</td>'
+          + '<td>'+esc(l.labo)+'</td>'
+          + '<td style="text-align:right">'+l.qte+'</td>'
+          + '<td style="text-align:right">'+l.remise_pct+'%</td>'
+          + '<td style="text-align:right">'+eurx(l.total_ht)+'</td>'
+          + '<td style="text-align:right">'+eurx(l.total_ht_remise)+'</td></tr>';
+      }).join('');
+      var lignesCard = '<div class="card"><div class="card-title">Lignes consomm\u00e9es ('+d.nb_presentations+')</div>'
+        + '<div style="overflow-x:auto"><table class="admin-table"><thead><tr>'
+        + '<th>Nom</th><th>CIP</th><th>Labo</th><th style="text-align:right">Qt\u00e9</th>'
+        + '<th style="text-align:right">Remise gross.</th><th style="text-align:right">Total HT</th>'
+        + '<th style="text-align:right">HT remis\u00e9</th></tr></thead><tbody>'+lr+'</tbody></table></div></div>';
+
+      el.innerHTML = kpis + partsCard + molCard + lignesCard;
+    } catch(e){
+      el.innerHTML = '<div class="card"><div style="color:var(--red);padding:16px">Erreur de chargement.</div></div>';
+    }
+  };
+
+  /* ---------- Admin : gestion du referentiel ---------- */
+  window.loadAdminBiosimilaires = async function(){
+    var el = document.getElementById('admin-biosim-content'); if(!el) return;
+    el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
+    try {
+      var d = await apiGet('/grossiste/admin/biosimilaires');
+      var items = (d && d.items) || [];
+
+      var importCard = '<div class="card"><div class="card-title">Import Excel</div>'
+        + '<div style="font-size:12px;color:var(--sub);margin-bottom:10px">Colonnes d\u00e9tect\u00e9es automatiquement : CIP13 \u00b7 Substance \u00b7 Laboratoire \u00b7 Nom \u00b7 R\u00e9f\u00e9rent princeps \u00b7 Dosage/forme.</div>'
+        + '<input type="file" id="biosim-file" accept=".xlsx,.xls" style="font-size:12px"/>'
+        + '<label style="font-size:12px;margin:0 10px"><input type="checkbox" id="biosim-replace"/> Remplacer tout le r\u00e9f\u00e9rentiel</label>'
+        + '<button class="admin-btn" onclick="importBiosimExcel()">\uD83D\uDCE5 Importer</button>'
+        + '<span id="biosim-import-msg" style="margin-left:10px;font-size:12px;color:var(--sub)"></span></div>';
+
+      var addCard = '<div class="card"><div class="card-title">Ajouter un biosimilaire</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
+        + inp('ab-cip','CIP13') + inp('ab-substance','Substance (mol\u00e9cule)') + inp('ab-labo','Laboratoire')
+        + inp('ab-nom','Nom biosimilaire') + inp('ab-princeps','R\u00e9f\u00e9rent princeps') + inp('ab-molecule','Dosage / forme')
+        + '</div><button class="admin-btn" style="margin-top:10px" onclick="addBiosim()">+ Ajouter</button></div>';
+
+      var rows = items.map(function(b){
+        return '<tr><td style="font-family:\'DM Mono\',monospace;font-size:11px">'+(b.cip13||'')+'</td>'
+          + '<td>'+esc(b.substance)+'</td><td>'+esc(b.labo)+'</td><td>'+esc(b.nom)+'</td><td>'+esc(b.princeps)+'</td>'
+          + '<td style="text-align:center"><button class="admin-btn danger" style="padding:4px 10px" onclick="deleteBiosim(\''+b.id+'\')">\u00d7</button></td></tr>';
+      }).join('');
+      var listCard = '<div class="card"><div class="card-title">R\u00e9f\u00e9rentiel ('+items.length+')</div>'
+        + '<div style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="admin-table"><thead><tr>'
+        + '<th>CIP</th><th>Substance</th><th>Labo</th><th>Nom</th><th>Princeps</th><th></th></tr></thead><tbody>'
+        + (rows || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">R\u00e9f\u00e9rentiel vide \u2014 importe ton fichier Excel.</td></tr>')
+        + '</tbody></table></div></div>';
+
+      el.innerHTML = importCard + addCard + listCard;
+    } catch(e){
+      el.innerHTML = '<div class="card"><div style="color:var(--red);padding:16px">Erreur (acc\u00e8s r\u00e9serv\u00e9 \u00e0 l\u2019administrateur).</div></div>';
+    }
+  };
+
+  window.addBiosim = async function(){
+    var body = { cip13:val('ab-cip'), substance:val('ab-substance'), labo:val('ab-labo'),
+                 nom:val('ab-nom'), princeps:val('ab-princeps'), molecule:val('ab-molecule') };
+    if (!body.cip13){ toast('CIP requis','red'); return; }
+    try {
+      var r = await apiPost('/grossiste/admin/biosimilaires', body);
+      if (r && r.success===false){ toast('Erreur ajout','red'); return; }
+      toast('Biosimilaire ajout\u00e9','green'); loadAdminBiosimilaires();
+    } catch(e){ toast('Erreur ajout','red'); }
+  };
+
+  window.deleteBiosim = async function(id){
+    try {
+      await fetch(API+'/grossiste/admin/biosimilaires/'+id, { method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN } });
+      toast('Supprim\u00e9','green'); loadAdminBiosimilaires();
+    } catch(e){ toast('Erreur','red'); }
+  };
+
+  window.importBiosimExcel = async function(){
+    var f = document.getElementById('biosim-file');
+    var msg = document.getElementById('biosim-import-msg');
+    if (!f || !f.files || !f.files[0]){ toast('Choisis un fichier','red'); return; }
+    var repl = document.getElementById('biosim-replace') && document.getElementById('biosim-replace').checked;
+    var fd = new FormData(); fd.append('file', f.files[0]);
+    if (msg) msg.textContent = 'Import en cours...';
+    try {
+      var r = await fetch(API+'/grossiste/admin/biosimilaires/import?remplacer='+(repl?'true':'false'),
+        { method:'POST', headers:{ Authorization:'Bearer '+TOKEN }, body:fd });
+      var j = await r.json();
+      if (!r.ok){ if(msg) msg.textContent=''; toast('Erreur : '+((j&&j.detail)||r.status),'red'); return; }
+      if (msg) msg.textContent = '';
+      toast('Import OK : '+j.total+' lignes ('+j.ajoutes+' ajout., '+j.mis_a_jour+' maj)','green');
+      loadAdminBiosimilaires();
+    } catch(e){ if(msg) msg.textContent=''; toast('Erreur r\u00e9seau','red'); }
+  };
+})();
+/* =================== FIN V394_BIOSIM_SCREENS =================== */
 
 </script>
 </body>
