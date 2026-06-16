@@ -1186,6 +1186,21 @@ function renderParGrossiste(parGrossiste) {
 }
 
 // ── GROSSISTE ──────────────────────────────────────────────────────────────
+/* V322_GROSSISTE_UI : repli factures + filtre par grossiste */
+function toggleFacturesGrossiste(btn){
+  const box = btn.nextElementSibling;
+  if(!box) return;
+  const willOpen = (box.style.display === 'none');
+  box.style.display = willOpen ? 'block' : 'none';
+  const n = btn.getAttribute('data-nb') || '';
+  btn.textContent = (willOpen ? '▾ Masquer' : '▸ Voir') + ' les ' + n + ' facture(s)';
+}
+function toggleSourceVisible(source, checked){
+  document.querySelectorAll('[data-grossiste-card="'+source+'"]').forEach(function(c){
+    c.style.display = checked ? '' : 'none';
+  });
+}
+
 async function loadGrossiste() {
   if (!MODULES.includes('grossiste')) { document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste'); return }
   const el = document.getElementById('grossiste-content')
@@ -1236,7 +1251,7 @@ async function loadGrossiste() {
       }).join('') :
         '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:16px">Aucune facture</td></tr>'
 
-      return `<div class="card" style="border-left:4px solid ${color}">
+      return `<div class="card" data-grossiste-card="${g.source}" style="border-left:4px solid ${color}">
         <div class="card-header">
           <div>
             <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</div>
@@ -1261,10 +1276,13 @@ async function loadGrossiste() {
             <div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div>
           </div>
         </div>
+        <button class="btn btn-outline btn-sm" data-nb="${fList.length}" onclick="toggleFacturesGrossiste(this)" style="margin-bottom:8px">▸ Voir les ${fList.length} facture(s)</button>
+        <div class="grossiste-factures" style="display:none">
         <table>
           <thead><tr><th style="width:30px"><input type="checkbox" class="f-check-all" onchange="toggleAllFactures(this)" /></th><th>Fichier</th><th>Total HT</th><th>Remise</th><th>Lignes</th><th>Statut</th><th></th></tr></thead>
           <tbody>${fRows}</tbody>
         </table>
+        </div>
       </div>`
     }).join('')
 
@@ -1285,6 +1303,10 @@ async function loadGrossiste() {
         <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('cerp')">📄 CERP</button>
         <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('ocp')">📄 OCP</button>
         <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('alliance')">📄 Alliance</button>
+      </div>
+      <div id="grossiste-filtres" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 14px;background:#fff;border:1px solid #eee;border-radius:8px">
+        <span style="font-size:12px;color:var(--sub);font-weight:600">Grossistes affichés :</span>
+        ${(synth.par_grossiste||[]).map(g => `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" checked onchange="toggleSourceVisible('${g.source}', this.checked)"> ${SOURCE_LABELS[g.source]||g.source}</label>`).join('')}
       </div>
       ${grossisteBlocs || '<div class="loading-center" style="color:var(--sub)">Aucune facture ce mois — déposez des factures</div>'}`
   } catch(e) { el.innerHTML = '<div class="loading-center">Erreur de chargement</div>'; console.error(e) }
@@ -7900,131 +7922,7 @@ async function showLogDetail(logId) {
 })();
 
 
-// === V319_FRONTEND_INJECTED_MARKER ===
-// ============================================================
-// v3.1.9 — Masquage fournisseur (mode confidentialite)
-// Remplace CERP / OCP / Alliance par des alias neutres dans toute l'UI.
-// 100% frontend, reversible (desactivation = rechargement).
-// ============================================================
-(function _v319_masquage() {
-  const LS_KEY = 'pharmaremise_masquage';
-  const DEFAULTS = { cerp: 'Grossiste A', ocp: 'Grossiste B', alliance: 'Grossiste C' };
-
-  function loadCfg() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
-    catch (e) { return {}; }
-  }
-  function saveCfg(c) { localStorage.setItem(LS_KEY, JSON.stringify(c)); }
-  function isOn() { return !!loadCfg().on; }
-  function aliasFor(key) {
-    const c = loadCfg();
-    const v = (c[key] || '').trim();
-    return v || DEFAULTS[key];
-  }
-
-  // --- Remplacement des noms dans le DOM (texte uniquement) ---
-  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'NOSCRIPT']);
-  // Un alias ne doit jamais contenir un nom de grossiste (sinon boucle de remplacement)
-  const DANGEROUS = /CERP|OCP|Alliance/i;
-
-  function maskOnce() {
-    if (!isOn()) return;
-    const aliases = { cerp: aliasFor('cerp'), ocp: aliasFor('ocp'), alliance: aliasFor('alliance') };
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const p = node.parentNode;
-        if (!p) return NodeFilter.FILTER_REJECT;
-        if (SKIP_TAGS.has(p.nodeName)) return NodeFilter.FILTER_REJECT;
-        // Ne pas toucher la carte de reglage (elle affiche les vrais noms comme libelles)
-        if (p.closest && p.closest('[data-masquage-card]')) return NodeFilter.FILTER_REJECT;
-        // Ne JAMAIS masquer les boutons "Sauvegarder CERP/OCP/Alliance" :
-        // le moteur de config V307 lit leur texte pour savoir quel grossiste sauver.
-        const btn = p.closest && p.closest('button');
-        if (btn && /Sauvegarder/i.test(btn.textContent)) return NodeFilter.FILTER_REJECT;
-        if (!/CERP|OCP|Alliance/i.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    });
-
-    const toFix = [];
-    let n;
-    while ((n = walker.nextNode())) toFix.push(n);
-
-    toFix.forEach(node => {
-      let t = node.nodeValue;
-      if (!DANGEROUS.test(aliases.cerp)) t = t.replace(/CERP/g, aliases.cerp);
-      if (!DANGEROUS.test(aliases.ocp)) t = t.replace(/OCP/g, aliases.ocp);
-      if (!DANGEROUS.test(aliases.alliance)) t = t.replace(/Alliance/gi, aliases.alliance);
-      if (t !== node.nodeValue) node.nodeValue = t;
-    });
-  }
-  setInterval(maskOnce, 1200);
-
-  // --- Carte de reglage, injectee dans Parametres -> Grossistes ---
-  function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
-
-  function injectCard() {
-    // On n'injecte la carte que sur l'ecran config grossiste (ancre = bloc remises V307)
-    const anchor = document.querySelector('.v307-remises-block');
-    if (!anchor) return;
-    if (document.querySelector('[data-masquage-card]')) return;
-
-    const c = loadCfg();
-    const card = document.createElement('div');
-    card.setAttribute('data-masquage-card', '1');
-    card.style.cssText = 'margin:0 0 20px 0; padding:20px; background:#f4f0ff; border:1px solid #d9caff; border-radius:10px;';
-    card.innerHTML =
-      '<div style="font-weight:600; color:#6b46c1; font-size:16px; margin-bottom:6px;">' +
-      '\uD83D\uDD76\uFE0F Mode confidentialite \u2014 masquage fournisseur</div>' +
-      '<div style="font-size:13px; color:#666; margin-bottom:14px;">Remplace les noms des grossistes ' +
-      '(CERP / OCP / Alliance) par des alias neutres partout dans l\'application. ' +
-      'Utile pour presenter l\'outil sans devoiler tes fournisseurs.</div>' +
-      '<label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:14px; font-size:14px;">' +
-      '<input type="checkbox" id="v319-on" ' + (c.on ? 'checked' : '') + '>' +
-      '<span>Activer le masquage</span></label>' +
-      '<div style="display:grid; grid-template-columns:90px 1fr; gap:10px 12px; align-items:center; max-width:420px;">' +
-      '<div style="font-size:14px; color:#555;">CERP \u2192</div>' +
-      '<input type="text" id="v319-cerp" value="' + esc(c.cerp) + '" placeholder="Grossiste A" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
-      '<div style="font-size:14px; color:#555;">OCP \u2192</div>' +
-      '<input type="text" id="v319-ocp" value="' + esc(c.ocp) + '" placeholder="Grossiste B" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
-      '<div style="font-size:14px; color:#555;">Alliance \u2192</div>' +
-      '<input type="text" id="v319-alliance" value="' + esc(c.alliance) + '" placeholder="Grossiste C" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px;">' +
-      '</div>' +
-      '<div style="margin-top:14px; display:flex; align-items:center; gap:12px;">' +
-      '<button id="v319-save" style="background:#6b46c1; color:white; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px;">Enregistrer</button>' +
-      '<span id="v319-status" style="font-size:13px;"></span></div>';
-
-    anchor.parentElement.insertBefore(card, anchor);
-
-    card.querySelector('#v319-save').addEventListener('click', () => {
-      const wasOn = isOn();
-      const cfg = {
-        on: card.querySelector('#v319-on').checked,
-        cerp: card.querySelector('#v319-cerp').value.trim(),
-        ocp: card.querySelector('#v319-ocp').value.trim(),
-        alliance: card.querySelector('#v319-alliance').value.trim(),
-      };
-      saveCfg(cfg);
-      const st = card.querySelector('#v319-status');
-      // Avertir si un alias contient encore un nom de grossiste (ne sera pas applique)
-      const bad = [cfg.cerp, cfg.ocp, cfg.alliance].some(a => a && DANGEROUS.test(a));
-      if (bad) {
-        st.textContent = '\u26A0\uFE0F Un alias contient un nom de grossiste : il sera ignore.';
-        st.style.color = '#c0392b';
-      } else {
-        st.textContent = '\u2713 Enregistre';
-        st.style.color = '#1D9E75';
-      }
-      // Desactivation -> on recharge pour restaurer les vrais noms proprement
-      if (wasOn && !cfg.on) {
-        st.textContent = '\u2713 Desactive \u2014 rechargement...';
-        setTimeout(() => location.reload(), 500);
-      }
-    });
-  }
-  setInterval(injectCard, 1200);
-})();
+/* masquage fournisseur V319 retire — remplace par filtre actif/inactif V322 */
 
 </script>
 </body>
