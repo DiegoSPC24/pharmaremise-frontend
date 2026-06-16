@@ -1201,6 +1201,25 @@ function toggleSourceVisible(source, checked){
   });
 }
 
+/* V351_DETAIL_REMISE : detail des 7 chiffres de remise arriere */
+function renderDetailRemise(d){
+  if(!d) return ''
+  const cat = d.non_eligible_detail || {}
+  const LBL = {generique:'Generiques', biosimilaire:'Biosimilaires', tva_20:'TVA 20%', tva_10:'TVA 10%', tva_5_5:'TVA 5,5%', remise_facture:'Remise facture', autre:'Autre'}
+  const catRows = Object.keys(cat).filter(k=>cat[k]>0).map(k=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px"><span>${LBL[k]||k}</span><span>${eur(cat[k])}</span></div>`).join('')
+  const tauxLbl = d.taux_remise_pct ? ` (${d.taux_remise_pct}%)` : ''
+  const forfaitLbl = (d.forfait_cher!=null && d.forfait_cher!==undefined) ? ` (${eur(d.forfait_cher)}/boite \u00d7 ${d.nb_boites_cher||0})` : ` (\u00d7 ${d.nb_boites_cher||0} boites)`
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px">
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total du mois</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_total)}</div></div>
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total non eligible</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_non_eligible)}</div>${catRows}</div>
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total eligible</div><div class="kpi-val green" style="font-size:18px">${eur(d.ca_eligible)}</div></div>
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total produits chers</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_produit_cher)}</div></div>
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise supplementaire${tauxLbl}</div><div class="kpi-val green" style="font-size:18px">${eur(d.remise_pct)}</div></div>
+    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise boites${forfaitLbl}</div><div class="kpi-val green" style="font-size:18px">${eur(d.remise_forfait)}</div></div>
+    <div class="kpi-card" style="padding:10px 14px;border:1.5px solid var(--green)"><div class="kpi-lbl">Total remise arriere</div><div class="kpi-val green" style="font-size:20px;font-weight:700">${eur(d.remise_totale)}</div></div>
+  </div>`
+}
+
 async function loadGrossiste() {
   if (!MODULES.includes('grossiste')) { document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste'); return }
   const el = document.getElementById('grossiste-content')
@@ -1221,6 +1240,13 @@ async function loadGrossiste() {
       if (!parSource[f.source]) parSource[f.source] = []
       parSource[f.source].push(f)
     })
+
+    // V351 : detail remise arriere (par grossiste + global)
+    let detail = null
+    if (!isPeriode) { try { detail = await apiGet(`/grossiste/synthese-detail?${p.params}`) } catch(e) { detail = null } }
+    const detailBySource = {}
+    if (detail && detail.par_grossiste) detail.par_grossiste.forEach(d => detailBySource[d.source] = d)
+    const detailGlobal = detail ? detail.global : null
 
     // Blocs par grossiste
     const grossisteBlocs = (synth.par_grossiste || []).map(g => {
@@ -1262,20 +1288,11 @@ async function loadGrossiste() {
             <div style="font-size:18px;font-weight:600;color:${color}">${g.taux_remise_pct}%</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-          <div class="kpi-card" style="padding:10px 14px">
-            <div class="kpi-lbl">CA total</div>
-            <div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div>
-          </div>
-          <div class="kpi-card" style="padding:10px 14px">
-            <div class="kpi-lbl">CA éligible</div>
-            <div class="kpi-val green" style="font-size:18px">${eur(g.ca_eligible)}</div>
-          </div>
-          <div class="kpi-card" style="padding:10px 14px">
-            <div class="kpi-lbl">Remise estimée</div>
-            <div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div>
-          </div>
-        </div>
+        ${detailBySource[g.source] ? renderDetailRemise(detailBySource[g.source]) : `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total</div><div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div></div>
+          <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green" style="font-size:18px">${eur(g.ca_eligible)}</div></div>
+          <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div></div>
+        </div>`}
         <button class="btn btn-outline btn-sm" data-nb="${fList.length}" onclick="toggleFacturesGrossiste(this)" style="margin-bottom:8px">▸ Voir les ${fList.length} facture(s)</button>
         <div class="grossiste-factures" style="display:none">
         <table>
@@ -1287,12 +1304,12 @@ async function loadGrossiste() {
     }).join('')
 
     el.innerHTML = `
-      <div class="kpi-grid">
+      ${detailGlobal ? `<div class="card" style="margin-bottom:20px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">📊 Synthese globale du mois — ${synth.nb_factures} facture(s)</div>${renderDetailRemise(detailGlobal)}</div>` : `<div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">CA total HT</div><div class="kpi-val">${eur(synth.ca_total)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(synth.ca_eligible)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
-      </div>
+      </div>`}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
