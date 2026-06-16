@@ -655,7 +655,9 @@ function goTo(screen, btn) {
   const scr = document.getElementById('screen-'+screen)
   if (!scr) return
   CURRENT_SCREEN = screen
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  /* V373_NAV_COMPO : on reprend la main sur le display EN LIGNE de tous les ecrans
+     (sinon les display:block/none poses par l'ecran injecte "Meilleur compo" persistent) */
+  document.querySelectorAll('[id^="screen-"]').forEach(s => { s.classList.remove('active'); s.style.display = (s === scr) ? '' : 'none' })
   scr.classList.add('active')
   document.querySelectorAll('.nav-item').forEach(b => {
     const on = b.getAttribute('onclick') || ''
@@ -5406,7 +5408,11 @@ function adminGoTo(section) {
     default:
       screenId = 'screen-admin-dashboard'; title = 'Admin'; loader = loadAdminDashboard;
   }
-  document.getElementById(screenId).classList.add('active');
+  const _aScr = document.getElementById(screenId);
+  _aScr.classList.add('active');
+  /* V373_NAV_COMPO : neutralise les display en ligne (ecran compo injecte) */
+  document.querySelectorAll('[id^="screen-"]').forEach(s => { if (s !== _aScr) s.style.display = 'none' });
+  _aScr.style.display = '';
   CURRENT_SCREEN = 'admin-' + section;
   document.getElementById('topbar-title').textContent = title;
   loader();
