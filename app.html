@@ -894,52 +894,54 @@ function _renderTreso(annee, attendu, percu, rattrapage){
 }
 
 function _tableTreso(type, titre, attendu, percu, rattrapage){
-  let rows = '', totAtt = 0, totPercu = 0
+  /* V371_TRESO_HORIZONTAL : mois en colonnes */
+  const ABBR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
+  let totAtt = 0, totPercu = 0
+  let thMois = '', rAtt = '', rPercu = '', rDiff = ''
   for(let m=1;m<=12;m++){
     const att = attendu[m]||0
     const pc = percu[m]
     const pcHt = pc ? (pc.montant_ht||0) : 0
     const diff = att - pcHt
     totAtt += att; totPercu += pcHt
-    const dateStr = (pc && pc.date_encaissement) ? ` <span style="font-size:10px;color:var(--sub)">(${pc.date_encaissement})</span>` : ''
     const diffColor = Math.abs(diff) < 0.01 ? 'var(--sub)' : (diff > 0 ? '#E8A33D' : 'var(--green)')
-    rows += `<tr>
-      <td>${_MOIS_NOMS[m-1]}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(att)}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${pc ? eur(pcHt) : '—'}${dateStr}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:${diffColor}">${eur(diff)}</td>
-      <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="_saisirPercu('${type}',${m})">${pc ? '✏️' : 'Saisir'}</button></td>
-    </tr>`
+    const dTitle = (pc && pc.date_encaissement) ? ('Encaissé le '+pc.date_encaissement+' — cliquer pour modifier') : 'Cliquer pour saisir'
+    const cell = 'text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 8px'
+    thMois += `<th style="text-align:right;min-width:80px;font-size:11px;padding:6px 8px;color:var(--sub)">${ABBR[m-1]}</th>`
+    rAtt += `<td style="${cell}">${eur(att)}</td>`
+    rPercu += `<td onclick="_saisirPercu('${type}',${m})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span style=\'color:var(--sub)\'>+ saisir</span>'}</td>`
+    rDiff += `<td style="${cell};color:${diffColor}">${eur(diff)}</td>`
   }
-  let ratRows = ''
-  ;(rattrapage||[]).forEach(r=>{
-    const d = r.date_encaissement ? ` <span style="font-size:10px;color:var(--sub)">(${r.date_encaissement})</span>` : ''
-    ratRows += `<tr style="background:#FFFBEB">
-      <td>↳ Rattrapage${r.libelle ? ' — '+r.libelle : ''}</td>
-      <td></td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(r.montant_ht||0)}${d}</td>
-      <td></td>
-      <td style="text-align:right"><button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="_supprRattrapage('${r.id}')">✕</button></td>
-    </tr>`
-  })
   const totRat = _sommeRattrapage(rattrapage)
   const totDiff = totAtt - totPercu - totRat
+  const stickH = 'position:sticky;left:0;background:#fff;z-index:2;padding:6px 10px;text-align:left'
+  const stickG = 'position:sticky;left:0;background:#fff;z-index:1;font-weight:600;white-space:nowrap;padding:6px 10px;text-align:left'
+  const totCell = 'text-align:right;font-family:\'DM Mono\',monospace;font-weight:700;padding:6px 10px;min-width:92px'
+  let ratHtml = ''
+  if((rattrapage||[]).length){
+    ratHtml = '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
+      + '<span style="font-size:11px;color:var(--sub);font-weight:600">Rattrapages :</span>'
+      + rattrapage.map(r=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:14px;padding:3px 10px;font-size:12px">${r.libelle?r.libelle+' · ':''}${eur(r.montant_ht||0)}${r.date_encaissement?` <span style="color:var(--sub);font-size:10px">(${r.date_encaissement})</span>`:''}<button onclick="_supprRattrapage('${r.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button></span>`).join('')
+      + '</div>'
+  }
   return `<div class="card" style="margin-top:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div style="font-size:16px;font-weight:700">${titre}</div>
       <button class="btn btn-outline btn-sm" onclick="_saisirRattrapage('${type}')">+ Rattrapage fin d'année</button>
     </div>
-    <table>
-      <thead><tr><th>Mois</th><th style="text-align:right">Remise attendue</th><th style="text-align:right">Remise perçue (HT)</th><th style="text-align:right">Différence</th><th></th></tr></thead>
-      <tbody>${rows}${ratRows}</tbody>
-      <tfoot><tr style="font-weight:700;border-top:2px solid var(--green)">
-        <td>TOTAL</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${eur(totAtt)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(totPercu+totRat)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:${totDiff>0?'#E8A33D':'var(--green)'}">${eur(totDiff)}</td>
-        <td></td>
-      </tr></tfoot>
-    </table>
+    <div style="overflow-x:auto">
+      <table style="border-collapse:collapse;min-width:100%">
+        <thead><tr style="border-bottom:1px solid #eee">
+          <th style="${stickH}"></th>${thMois}<th style="text-align:right;min-width:92px;padding:6px 10px;font-size:11px;color:var(--sub)">TOTAL</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="${stickG}">Remise attendue</td>${rAtt}<td style="${totCell}">${eur(totAtt)}</td></tr>
+          <tr><td style="${stickG}">Remise perçue (HT)</td>${rPercu}<td style="${totCell};color:var(--green)">${eur(totPercu+totRat)}</td></tr>
+          <tr style="border-top:2px solid var(--green)"><td style="${stickG}">Différence</td>${rDiff}<td style="${totCell};color:${totDiff>0?'#E8A33D':'var(--green)'}">${eur(totDiff)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    ${ratHtml}
   </div>`
 }
 
