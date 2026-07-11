@@ -567,6 +567,18 @@
 </div>
 
 <script>
+  
+  /* CLERK_SSO_GUARD_INDEX : sur le host SSO, on empêche les redirections
+     automatiques vers /app.html au chargement (laisse clerk-sso.js décider).
+     Les redirections déclenchées par un clic (doLogin/doRegister) restent OK. */
+  (function(){ if((location.hostname==='remise.pharmagestion.fr')){
+    var _int=false; document.addEventListener('click',function(){_int=true;},true);
+    var d=Object.getOwnPropertyDescriptor(window.Location.prototype,'href');
+    try{ Object.defineProperty(window.location,'href',{configurable:true,
+      get:function(){return d.get.call(window.location);},
+      set:function(u){ if(!_int && String(u).indexOf('/app.html')!==-1){ return; } d.set.call(window.location,u); }});
+    }catch(e){}
+  }})();
   const API = 'https://web-production-2202b.up.railway.app'
 
   function openModal(form) {

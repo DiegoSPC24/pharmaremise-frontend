@@ -598,7 +598,7 @@ let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = 3, CURRENT_ANNEE = 
 let PHARMACIE = null, CONFIGS_GROSSISTE = {}, depot_tab = 'grossiste'
 let _CURRENT_FACTURE_ID = null, _MODAL_CIP = null, _MODAL_NOM = ''
 
-if (!TOKEN) window.location.href = '/index.html'
+/* CLERK_SSO_GUARD_APP */ if (!TOKEN) { if (!(location.hostname==='remise.pharmagestion.fr')) { window.location.href = '/index.html'; } }
 
 async function apiGet(path) {
   const r = await fetch(`${API}${path}`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
