@@ -1,77 +1,87 @@
 /*
- * PharmaRemise — SSO Clerk (front statique)
+ * PharmaRemise — SSO Clerk (front statique) — v2 (anti-boucle)
  * ------------------------------------------------------------------
- * Ce script est ADDITIF et sûr :
- *   • Il ne s'active QUE sur le sous-domaine SSO (remise.pharmagestion.fr).
- *   • Sur pharmaremise.fr (ou en local), il ne fait RIEN : la connexion
- *     email/mot de passe historique continue de fonctionner à l'identique.
+ * Corrige le clignotement index.html <-> app.html :
+ *   - v1 redirigeait vers /app.html AVANT d'avoir posé le token, or app.html
+ *     fait `if(!TOKEN) location.href='/index.html'` -> boucle infinie.
+ *   - v2 pose un token SYNCHRONEMENT (sentinelle) avant que la garde d'app.html
+ *     s'exécute, attend vraiment le chargement de Clerk, puis remplace la
+ *     sentinelle par le vrai jeton, et ne redirige qu'UNE fois (drapeau).
  *
- * Deux comportements selon la page :
- *   • Landing (index.html)  -> "handshake" : si l'utilisateur est déjà connecté
- *     au hub (session Clerk partagée entre sous-domaines), on récupère un jeton,
- *     on le stocke comme 'pharmaremise_token' (contrat inchangé pour l'app) et on
- *     redirige vers /app.html. Sinon on l'envoie se connecter sur le hub.
- *   • App (app.html)        -> "bridge" : on monkey-patch window.fetch pour injecter
- *     un jeton Clerk FRAIS sur chaque appel API (couvre les 43 fetch d'un coup).
- *     Tant que Clerk n'est pas chargé, on retombe sur le jeton déjà stocké.
+ * Actif UNIQUEMENT sur remise.pharmagestion.fr. Ailleurs : ne fait rien
+ * (login email/mot de passe historique intact).
  */
 (function () {
   'use strict';
 
-  // --- Configuration ------------------------------------------------
   var PUBLISHABLE_KEY = 'pk_live_Y2xlcmsucGhhcm1hZ2VzdGlvbi5mciQ';
   var CLERK_FRONTEND_API = 'clerk.pharmagestion.fr';
   var HUB = 'https://pharmagestion.fr';
-  // Hôtes sur lesquels le SSO s'active (le reste = comportement legacy).
   var SSO_HOSTS = ['remise.pharmagestion.fr'];
-  // Hôte(s) de l'API PharmaRemise (Railway) : seuls ces appels reçoivent le jeton Clerk.
   var API_HOSTS = ['web-production-2202b.up.railway.app'];
 
-  var host = location.hostname;
-  if (SSO_HOSTS.indexOf(host) === -1) {
-    // Domaine non-SSO : on ne touche à rien.
-    return;
-  }
+  // Valeur "sentinelle" : neutralise la garde `if(!TOKEN)` d'app.html le temps
+  // que Clerk charge. Le bridge fetch la remplace par un vrai jeton Clerk.
+  var SENTINEL = '__clerk_pending__';
 
-  // --- Détection de la page ----------------------------------------
+  if (SSO_HOSTS.indexOf(location.hostname) === -1) return; // domaine non-SSO : no-op
+
   var p = location.pathname.replace(/\/+$/, '');
   var isLanding = (p === '' || p === '/index' || p === '/index.html');
 
-  // --- Bridge fetch (installé SYNCHRONEMENT, avant le script de l'app) ---
+  // ------------------------------------------------------------------
+  // 1) NEUTRALISER LA BOUCLE (synchrone, avant le script de la page)
+  //    Sur app.html : si aucun token, on pose la sentinelle pour que la garde
+  //    `if(!TOKEN) -> /index.html` ne se déclenche pas.
+  // ------------------------------------------------------------------
+  if (!isLanding) {
+    try {
+      if (!localStorage.getItem('pharmaremise_token')) {
+        localStorage.setItem('pharmaremise_token', SENTINEL);
+      }
+    } catch (e) {}
+  }
+
+  // ------------------------------------------------------------------
+  // 2) BRIDGE FETCH : injecte un jeton Clerk frais sur les appels API.
+  //    Tant que Clerk n'est pas prêt (ou token = sentinelle), on n'envoie
+  //    pas d'Authorization bidon : on laisse partir sans (l'app gèrera),
+  //    et dès que Clerk est prêt on injecte le vrai jeton.
+  // ------------------------------------------------------------------
   var _clerkReady = false;
   if (!isLanding) {
     var _origFetch = window.fetch.bind(window);
     window.fetch = async function (input, init) {
       init = init || {};
       try {
-        var url = typeof input === 'string'
-          ? input
-          : (input && input.url) ? input.url : String(input || '');
-        var targetsApi = API_HOSTS.some(function (h) { return url.indexOf(h) !== -1; });
-        if (targetsApi) {
+        var url = typeof input === 'string' ? input
+                : (input && input.url) ? input.url : String(input || '');
+        if (API_HOSTS.some(function (h) { return url.indexOf(h) !== -1; })) {
           var token = null;
           if (_clerkReady && window.Clerk && window.Clerk.session) {
-            try { token = await window.Clerk.session.getToken(); } catch (e) { token = null; }
+            try { token = await window.Clerk.session.getToken(); } catch (e) {}
           }
           if (!token) {
-            token = localStorage.getItem('pharmaremise_token'); // repli (encore valide ~1 min)
+            var stored = localStorage.getItem('pharmaremise_token');
+            if (stored && stored !== SENTINEL) token = stored;
           }
           if (token) {
             var headers = new Headers(
               (init && init.headers) ||
-              (typeof input !== 'string' && input && input.headers) ||
-              {}
+              (typeof input !== 'string' && input && input.headers) || {}
             );
             headers.set('Authorization', 'Bearer ' + token);
             init.headers = headers;
           }
         }
-      } catch (e) { /* on n'empêche jamais la requête de partir */ }
+      } catch (e) {}
       return _origFetch(input, init);
     };
   }
 
-  // --- Chargement de Clerk ------------------------------------------
+  // ------------------------------------------------------------------
+  // 3) Chargement de Clerk
+  // ------------------------------------------------------------------
   function loadClerk() {
     return new Promise(function (resolve, reject) {
       if (window.Clerk) { resolve(window.Clerk); return; }
@@ -86,6 +96,16 @@
     });
   }
 
+  function goOnce(key, dest) {
+    // Anti-boucle : une redirection donnée n'a lieu qu'une fois par onglet.
+    try {
+      if (sessionStorage.getItem(key)) return false;
+      sessionStorage.setItem(key, '1');
+    } catch (e) {}
+    window.location.replace(dest);
+    return true;
+  }
+
   function boot() {
     loadClerk()
       .then(function (Clerk) { return Clerk.load().then(function () { return Clerk; }); })
@@ -93,27 +113,34 @@
         _clerkReady = true;
 
         if (isLanding) {
-          // Handshake : déjà connecté au hub ?
           if (Clerk.user && Clerk.session) {
+            // On récupère le jeton AVANT de partir vers app.html (fin de la boucle).
             Clerk.session.getToken().then(function (t) {
               if (t) {
                 localStorage.setItem('pharmaremise_token', t);
                 window.location.replace('/app.html');
               } else {
-                window.location.replace(HUB + '/sign-in');
+                goOnce('clerk_signin', HUB + '/sign-in?redirect_url=' +
+                  encodeURIComponent(location.origin + '/app.html'));
               }
             });
           } else {
-            // Pas de session : on envoie l'utilisateur se connecter sur le hub.
-            window.location.replace(HUB + '/sign-in?redirect_url=' + encodeURIComponent(location.origin + '/app.html'));
+            goOnce('clerk_signin', HUB + '/sign-in?redirect_url=' +
+              encodeURIComponent(location.origin + '/app.html'));
           }
         } else {
-          // Mode app : si pas de session Clerk, retour landing pour (re)faire le handshake.
+          // Mode app.html
           if (!Clerk.user) {
-            window.location.replace('/');
+            // Pas connecté : on nettoie la sentinelle et on renvoie à la landing UNE fois.
+            try {
+              if (localStorage.getItem('pharmaremise_token') === SENTINEL) {
+                localStorage.removeItem('pharmaremise_token');
+              }
+            } catch (e) {}
+            goOnce('clerk_toindex', '/');
             return;
           }
-          // Rafraîchit le jeton stocké tout de suite (pour les tout premiers appels).
+          // Connecté : on remplace la sentinelle par un vrai jeton tout de suite.
           if (Clerk.session) {
             Clerk.session.getToken().then(function (t) {
               if (t) localStorage.setItem('pharmaremise_token', t);
@@ -122,9 +149,13 @@
         }
       })
       .catch(function (err) {
-        // En cas d'échec de chargement Clerk, on ne bloque pas : l'app tentera
-        // avec le jeton stocké, et à défaut redirigera via sa logique 401 habituelle.
         console.error('[clerk-sso] chargement Clerk impossible :', err);
+        // On retire la sentinelle pour ne pas laisser l'app dans un état bâtard.
+        try {
+          if (localStorage.getItem('pharmaremise_token') === SENTINEL) {
+            localStorage.removeItem('pharmaremise_token');
+          }
+        } catch (e) {}
       });
   }
 
