@@ -1,15 +1,16 @@
 /*
- * PharmaRemise — SSO Clerk (front statique) — v2 (anti-boucle)
+ * PharmaRemise — SSO Clerk (front statique) — v3 (arrêt total de la boucle)
  * ------------------------------------------------------------------
- * Corrige le clignotement index.html <-> app.html :
- *   - v1 redirigeait vers /app.html AVANT d'avoir posé le token, or app.html
- *     fait `if(!TOKEN) location.href='/index.html'` -> boucle infinie.
- *   - v2 pose un token SYNCHRONEMENT (sentinelle) avant que la garde d'app.html
- *     s'exécute, attend vraiment le chargement de Clerk, puis remplace la
- *     sentinelle par le vrai jeton, et ne redirige qu'UNE fois (drapeau).
+ * Approche : sur le host SSO, on PREND LE CONTRÔLE de la navigation.
+ *  - On gèle toute redirection tant que Clerk n'a pas tranché (verrou).
+ *  - On neutralise les redirections legacy des pages (app.html: if(!TOKEN)->index,
+ *    index.html: setTimeout(...location='/app.html')) en interceptant les
+ *    assignations de window.location pendant la phase de décision.
+ *  - Décision Clerk UNE fois :
+ *      • connecté  -> pose le vrai jeton puis va sur /app.html (si on est sur index)
+ *      • pas connecté -> va au hub /sign-in UNE fois, et on y reste.
  *
- * Actif UNIQUEMENT sur remise.pharmagestion.fr. Ailleurs : ne fait rien
- * (login email/mot de passe historique intact).
+ * Actif UNIQUEMENT sur remise.pharmagestion.fr. Ailleurs : no-op total.
  */
 (function () {
   'use strict';
@@ -19,20 +20,69 @@
   var HUB = 'https://pharmagestion.fr';
   var SSO_HOSTS = ['remise.pharmagestion.fr'];
   var API_HOSTS = ['web-production-2202b.up.railway.app'];
-
-  // Valeur "sentinelle" : neutralise la garde `if(!TOKEN)` d'app.html le temps
-  // que Clerk charge. Le bridge fetch la remplace par un vrai jeton Clerk.
   var SENTINEL = '__clerk_pending__';
 
-  if (SSO_HOSTS.indexOf(location.hostname) === -1) return; // domaine non-SSO : no-op
+  if (SSO_HOSTS.indexOf(location.hostname) === -1) return; // domaine non-SSO : rien
 
   var p = location.pathname.replace(/\/+$/, '');
   var isLanding = (p === '' || p === '/index' || p === '/index.html');
 
   // ------------------------------------------------------------------
-  // 1) NEUTRALISER LA BOUCLE (synchrone, avant le script de la page)
-  //    Sur app.html : si aucun token, on pose la sentinelle pour que la garde
-  //    `if(!TOKEN) -> /index.html` ne se déclenche pas.
+  // 0) VERROU DE NAVIGATION — empêche TOUTE redirection interne au sous-domaine
+  //    tant que Clerk n'a pas décidé. On laisse passer uniquement :
+  //      - les navigations hors du sous-domaine (vers le hub),
+  //      - la navigation que NOUS déclenchons (flag _weNavigate).
+  //    Ça tue la boucle index<->app à la racine, quelle que soit la page.
+  // ------------------------------------------------------------------
+  var _decision = false;      // Clerk a tranché ?
+  var _weNavigate = false;    // c'est nous qui redirigeons ?
+
+  function sameSubdomainTarget(url) {
+    try {
+      var u = new URL(url, location.href);
+      return u.hostname === location.hostname; // reste sur remise.pharmagestion.fr
+    } catch (e) { return false; }
+  }
+
+  // Intercepte window.location.href = ... et window.location.assign/replace
+  var _loc = window.location;
+  function guard(origFn) {
+    return function (url) {
+      // Avant décision : on bloque tout saut interne au sous-domaine (la boucle).
+      if (!_decision && !_weNavigate && sameSubdomainTarget(url)) {
+        return; // ignoré : on ne bouge pas tant que Clerk n'a pas parlé
+      }
+      return origFn.call(_loc, url);
+    };
+  }
+  try {
+    var _assign = _loc.assign.bind(_loc);
+    var _replace = _loc.replace.bind(_loc);
+    _loc.assign = guard(_assign);
+    _loc.replace = guard(_replace);
+    // href = ... : on redéfinit le setter
+    var hrefDesc = Object.getOwnPropertyDescriptor(window.Location.prototype, 'href') ||
+                   Object.getOwnPropertyDescriptor(_loc, 'href');
+    if (hrefDesc && hrefDesc.set) {
+      Object.defineProperty(_loc, 'href', {
+        configurable: true,
+        get: function () { return hrefDesc.get.call(_loc); },
+        set: function (url) {
+          if (!_decision && !_weNavigate && sameSubdomainTarget(url)) return;
+          hrefDesc.set.call(_loc, url);
+        }
+      });
+    }
+  } catch (e) { /* si l'interception échoue, la logique goOnce ci-dessous limite quand même */ }
+
+  function navTo(dest) {
+    _weNavigate = true;
+    try { _replace ? _replace(dest) : (window.location.href = dest); }
+    catch (e) { window.location.href = dest; }
+  }
+
+  // ------------------------------------------------------------------
+  // 1) Neutralise la garde token d'app.html : on pose une sentinelle si vide.
   // ------------------------------------------------------------------
   if (!isLanding) {
     try {
@@ -43,10 +93,7 @@
   }
 
   // ------------------------------------------------------------------
-  // 2) BRIDGE FETCH : injecte un jeton Clerk frais sur les appels API.
-  //    Tant que Clerk n'est pas prêt (ou token = sentinelle), on n'envoie
-  //    pas d'Authorization bidon : on laisse partir sans (l'app gèrera),
-  //    et dès que Clerk est prêt on injecte le vrai jeton.
+  // 2) Bridge fetch : jeton Clerk frais sur les appels API.
   // ------------------------------------------------------------------
   var _clerkReady = false;
   if (!isLanding) {
@@ -80,7 +127,7 @@
   }
 
   // ------------------------------------------------------------------
-  // 3) Chargement de Clerk
+  // 3) Clerk
   // ------------------------------------------------------------------
   function loadClerk() {
     return new Promise(function (resolve, reject) {
@@ -96,61 +143,41 @@
     });
   }
 
-  function goOnce(key, dest) {
-    // Anti-boucle : une redirection donnée n'a lieu qu'une fois par onglet.
-    try {
-      if (sessionStorage.getItem(key)) return false;
-      sessionStorage.setItem(key, '1');
-    } catch (e) {}
-    window.location.replace(dest);
-    return true;
-  }
-
   function boot() {
     loadClerk()
       .then(function (Clerk) { return Clerk.load().then(function () { return Clerk; }); })
       .then(function (Clerk) {
         _clerkReady = true;
+        _decision = true; // à partir d'ici, la navigation est de nouveau autorisée
 
-        if (isLanding) {
-          if (Clerk.user && Clerk.session) {
-            // On récupère le jeton AVANT de partir vers app.html (fin de la boucle).
-            Clerk.session.getToken().then(function (t) {
-              if (t) {
-                localStorage.setItem('pharmaremise_token', t);
-                window.location.replace('/app.html');
-              } else {
-                goOnce('clerk_signin', HUB + '/sign-in?redirect_url=' +
-                  encodeURIComponent(location.origin + '/app.html'));
-              }
-            });
-          } else {
-            goOnce('clerk_signin', HUB + '/sign-in?redirect_url=' +
-              encodeURIComponent(location.origin + '/app.html'));
-          }
-        } else {
-          // Mode app.html
-          if (!Clerk.user) {
-            // Pas connecté : on nettoie la sentinelle et on renvoie à la landing UNE fois.
-            try {
-              if (localStorage.getItem('pharmaremise_token') === SENTINEL) {
-                localStorage.removeItem('pharmaremise_token');
-              }
-            } catch (e) {}
-            goOnce('clerk_toindex', '/');
-            return;
-          }
-          // Connecté : on remplace la sentinelle par un vrai jeton tout de suite.
-          if (Clerk.session) {
-            Clerk.session.getToken().then(function (t) {
-              if (t) localStorage.setItem('pharmaremise_token', t);
-            });
-          }
+        var signedIn = !!(Clerk.user && Clerk.session);
+
+        if (!signedIn) {
+          // Pas de session hub : on nettoie et on part au hub UNE fois. On y reste.
+          try {
+            if (localStorage.getItem('pharmaremise_token') === SENTINEL) {
+              localStorage.removeItem('pharmaremise_token');
+            }
+          } catch (e) {}
+          navTo(HUB + '/sign-in?redirect_url=' +
+                encodeURIComponent('https://' + location.hostname + '/app.html'));
+          return;
         }
+
+        // Connecté au hub : on récupère un vrai jeton.
+        Clerk.session.getToken().then(function (t) {
+          if (t) {
+            try { localStorage.setItem('pharmaremise_token', t); } catch (e) {}
+          }
+          if (isLanding) {
+            navTo('/app.html'); // on entre dans l'app
+          }
+          // si on est déjà sur app.html : on ne bouge pas, le bridge fetch gère les appels
+        });
       })
       .catch(function (err) {
         console.error('[clerk-sso] chargement Clerk impossible :', err);
-        // On retire la sentinelle pour ne pas laisser l'app dans un état bâtard.
+        _decision = true;
         try {
           if (localStorage.getItem('pharmaremise_token') === SENTINEL) {
             localStorage.removeItem('pharmaremise_token');
