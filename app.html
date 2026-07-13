@@ -232,21 +232,29 @@
 
 </style>
   <script src="/clerk-sso.js"></script>
+  <link rel="stylesheet" href="/refonte.css" /> /* REFONTE_P1 */
+  <link rel="icon" type="image/png" href="/logo-remise.png" />
 </head>
 <body>
 
 <div class="sidebar">
-  <div class="sidebar-logo">Pharma<span>Remise</span></div>
+  <div class="brand-row">
+    <div class="brand-mark"><img src="/logo-remise.png" alt="PharmaRemise" /></div>
+    <div>
+      <div class="brand-txt">Pharma<span>Remise</span></div>
+      <div class="brand-sub">Contrôle des remises</div>
+    </div>
+  </div>
   <div class="sidebar-plan">Plan : <strong id="plan-label">Chargement...</strong></div>
   <nav class="sidebar-nav">
-    <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon">🏠</span> Accueil</button>
-    <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon">🏭</span> Grossiste</button>
-    <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon">💊</span> Génériqueur</button>
-    <button class="nav-item" onclick="goTo('depot',this)"><span class="icon">📁</span> Dépôt factures</button>
-    <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon">⚖️</span> Comparateur</button>
-    <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon">⚙️</span> Paramètres</button>
+    <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon ic-home"></span> Accueil</button>
+    <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon ic-building"></span> Grossiste</button>
+    <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon ic-pill"></span> Génériqueur</button>
+    <button class="nav-item" onclick="goTo('depot',this)"><span class="icon ic-upload"></span> Dépôt factures</button>
+    <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon ic-scale"></span> Comparateur</button>
+    <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon ic-settings"></span> Paramètres</button>
     <!-- === ADMIN_NAV_INJECTED_MARKER === -->
-    <button class="nav-item" id="nav-admin" style="display:none" onclick="adminGoTo('dashboard')"><span class="icon">👑</span> Admin</button>
+    <button class="nav-item" id="nav-admin" style="display:none" onclick="adminGoTo('dashboard')"><span class="icon ic-crown"></span> Admin</button>
   </nav>
   <div class="sidebar-bottom">
     <div class="sidebar-user">
@@ -256,7 +264,7 @@
         <div class="user-plan" id="user-plan">...</div>
       </div>
     </div>
-    <button class="btn-logout" onclick="logout()">← Déconnexion</button>
+    <button class="btn-logout" onclick="logout()"><span class="ic ic-logout"></span>Déconnexion</button>
   </div>
 </div>
 
@@ -264,7 +272,7 @@
   <div class="topbar">
     <div class="topbar-title" id="topbar-title">Accueil</div>
     <div class="topbar-mois" id="topbar-date-picker">
-      <span>📅</span>
+      <span class="tb-ic ic-calendar"></span>
       <select id="sel-mois-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
         <option value="1">Janvier</option>
         <option value="2">Février</option>
@@ -280,9 +288,9 @@
         <option value="12">Décembre</option>
       </select>
       <select id="sel-annee-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;margin-left:4px"></select>
-      <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px">📆 Période</button>
+      <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px"><span class="tb-ic ic-range" style="margin-right:5px"></span>Période</button>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="refreshData()">↻ Actualiser</button>
+    <button class="btn btn-outline btn-sm" onclick="refreshData()"><span class="tb-ic ic-refresh" style="margin-right:5px"></span>Actualiser</button>
   </div>
 
   <div class="content">
@@ -768,14 +776,14 @@ function desactiverPeriodeMode() {
   const container = document.getElementById('topbar-date-picker')
   if (!container) return
   container.innerHTML = `
-    <span>📅</span>
+    <span class="tb-ic ic-calendar"></span>
     <select id="sel-mois-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
       <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option><option value="4">Avril</option>
       <option value="5">Mai</option><option value="6">Juin</option><option value="7">Juillet</option><option value="8">Août</option>
       <option value="9">Septembre</option><option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
     </select>
     <select id="sel-annee-num" onchange="onMoisAnneeChange()" style="padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;margin-left:4px"></select>
-    <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px">📆 Période</button>
+    <button id="btn-mode-periode" onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Basculer en mode période" style="padding:5px 10px;margin-left:6px;font-size:11px"><span class="tb-ic ic-range" style="margin-right:5px"></span>Période</button>
   `
   remplirAnneesSelect()
   if (CURRENT_SCREEN !== 'accueil') goTo(CURRENT_SCREEN, document.querySelector('.nav-item.active'))
