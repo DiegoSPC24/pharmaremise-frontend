@@ -888,6 +888,10 @@ function _renderTreso(annee, attendu, percu, rattrapage){
   const dehorsG = _sommeAttendu(attendu.grossiste) - _sommePercuMois(percu.grossiste) - _sommeRattrapage(rattrapage.grossiste)
   const dehorsGen = _sommeAttendu(attendu.generique) - _sommePercuMois(percu.generique) - _sommeRattrapage(rattrapage.generique)
   const dehorsTotal = dehorsG + dehorsGen
+  /* REFONTE_P3_EQUATION — derive des memes sommes : dehorsTotal === attTotal - percuTotal */
+  const attTotal = _sommeAttendu(attendu.grossiste) + _sommeAttendu(attendu.generique)
+  const percuTotal = _sommePercuMois(percu.grossiste) + _sommePercuMois(percu.generique)
+                   + _sommeRattrapage(rattrapage.grossiste) + _sommeRattrapage(rattrapage.generique)
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px">
     <div>
@@ -900,10 +904,28 @@ function _renderTreso(annee, attendu, percu, rattrapage){
       <button class="btn btn-outline btn-sm" onclick="_changerAnneeTreso(1)">▸</button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="kpi-card" style="border:1.5px solid #E8A33D"><div class="kpi-lbl"><i class=ic ic-euro></i> Argent dehors (total)</div><div class="kpi-val" style="font-size:24px;color:#E8A33D;font-weight:700">${eur(dehorsTotal)}</div><div style="font-size:11px;color:var(--sub)">attendu non encore perçu</div></div>
-    <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:18px">${eur(dehorsG)}</div></div>
-    <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:18px">${eur(dehorsGen)}</div></div>
+  <div class="equation">
+    <div class="eq-cell">
+      <div class="eq-label">Remises attendues</div>
+      <div class="eq-value">${eur(attTotal)}</div>
+      <div class="eq-hint">Calculé sur vos contrats</div>
+    </div>
+    <div class="eq-op">−</div>
+    <div class="eq-cell">
+      <div class="eq-label">Remises perçues</div>
+      <div class="eq-value">${eur(percuTotal)}</div>
+      <div class="eq-hint">Saisi depuis vos avoirs et rattrapages</div>
+    </div>
+    <div class="eq-op">=</div>
+    <div class="eq-cell eq-out">
+      <div class="eq-label">Argent dehors</div>
+      <div class="eq-value">${eur(dehorsTotal)}</div>
+      <div class="eq-hint">Attendu, pas encore perçu</div>
+    </div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-top:14px">
+    <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:20px">${eur(dehorsG)}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:20px">${eur(dehorsGen)}</div></div>
   </div>
   ${_tableTreso('grossiste','Grossistes', attendu.grossiste, percu.grossiste, rattrapage.grossiste)}
   ${_tableTreso('generique','Génériqueurs', attendu.generique, percu.generique, rattrapage.generique)}
@@ -926,7 +948,7 @@ function _tableTreso(type, titre, attendu, percu, rattrapage){
     const cell = 'text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 8px'
     thMois += `<th style="text-align:right;min-width:80px;font-size:11px;padding:6px 8px;color:var(--sub)">${ABBR[m-1]}</th>`
     rAtt += `<td style="${cell}">${eur(att)}</td>`
-    rPercu += `<td onclick="_saisirPercu('${type}',${m})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span style=\'color:var(--sub)\'>+ saisir</span>'}</td>`
+    rPercu += `<td onclick="_saisirPercu('${type}',${m})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span class=chip-saisir>Saisir</span>'}</td>`
     rDiff += `<td style="${cell};color:${diffColor}">${eur(diff)}</td>`
   }
   const totRat = _sommeRattrapage(rattrapage)

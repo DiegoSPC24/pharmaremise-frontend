@@ -179,3 +179,34 @@ tr:hover td{background:#FCFCFA}
 .ic-wrench::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14.7%206.3a1%201%200%200%200%200%201.4l1.6%201.6a1%201%200%200%200%201.4%200l3.8-3.8a6%206%200%200%201-7.9%207.9l-6.9%206.9a2.1%202.1%200%200%201-3-3l6.9-6.9a6%206%200%200%201%207.9-7.9z%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14.7%206.3a1%201%200%200%200%200%201.4l1.6%201.6a1%201%200%200%200%201.4%200l3.8-3.8a6%206%200%200%201-7.9%207.9l-6.9%206.9a2.1%202.1%200%200%201-3-3l6.9-6.9a6%206%200%200%201%207.9-7.9z%22%2F%3E%3C%2Fsvg%3E")}
 .ic-lab::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M10%202v7.5L4.6%2019a2%202%200%200%200%201.7%203h11.4a2%202%200%200%200%201.7-3L14%209.5V2%22%2F%3E%3Cpath%20d%3D%22M8.5%202h7%22%2F%3E%3Cpath%20d%3D%22M7%2016h10%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M10%202v7.5L4.6%2019a2%202%200%200%200%201.7%203h11.4a2%202%200%200%200%201.7-3L14%209.5V2%22%2F%3E%3Cpath%20d%3D%22M8.5%202h7%22%2F%3E%3Cpath%20d%3D%22M7%2016h10%22%2F%3E%3C%2Fsvg%3E")}
 .ic-dna::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2015c6.7-6.7%2013.3%200%2020-6.7%22%2F%3E%3Cpath%20d%3D%22M2%208.3c6.7%206.7%2013.3%200%2020%206.7%22%2F%3E%3Cpath%20d%3D%22M9%205.5%208%204%22%2F%3E%3Cpath%20d%3D%22m16%2020%201%201.5%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2015c6.7-6.7%2013.3%200%2020-6.7%22%2F%3E%3Cpath%20d%3D%22M2%208.3c6.7%206.7%2013.3%200%2020%206.7%22%2F%3E%3Cpath%20d%3D%22M9%205.5%208%204%22%2F%3E%3Cpath%20d%3D%22m16%2020%201%201.5%22%2F%3E%3C%2Fsvg%3E")}
+
+/* ============ REFONTE_P3 : l'équation, les puces de saisie, les tableaux ============ */
+
+/* SIGNATURE — Attendu − Perçu = Argent dehors */
+.equation{display:grid;grid-template-columns:1fr auto 1fr auto 1.25fr;align-items:stretch;
+  background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-card);overflow:hidden}
+.eq-cell{padding:20px 22px}
+.eq-op{display:grid;place-items:center;width:44px;color:#C9C6BB;font-size:26px;font-weight:300;
+  background:linear-gradient(180deg,#FCFCFA,#F7F6F2)}
+.eq-label{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--sub)}
+.eq-value{margin-top:7px;font-size:26px;font-weight:800;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.eq-hint{margin-top:7px;font-size:12px;color:var(--sub)}
+.eq-out{background:linear-gradient(180deg,#FFFDF6,#FFF7E8);border-left:1px solid var(--border);position:relative}
+.eq-out::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--warn)}
+.eq-out .eq-value{font-size:36px;color:var(--amber)}
+.eq-out .eq-label{color:var(--amber)}
+@media (max-width:1100px){
+  .equation{grid-template-columns:1fr}
+  .eq-op{width:auto;height:34px}
+  .eq-out{border-left:0;border-top:1px solid var(--border)}
+}
+
+/* Puce de saisie : remplace le "+ saisir" repetitif */
+.chip-saisir{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;
+  border:1px dashed #D8D5CA;color:var(--sub);font-size:11.5px;font-weight:600;background:#fff;cursor:pointer}
+td:hover .chip-saisir{border-color:var(--green);color:var(--green-d);background:var(--green-l);border-style:solid}
+
+/* Chiffres alignes partout, y compris la ou DM Mono etait force en style inline */
+td,th{font-family:'Inter',system-ui,sans-serif!important;font-variant-numeric:tabular-nums!important}
