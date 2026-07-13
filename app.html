@@ -232,7 +232,7 @@
 
 </style>
   <script src="/clerk-sso.js"></script>
-  <link rel="stylesheet" href="/refonte.css?v=3" />
+  <link rel="stylesheet" href="/refonte.css?v=4" />
   <link rel="icon" type="image/png" href="/logo-remise.png" />
 </head>
 <body>
@@ -7151,7 +7151,7 @@ async function showLogDetail(logId) {
     const btn = document.createElement('button');
     btn.id = 'v312-nav-btn';
     btn.className = 'nav-item';
-    btn.textContent = 'Meilleur compo';
+    btn.innerHTML = '<span class="icon ic-trophy"></span> Meilleur compo';
     btn.addEventListener('click', () => {
       _showScreen();
       [...nav.querySelectorAll('button.nav-item')].forEach(b => b.classList.remove('active'));
