@@ -232,7 +232,7 @@
 
 </style>
   <script src="/clerk-sso.js"></script>
-  <link rel="stylesheet" href="/refonte.css?v=5" />
+  <link rel="stylesheet" href="/refonte.css?v=6" />
   <link rel="icon" type="image/png" href="/logo-remise.png" />
 </head>
 <body>
@@ -300,11 +300,12 @@
 
     <div id="screen-depot" class="screen">
       <div class="card">
-        <div class="card-title">Déposer une facture</div>
+        <div class="depot-step"><span class="depot-num">1</span><span class="depot-step-t">Choisissez le type de facture</span></div>
         <div class="two-col" style="margin-bottom:16px">
           <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center"><i class=ic-building></i> Grossiste</button>
           <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center"><i class=ic-pill></i> Direct labo</button>
         </div>
+        <div class="depot-step"><span class="depot-num">2</span><span class="depot-step-t">Importez vos PDF</span></div>
         <div id="depot-form">
           <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
             <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
@@ -313,6 +314,11 @@
             <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
           </div>
           <div id="upload-queue" style="margin-top:12px"></div>
+          <div class="depot-rassure">
+            Les factures sont analysées automatiquement.<br>
+            Les doublons sont détectés.<br>
+            Les montants sont rapprochés avec vos remises attendues.
+          </div>
         </div>
       </div>
     </div>
@@ -3283,12 +3289,18 @@ function renderLaboSection(l) {
     else { pctColor = '#DC2626'; pctIcon = '' }
   }
 
-  // Affichage % pondéré uniquement si configuré
+  /* REFONTE_P7_STATUT — le taux pondéré devient un badge de statut lisible */
+  let tsCls = '', tsTxt = ''
+  if (l.configure && pctPromis > 0) {
+    if (ecart >= 0)        { tsCls = 'ok';   tsTxt = 'Promesse tenue' }
+    else if (ecart >= -2)  { tsCls = 'warn'; tsTxt = 'Presque atteinte' }
+    else                   { tsCls = 'ko';   tsTxt = 'Promesse non atteinte' }
+  }
   const pondereBlock = l.configure ? `
-    <div style="text-align:right">
-      <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">% pondéré réel</div>
-      <div style="font-size:22px;font-weight:700;color:${pctColor};font-family:'DM Mono',monospace">${pctIcon} ${pctReel.toFixed(1)}%</div>
-      ${pctPromis > 0 ? `<div style="font-size:10px;color:var(--sub)">Promis : ${pctPromis}% ${ecart >= 0 ? '<span style="color:#1D9E75">(+'+ecart.toFixed(1)+'%)</span>' : '<span style="color:#DC2626">('+ecart.toFixed(1)+'%)</span>'}</div>` : ''}
+    <div class="taux-statut ${tsCls}">
+      <div class="ts-badge">${tsTxt || '% pondéré réel'}</div>
+      <div class="ts-val">${pctReel.toFixed(1)} %</div>
+      ${pctPromis > 0 ? `<div class="ts-sub">${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)} pts vs ${pctPromis} % promis</div>` : ''}
     </div>` : ''
 
   // Section seuil :
@@ -4040,7 +4052,13 @@ function renderCompareGrossiste() {
       </div>
     </div>
 
-    <div id="cmp-result-card"></div>`
+    <div id="cmp-result-card">
+      <div class="card cmp-empty">
+        <i class=ic-scale></i>
+        <div class="cmp-empty-t">Aucune comparaison lancée</div>
+        <div class="cmp-empty-s">Renseignez les deux offres, puis lancez le calcul : vous verrez l\u2019écart estimé sur votre mix produit réel, et laquelle rapporte le plus.</div>
+      </div>
+    </div>`
 }
 
 function lastDayOfMonth(ym) {
@@ -7597,10 +7615,11 @@ async function showLogDetail(logId) {
   }
 
   function _renderProductRow(p) {
-    const star = p.meilleur_prix ? '' : '';
-    const ecart = !p.meilleur_prix && p.ecart_eur > 0 
-      ? `+${_fmtEuro(p.ecart_eur)}`
-      : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
+    /* REFONTE_P7 : le gagnant porte une puce verte, les autres leur ecart */
+    const star = p.meilleur_prix ? '<i class=ic-star></i>' : '';
+    const ecart = p.meilleur_prix
+      ? '<span class=mc-best><i class=ic-star></i>Meilleur</span>'
+      : (p.ecart_eur > 0 ? `<span class=mc-ecart>+${_fmtEuro(p.ecart_eur)}</span>` : '');
     return `
       <div class="v317-product-row ${p.meilleur_prix ? 'best' : ''}">
         <div class="v317-star">${star}</div>

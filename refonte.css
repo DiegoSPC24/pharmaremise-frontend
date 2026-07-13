@@ -251,3 +251,43 @@ i[class^="ic-"]::before{content:"";display:block;width:100%;height:100%;
 /* Biosimilaires : seringue (ils sont tous injectables) */
 .ic-syringe::before{background-color:currentColor!important;
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%202%204%204%22%2F%3E%3Cpath%20d%3D%22m17%207%203-3%22%2F%3E%3Cpath%20d%3D%22M19%209%208.7%2019.3c-1%201-2.5%201-3.4%200l-.6-.6c-1-1-1-2.5%200-3.4L15%205%22%2F%3E%3Cpath%20d%3D%22m9%2011%204%204%22%2F%3E%3Cpath%20d%3D%22m5%2019-3%203%22%2F%3E%3Cpath%20d%3D%22m14%204%206%206%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%202%204%204%22%2F%3E%3Cpath%20d%3D%22m17%207%203-3%22%2F%3E%3Cpath%20d%3D%22M19%209%208.7%2019.3c-1%201-2.5%201-3.4%200l-.6-.6c-1-1-1-2.5%200-3.4L15%205%22%2F%3E%3Cpath%20d%3D%22m9%2011%204%204%22%2F%3E%3Cpath%20d%3D%22m5%2019-3%203%22%2F%3E%3Cpath%20d%3D%22m14%204%206%206%22%2F%3E%3C%2Fsvg%3E")}
+
+/* ============ REFONTE_P7 : Génériqueur · Comparateur · Meilleur compo · Dépôt ============ */
+
+/* --- Génériqueur : le taux pondéré devient un badge de statut --- */
+.taux-statut{min-width:200px;text-align:right;padding:12px 16px;border-radius:var(--r-md);
+  border:1px solid var(--border);background:#FBFAF7}
+.taux-statut.ok  {background:var(--green-l);border-color:#CDEBE0}
+.taux-statut.warn{background:#FFF7E8;border-color:#F2DFB6}
+.taux-statut.ko  {background:#FEF2F2;border-color:#F6D4D4}
+.ts-badge{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--sub)}
+.taux-statut.ok   .ts-badge{color:var(--green-d)}
+.taux-statut.warn .ts-badge{color:var(--amber)}
+.taux-statut.ko   .ts-badge{color:var(--red)}
+.ts-val{margin-top:5px;font-size:26px;font-weight:800;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--text)}
+.taux-statut.ok   .ts-val{color:var(--green-d)}
+.taux-statut.warn .ts-val{color:var(--amber)}
+.taux-statut.ko   .ts-val{color:var(--red)}
+.ts-sub{margin-top:4px;font-size:11.5px;color:var(--sub)}
+
+/* --- Comparateur : la carte Résultat, même vide --- */
+.cmp-empty{margin-top:16px;text-align:center;padding:34px 24px;background:#FBFAF7;border-style:dashed}
+.cmp-empty i[class^="ic-"]{width:30px;height:30px;color:var(--sub);opacity:.5;margin:0}
+.cmp-empty-t{margin-top:10px;font-size:14px;font-weight:700}
+.cmp-empty-s{margin-top:5px;font-size:12.5px;color:var(--sub);max-width:460px;margin-left:auto;margin-right:auto;line-height:1.5}
+
+/* --- Meilleur compo : le gagnant en puce verte --- */
+.mc-best{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;
+  background:var(--green-l);color:var(--green-d);font-size:11px;font-weight:700}
+.mc-best i[class^="ic-"]{width:12px;height:12px;margin:0}
+.mc-ecart{font-size:11.5px;color:var(--amber);font-weight:600;font-variant-numeric:tabular-nums}
+.v317-product-row .v317-prix-net{font-variant-numeric:tabular-nums}
+
+/* --- Dépôt : le parcours guidé --- */
+.depot-step{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.depot-num{width:22px;height:22px;flex:0 0 22px;border-radius:7px;background:var(--side);color:#fff;
+  display:grid;place-items:center;font-size:11px;font-weight:800}
+.depot-step-t{font-size:13.5px;font-weight:700}
+.depot-rassure{margin-top:14px;padding:14px 18px;background:var(--green-l);border:1px solid #CDEBE0;
+  border-radius:var(--r-md);font-size:12.5px;color:#064E3B;line-height:1.7}
