@@ -234,3 +234,20 @@ td,th{font-family:'Inter',system-ui,sans-serif!important;font-variant-numeric:ta
 /* REFONTE_P4_FAILSAFE : une icone sans masque ne doit JAMAIS produire un carre noir. */
 
 .ic-trophy::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209H4.5a2.5%202.5%200%200%201%200-5H6%22/%3E%3Cpath%20d%3D%22M18%209h1.5a2.5%202.5%200%200%200%200-5H18%22/%3E%3Cpath%20d%3D%22M4%2022h16%22/%3E%3Cpath%20d%3D%22M10%2014.66V17c0%20.55-.47.98-.97%201.21C7.85%2018.75%207%2020.24%207%2022%22/%3E%3Cpath%20d%3D%22M14%2014.66V17c0%20.55.47.98.97%201.21C16.15%2018.75%2017%2020.24%2017%2022%22/%3E%3Cpath%20d%3D%22M18%202H6v7a6%206%200%200%200%2012%200V2Z%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209H4.5a2.5%202.5%200%200%201%200-5H6%22/%3E%3Cpath%20d%3D%22M18%209h1.5a2.5%202.5%200%200%200%200-5H18%22/%3E%3Cpath%20d%3D%22M4%2022h16%22/%3E%3Cpath%20d%3D%22M10%2014.66V17c0%20.55-.47.98-.97%201.21C7.85%2018.75%207%2020.24%207%2022%22/%3E%3Cpath%20d%3D%22M14%2014.66V17c0%20.55.47.98.97%201.21C16.15%2018.75%2017%2020.24%2017%2022%22/%3E%3Cpath%20d%3D%22M18%202H6v7a6%206%200%200%200%2012%200V2Z%22/%3E%3C/svg%3E")}
+
+/* ============ REFONTE_P6 : les icones en ligne, pour de bon ============ */
+/* Une seule classe par icone -> on cible le prefixe. */
+i[class^="ic-"]{display:inline-block;width:1em;height:1em;vertical-align:-.12em;margin-right:.35em}
+i[class^="ic-"]::before{content:"";display:block;width:100%;height:100%;
+  background-color:currentColor;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-size:contain;mask-size:contain}
+.btn i[class^="ic-"],.badge i[class^="ic-"]{margin-right:.3em}
+.upload-icon i[class^="ic-"]{width:34px;height:34px;color:var(--green);margin:0}
+.locked-icon i[class^="ic-"]{width:44px;height:44px;color:var(--sub);margin:0}
+.v318-tab-icon i[class^="ic-"]{margin:0}
+
+/* Biosimilaires : seringue (ils sont tous injectables) */
+.ic-syringe::before{background-color:currentColor!important;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%202%204%204%22%2F%3E%3Cpath%20d%3D%22m17%207%203-3%22%2F%3E%3Cpath%20d%3D%22M19%209%208.7%2019.3c-1%201-2.5%201-3.4%200l-.6-.6c-1-1-1-2.5%200-3.4L15%205%22%2F%3E%3Cpath%20d%3D%22m9%2011%204%204%22%2F%3E%3Cpath%20d%3D%22m5%2019-3%203%22%2F%3E%3Cpath%20d%3D%22m14%204%206%206%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%202%204%204%22%2F%3E%3Cpath%20d%3D%22m17%207%203-3%22%2F%3E%3Cpath%20d%3D%22M19%209%208.7%2019.3c-1%201-2.5%201-3.4%200l-.6-.6c-1-1-1-2.5%200-3.4L15%205%22%2F%3E%3Cpath%20d%3D%22m9%2011%204%204%22%2F%3E%3Cpath%20d%3D%22m5%2019-3%203%22%2F%3E%3Cpath%20d%3D%22m14%204%206%206%22%2F%3E%3C%2Fsvg%3E")}
