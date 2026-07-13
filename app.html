@@ -1398,18 +1398,22 @@ function toggleSourceVisible(source, checked){
 function renderDetailRemise(d){
   if(!d) return ''
   const cat = d.non_eligible_detail || {}
-  const LBL = {generique:'Generiques', biosimilaire:'Biosimilaires', tva_20:'TVA 20%', tva_10:'TVA 10%', tva_5_5:'TVA 5,5%', remise_facture:'Remise facture', autre:'Autre'}
+  const LBL = {generique:'Génériques', biosimilaire:'Biosimilaires', tva_20:'TVA 20%', tva_10:'TVA 10%', tva_5_5:'TVA 5,5%', remise_facture:'Remise facture', autre:'Autre'}
   const catRows = Object.keys(cat).filter(k=>cat[k]>0).map(k=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px"><span>${LBL[k]||k}</span><span>${eur(cat[k])}</span></div>`).join('')
   const tauxLbl = d.taux_remise_pct ? ` (${d.taux_remise_pct}%)` : ''
   const forfaitLbl = (d.forfait_cher!=null && d.forfait_cher!==undefined) ? ` (${eur(d.forfait_cher)}/boite \u00d7 ${d.nb_boites_cher||0})` : ` (\u00d7 ${d.nb_boites_cher||0} boites)`
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px">
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total du mois</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_total)}</div></div>
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total non eligible</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_non_eligible)}</div>${catRows}</div>
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total eligible</div><div class="kpi-val green" style="font-size:18px">${eur(d.ca_eligible)}</div></div>
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Total produits chers</div><div class="kpi-val" style="font-size:18px">${eur(d.ca_produit_cher)}</div></div>
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise supplementaire${tauxLbl}</div><div class="kpi-val green" style="font-size:18px">${eur(d.remise_pct)}</div></div>
-    <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise boites${forfaitLbl}</div><div class="kpi-val green" style="font-size:18px">${eur(d.remise_forfait)}</div></div>
-    <div class="kpi-card" style="padding:10px 14px;border:1.5px solid var(--green)"><div class="kpi-lbl">Total remise arriere</div><div class="kpi-val green" style="font-size:20px;font-weight:700">${eur(d.remise_totale)}</div></div>
+  /* REFONTE_P3B_HIERARCHIE — 3 chiffres qui comptent, puis les details */
+  const pctElig = (d.ca_total > 0) ? ((d.ca_eligible / d.ca_total) * 100).toFixed(0) + ' % du CA' : ''
+  return `<div class="kpi-lv1">
+    <div class="kpi-card"><div class="kpi-lbl">CA total du mois</div><div class="kpi-val">${eur(d.ca_total)}</div></div>
+    <div class="kpi-card"><div class="kpi-lbl">Total éligible</div><div class="kpi-val green">${eur(d.ca_eligible)}</div><div class="kpi-sub">${pctElig}</div></div>
+    <div class="kpi-card kpi-hero"><div class="kpi-lbl">Total remise arrière</div><div class="kpi-val green">${eur(d.remise_totale)}</div><div class="kpi-sub">Ce que vous récupérez</div></div>
+  </div>
+  <div class="detail-strip">
+    <div class="ds-item"><span class="ds-l">Non éligible</span><b>${eur(d.ca_non_eligible)}</b>${catRows ? `<div class="ds-break">${catRows}</div>` : ''}</div>
+    <div class="ds-item"><span class="ds-l">Produits chers</span><b>${eur(d.ca_produit_cher)}</b></div>
+    <div class="ds-item"><span class="ds-l">Remise supplémentaire${tauxLbl}</span><b>${eur(d.remise_pct)}</b></div>
+    <div class="ds-item"><span class="ds-l">Remise boîtes${forfaitLbl}</span><b>${eur(d.remise_forfait)}</b></div>
   </div>`
 }
 
