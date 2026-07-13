@@ -339,6 +339,29 @@
     }
   </style>
   <script src="/clerk-sso.js"></script>
+  <style id="clerk-sso-hide">
+    /* CLERK_SSO_HIDE_LOGIN : sur le sous-domaine SSO, aucune connexion legacy. */
+    html.sso-host [onclick*="openModal"],
+    html.sso-host .nav-cta,
+    html.sso-host #modal-login,
+    html.sso-host #modal-register { display: none !important; }
+  </style>
+  <script>
+    /* CLERK_SSO_HIDE_LOGIN */
+    (function () {
+      if (location.hostname !== "remise.pharmagestion.fr") return;
+      document.documentElement.classList.add("sso-host");
+      function neutralise() {
+        try { window.openModal = function () {}; } catch (e) {}
+        var sel = '[onclick*="openModal"], .nav-cta, #modal-login, #modal-register';
+        document.querySelectorAll(sel).forEach(function (el) { el.style.display = "none"; });
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", neutralise);
+      } else { neutralise(); }
+      window.addEventListener("load", neutralise);
+    })();
+  </script>
 </head>
 <body>
 
