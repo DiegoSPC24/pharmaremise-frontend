@@ -602,7 +602,7 @@ let _CURRENT_FACTURE_ID = null, _MODAL_CIP = null, _MODAL_NOM = ''
 
 async function apiGet(path) {
   const r = await fetch(`${API}${path}`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
-  if (r.status === 401) { localStorage.clear(); window.location.href='/index.html'; }
+  /* CLERK_SSO_GUARD_401 */ if (r.status === 401) { if (location.hostname === 'remise.pharmagestion.fr') { console.error('[clerk-sso] 401 API — le compte Clerk ne correspond a aucune pharmacie ?'); } else { localStorage.clear(); window.location.href='/index.html'; } }
   return r.json()
 }
 async function apiPost(path, body) {
