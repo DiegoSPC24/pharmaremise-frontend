@@ -302,13 +302,13 @@
       <div class="card">
         <div class="card-title">Déposer une facture</div>
         <div class="two-col" style="margin-bottom:16px">
-          <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center">🏭 Grossiste</button>
-          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center">💊 Direct labo</button>
+          <button class="btn btn-green" id="depot-tab-grossiste" onclick="setDepotTab('grossiste')" style="justify-content:center"><i class=ic ic-building></i> Grossiste</button>
+          <button class="btn btn-outline" id="depot-tab-labo" onclick="setDepotTab('labo')" style="justify-content:center"><i class=ic ic-pill></i> Direct labo</button>
         </div>
         <div id="depot-form">
           <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
             <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
-            <div class="upload-icon">📄</div>
+            <div class="upload-icon"><i class=ic ic-file></i></div>
             <div class="upload-title">Glissez vos factures PDF ici</div>
             <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
           </div>
@@ -361,7 +361,7 @@
   <div class="admin-modal">
     <div class="admin-modal-header">
       <div class="admin-modal-title">Modifier la classification</div>
-      <button class="admin-modal-close" onclick="closeClassifModal()">✕</button>
+      <button class="admin-modal-close" onclick="closeClassifModal()"><i class=ic ic-x></i></button>
     </div>
     <div class="admin-modal-body">
       <div class="admin-form-group">
@@ -393,7 +393,7 @@
         </select>
       </div>
       <div id="modal-classif-forced-note" style="display:none; font-size:12px; color:var(--amber); margin-top:8px;">
-        ⚠️ Ce CIP a déjà une correction manuelle active.
+        Ce CIP a déjà une correction manuelle active.
       </div>
     </div>
     <div class="admin-modal-footer">
@@ -414,7 +414,7 @@
     <div style="font-size:12px;color:var(--sub);margin-bottom:16px" id="modal-produit-nom"></div>
     <div style="font-size:11px;color:var(--sub);margin-bottom:12px">CIP13 : <span id="modal-cip" style="font-family:'DM Mono',monospace;color:var(--text)"></span></div>
     <div style="font-size:12px;color:var(--amber);background:var(--amber-l);padding:8px 12px;border-radius:8px;margin-bottom:14px">
-      ⚠️ Ce changement s'appliquera à <strong>toutes les factures</strong> contenant ce CIP13.
+      <i class=ic ic-alert></i> Ce changement s'appliquera à <strong>toutes les factures</strong> contenant ce CIP13.
     </div>
     <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Nouveau statut</label>
     <select id="modal-select-statut" style="width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:16px">
@@ -453,7 +453,7 @@
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="fermerModalePeriode()" class="btn btn-outline btn-sm">Annuler</button>
-      <button onclick="lancerExportPeriode()" class="btn btn-green btn-sm">📄 Générer</button>
+      <button onclick="lancerExportPeriode()" class="btn btn-green btn-sm"><i class=ic ic-file></i> Générer</button>
     </div>
   </div>
 </div>
@@ -474,7 +474,7 @@
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="fermerModaleSauvegarde()" class="btn btn-outline btn-sm">Annuler</button>
-      <button onclick="confirmerSauvegarde()" class="btn btn-green btn-sm">💾 Sauvegarder</button>
+      <button onclick="confirmerSauvegarde()" class="btn btn-green btn-sm"><i class=ic ic-save></i> Sauvegarder</button>
     </div>
   </div>
 </div>
@@ -493,7 +493,7 @@
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="fermerModaleRecalcul()" class="btn btn-outline btn-sm">Annuler</button>
-      <button onclick="lancerRecalcul()" class="btn btn-green btn-sm">🔄 Recalculer</button>
+      <button onclick="lancerRecalcul()" class="btn btn-green btn-sm"><i class=ic ic-refresh></i> Recalculer</button>
     </div>
   </div>
 </div>
@@ -501,7 +501,7 @@
 <!-- Modal Analyser un relevé (upload) -->
 <div id="modal-releve-upload" class="modal-overlay">
   <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:480px;width:90%">
-    <div style="font-size:15px;font-weight:600;margin-bottom:4px">📋 Analyser un relevé</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px"><i class=ic ic-clip></i> Analyser un relevé</div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Sélectionnez un relevé PDF (CERP, Alliance ou OCP). L'app va le comparer avec vos factures analysées.</div>
 
     <div id="releve-drop"
@@ -510,7 +510,7 @@
          ondrop="onReleveDrop(event)"
          style="border:2px dashed var(--border);border-radius:10px;padding:32px 24px;text-align:center;cursor:pointer;transition:all 0.2s"
          onclick="document.getElementById('releve-file').click()">
-      <div style="font-size:36px">📄</div>
+      <div style="font-size:36px"><i class=ic ic-file></i></div>
       <div style="font-size:14px;margin-top:8px;font-weight:500">Glissez votre PDF ici</div>
       <div style="font-size:12px;color:var(--sub);margin-top:4px">ou cliquez pour parcourir vos fichiers</div>
       <div id="releve-filename" style="font-size:11px;color:var(--sub);margin-top:10px"></div>
@@ -531,7 +531,7 @@
         <div style="font-size:16px;font-weight:700">Rapprochement du relevé</div>
         <div id="releve-result-sub" style="font-size:12px;color:var(--sub);margin-top:2px"></div>
       </div>
-      <button onclick="fermerModaleReleveResult()" class="btn btn-outline btn-sm">✕ Fermer</button>
+      <button onclick="fermerModaleReleveResult()" class="btn btn-outline btn-sm"><i class=ic ic-x></i> Fermer</button>
     </div>
 
     <div id="releve-result-kpi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
@@ -544,10 +544,10 @@
   <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:900px;width:95%;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px">
       <div>
-        <div style="font-size:16px;font-weight:700">📂 Mes relevés</div>
+        <div style="font-size:16px;font-weight:700"><i class=ic ic-folder></i> Mes relevés</div>
         <div style="font-size:12px;color:var(--sub);margin-top:2px">Cliquez sur un relevé pour voir le rapprochement à jour avec vos factures actuelles.</div>
       </div>
-      <button onclick="fermerListeReleves()" class="btn btn-outline btn-sm">✕ Fermer</button>
+      <button onclick="fermerListeReleves()" class="btn btn-outline btn-sm"><i class=ic ic-x></i> Fermer</button>
     </div>
     <div id="releves-liste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
   </div>
@@ -556,7 +556,7 @@
 <!-- Modal Ajouter un génériqueur (choix labo) -->
 <div id="modal-gen-ajout" class="modal-overlay">
   <div class="modal-content" style="background:white;padding:24px;border-radius:12px;max-width:480px;width:90%">
-    <div style="font-size:15px;font-weight:600;margin-bottom:4px">➕ Ajouter un génériqueur</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px"><i class=ic ic-plus></i> Ajouter un génériqueur</div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:16px">Choisis le laboratoire à ajouter. Tu pourras configurer son contrat ensuite.</div>
     <div id="gen-ajout-liste" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -573,7 +573,7 @@
         <div style="font-size:16px;font-weight:700" id="gen-edit-titre">Configurer Biogaran</div>
         <div style="font-size:12px;color:var(--sub)" id="gen-edit-sub">Paramètres du contrat</div>
       </div>
-      <button onclick="fermerModaleEditGeneriqueur()" class="btn btn-outline btn-sm">✕</button>
+      <button onclick="fermerModaleEditGeneriqueur()" class="btn btn-outline btn-sm"><i class=ic ic-x></i></button>
     </div>
     <div id="gen-edit-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
@@ -587,7 +587,7 @@
         <div style="font-size:16px;font-weight:700" id="gen-regles-titre">Règles particulières</div>
         <div style="font-size:12px;color:var(--sub)">Exclusions ou taux différents selon catégorie de remise ou molécule</div>
       </div>
-      <button onclick="fermerModaleRegles()" class="btn btn-outline btn-sm">✕</button>
+      <button onclick="fermerModaleRegles()" class="btn btn-outline btn-sm"><i class=ic ic-x></i></button>
     </div>
     <div id="gen-regles-content"><div class="loading-center"><div class="spinner"></div></div></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
@@ -643,8 +643,8 @@ async function init() {
     document.getElementById('user-plan').textContent = abo.plan
     document.getElementById('user-avatar').textContent = PHARMACIE.nom[0].toUpperCase()
     document.getElementById('plan-label').textContent = abo.plan.replace('_',' ')
-    if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock">🔒</span>'
-    if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock">🔒</span>'
+    if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock"><i class=ic ic-lock></i></span>'
+    if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock"><i class=ic ic-lock></i></span>'
     if (MODULES.includes('grossiste')) {
       const configs = await apiGet('/grossiste/config')
       if (Array.isArray(configs)) {
@@ -748,7 +748,7 @@ function activerPeriodeMode() {
   for (let y = today.getFullYear() - 5; y <= today.getFullYear() + 3; y++) yearsOptions.push(y)
 
   container.innerHTML = `
-    <span>📆</span>
+    <span><i class=ic ic-range></i></span>
     <span style="font-size:11px;color:var(--sub)">Du</span>
     <select id="per-m1" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px">
       ${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i+1===_PERIODE_DEBUT.mois?'selected':''}>${['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][i]}</option>`).join('')}
@@ -763,7 +763,7 @@ function activerPeriodeMode() {
     <select id="per-y2" onchange="onPeriodeChange()" style="padding:5px 7px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Mono',monospace">
       ${yearsOptions.map(y=>`<option value="${y}" ${y===_PERIODE_FIN.annee?'selected':''}>${y}</option>`).join('')}
     </select>
-    <button onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Revenir au mode mois" style="padding:5px 10px;margin-left:6px;font-size:11px">📅 Mois</button>
+    <button onclick="togglePeriodeMode()" class="btn btn-outline btn-sm" title="Revenir au mode mois" style="padding:5px 10px;margin-left:6px;font-size:11px"><i class=ic ic-calendar></i> Mois</button>
   `
   onPeriodeChange()
 }
@@ -901,12 +901,12 @@ function _renderTreso(annee, attendu, percu, rattrapage){
     </div>
   </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="kpi-card" style="border:1.5px solid #E8A33D"><div class="kpi-lbl">💰 Argent dehors (total)</div><div class="kpi-val" style="font-size:24px;color:#E8A33D;font-weight:700">${eur(dehorsTotal)}</div><div style="font-size:11px;color:var(--sub)">attendu non encore perçu</div></div>
+    <div class="kpi-card" style="border:1.5px solid #E8A33D"><div class="kpi-lbl"><i class=ic ic-euro></i> Argent dehors (total)</div><div class="kpi-val" style="font-size:24px;color:#E8A33D;font-weight:700">${eur(dehorsTotal)}</div><div style="font-size:11px;color:var(--sub)">attendu non encore perçu</div></div>
     <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:18px">${eur(dehorsG)}</div></div>
     <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:18px">${eur(dehorsGen)}</div></div>
   </div>
-  ${_tableTreso('grossiste','🚚 Grossistes', attendu.grossiste, percu.grossiste, rattrapage.grossiste)}
-  ${_tableTreso('generique','💊 Génériqueurs', attendu.generique, percu.generique, rattrapage.generique)}
+  ${_tableTreso('grossiste','Grossistes', attendu.grossiste, percu.grossiste, rattrapage.grossiste)}
+  ${_tableTreso('generique','Génériqueurs', attendu.generique, percu.generique, rattrapage.generique)}
   `
 }
 
@@ -938,7 +938,7 @@ function _tableTreso(type, titre, attendu, percu, rattrapage){
   if((rattrapage||[]).length){
     ratHtml = '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
       + '<span style="font-size:11px;color:var(--sub);font-weight:600">Rattrapages :</span>'
-      + rattrapage.map(r=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:14px;padding:3px 10px;font-size:12px">${r.libelle?r.libelle+' · ':''}${eur(r.montant_ht||0)}${r.date_encaissement?` <span style="color:var(--sub);font-size:10px">(${r.date_encaissement})</span>`:''}<button onclick="_supprRattrapage('${r.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button></span>`).join('')
+      + rattrapage.map(r=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:14px;padding:3px 10px;font-size:12px">${r.libelle?r.libelle+' · ':''}${eur(r.montant_ht||0)}${r.date_encaissement?` <span style="color:var(--sub);font-size:10px">(${r.date_encaissement})</span>`:''}<button onclick="_supprRattrapage('${r.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0"><i class=ic ic-x></i></button></span>`).join('')
       + '</div>'
   }
   return `<div class="card" style="margin-top:18px">
@@ -1038,7 +1038,7 @@ function renderAccueilPage() {
   const blocGrossisteKpi = gp ? `
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;padding:0 4px">
-        <span style="font-size:13px;font-weight:700;color:var(--blue)">🏬 Grossiste prioritaire : ${gp.label}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--blue)"><i class=ic ic-shop></i> Grossiste prioritaire : ${gp.label}</span>
         <span style="font-size:11px;color:var(--sub)">contrat ${gp.taux_remise_pct}% + ${gp.forfait_cher}€/boîte &gt; ${gp.seuil_cher}€</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
@@ -1061,7 +1061,7 @@ function renderAccueilPage() {
     </div>
   ` : `
     <div style="margin-bottom:16px;padding:14px;background:#FEF3C7;border-radius:10px;text-align:center;color:#92400E;font-size:13px">
-      ⚠️ Aucun grossiste prioritaire détecté — configure une remise % ET un forfait/boîte produit cher dans Paramètres &gt; Grossistes
+      Aucun grossiste prioritaire détecté — configure une remise % ET un forfait/boîte produit cher dans Paramètres &gt; Grossistes
     </div>
   `
 
@@ -1072,7 +1072,7 @@ function renderAccueilPage() {
   const blocGenKpi = gn ? `
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;padding:0 4px">
-        <span style="font-size:13px;font-weight:700;color:var(--green)">💊 Génériqueur n°1 : ${gn.name}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--green)"><i class=ic ic-pill></i> Génériqueur n°1 : ${gn.name}</span>
         <span style="font-size:11px;color:var(--sub)">contrat ${gn.contrat_pct}%</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(${nbBullesGen},1fr);gap:14px">
@@ -1088,7 +1088,7 @@ function renderAccueilPage() {
         </div>
         ${isBiogaranPrio ? `
         <div class="kpi-card">
-          <div class="kpi-lbl">RDP ${gn.rdp_conditions_atteintes ? '✅' : '⏳'}</div>
+          <div class="kpi-lbl">RDP ${gn.rdp_conditions_atteintes ? '<i class=ic ic-check></i>' : '<i class=ic ic-clock></i>'}</div>
           <div class="kpi-val ${gn.rdp_conditions_atteintes ? 'green' : 'blue'}">${eur(gn.rdp_potentielle_e || gn.rdp_e || 0)}</div>
           <div class="kpi-sub">${gn.rdp_conditions_atteintes ? 'Atteinte' : 'Potentielle si conditions atteintes'}</div>
         </div>` : ''}
@@ -1101,14 +1101,14 @@ function renderAccueilPage() {
     </div>
   ` : `
     <div style="margin-bottom:16px;padding:14px;background:#FEF3C7;border-radius:10px;text-align:center;color:#92400E;font-size:13px">
-      ⚠️ Aucun génériqueur prioritaire — configure ton labo n°1 dans Paramètres &gt; Génériqueur
+      Aucun génériqueur prioritaire — configure ton labo n°1 dans Paramètres &gt; Génériqueur
     </div>
   `
 
   el.innerHTML = `
     <!-- Toggle Période / Année civile -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:12px;color:var(--sub)">📅 ${subLabel}</div>
+      <div style="font-size:12px;color:var(--sub)"><i class=ic ic-calendar></i> ${subLabel}</div>
       <div style="display:flex;gap:4px;background:#F3F4F6;padding:3px;border-radius:8px">
         <button onclick="_ACCUEIL_MODE='periode';loadAccueil()" class="${_ACCUEIL_MODE==='periode'?'btn btn-green btn-sm':'btn btn-outline btn-sm'}" style="padding:5px 12px;font-size:11px;border:none;background:${_ACCUEIL_MODE==='periode'?'#1D9E75':'transparent'};color:${_ACCUEIL_MODE==='periode'?'white':'var(--sub)'}">Période sélectionnée</button>
         <button onclick="_ACCUEIL_MODE='annee';loadAccueil()" class="${_ACCUEIL_MODE==='annee'?'btn btn-green btn-sm':'btn btn-outline btn-sm'}" style="padding:5px 12px;font-size:11px;border:none;background:${_ACCUEIL_MODE==='annee'?'#1D9E75':'transparent'};color:${_ACCUEIL_MODE==='annee'?'white':'var(--sub)'}">Année civile ${new Date().getFullYear()}</button>
@@ -1117,8 +1117,8 @@ function renderAccueilPage() {
 
     <!-- 2 camemberts côte à côte -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;margin-bottom:20px">
-      ${renderCamembertCard('camem1', '🏬 Répartition grossistes', data.camembert_grossistes, 'grossistes', COULEURS_CAM_GROSSISTES, '', 'grossiste')}
-      ${renderCamembertCard('camem2', '💊 Par génériqueur', data.camembert_generiqueur_prio, 'generiqueurs', COULEURS_CAM_LABOS, '', 'generiqueur')}
+      ${renderCamembertCard('camem1', 'Répartition grossistes', data.camembert_grossistes, 'grossistes', COULEURS_CAM_GROSSISTES, '', 'grossiste')}
+      ${renderCamembertCard('camem2', 'Par génériqueur', data.camembert_generiqueur_prio, 'generiqueurs', COULEURS_CAM_LABOS, '', 'generiqueur')}
     </div>
 
     <!-- Bloc KPIs Grossiste prio (3 bulles) -->
@@ -1194,7 +1194,7 @@ function renderCamembertCard(cardId, titre, data, pdfCat, couleursMap, recapHtml
   }).join('')
 
   const clickHint = cibleNav
-    ? `<div style="font-size:10px;color:var(--sub);text-align:center;margin-top:-4px;font-style:italic">👆 Cliquer pour voir le détail</div>`
+    ? `<div style="font-size:10px;color:var(--sub);text-align:center;margin-top:-4px;font-style:italic">Cliquer pour voir le détail</div>`
     : ''
 
   return `
@@ -1324,7 +1324,7 @@ async function exportPDFAccueil(categorie) {
     a.download = `accueil_${categorie}_${dateDebut}_${dateFin}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast('✅ PDF téléchargé', 'green')
+    toast('PDF téléchargé', 'green')
   } catch(e) {
     toast('Erreur réseau', 'red')
   }
@@ -1433,7 +1433,7 @@ async function loadGrossiste() {
           ? `Cette facture (n° ${f.num_facture}) existe en ${dupCount + 1} exemplaires. Autres copies : ${(f.duplicates_of||[]).map(d=>d.filename).join(', ')}`
           : ''
         const dupBadge = isDup
-          ? `<span class="badge" style="background:#FEE2E2;color:#B91C1C;margin-right:6px;cursor:help" title="${dupTitle.replace(/"/g,'&quot;')}">🔴 DOUBLON</span>`
+          ? `<span class="badge" style="background:#FEE2E2;color:#B91C1C;margin-right:6px;cursor:help" title="${dupTitle.replace(/"/g,'&quot;')}"><i class=dot dot-red></i> DOUBLON</span>`
           : ''
         return `
         <tr style="${rowStyle}">
@@ -1475,22 +1475,22 @@ async function loadGrossiste() {
     }).join('')
 
     el.innerHTML = `
-      ${detailGlobal ? `<div class="card" style="margin-bottom:20px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">📊 Synthese globale du mois — ${synth.nb_factures} facture(s)</div>${renderDetailRemise(detailGlobal)}</div>` : `<div class="kpi-grid">
+      ${detailGlobal ? `<div class="card" style="margin-bottom:20px"><div style="font-size:13px;font-weight:700;margin-bottom:12px"><i class=ic ic-chart></i> Synthese globale du mois — ${synth.nb_factures} facture(s)</div>${renderDetailRemise(detailGlobal)}</div>` : `<div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-lbl">CA total HT</div><div class="kpi-val">${eur(synth.ca_total)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green">${eur(synth.ca_eligible)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>`}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4">🗑️ Supprimer sélection (0)</button>
+        <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4"><i class=ic ic-trash></i> Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
-        <button class="btn btn-outline btn-sm" onclick="ouvrirModaleReleve()">📋 Analyser un relevé</button>
-        <button class="btn btn-outline btn-sm" onclick="ouvrirListeReleves()">📂 Mes relevés</button>
-        <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()">📊 Export PDF période</button>
-        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()">📄 PDF mois (tous)</button>
-        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('cerp')">📄 CERP</button>
-        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('ocp')">📄 OCP</button>
-        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('alliance')">📄 Alliance</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirModaleReleve()"><i class=ic ic-clip></i> Analyser un relevé</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirListeReleves()"><i class=ic ic-folder></i> Mes relevés</button>
+        <button class="btn btn-outline btn-sm" onclick="ouvrirModalePeriode()"><i class=ic ic-chart></i> Export PDF période</button>
+        <button class="btn btn-green btn-sm" onclick="exportPDFGrossiste()"><i class=ic ic-file></i> PDF mois (tous)</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('cerp')"><i class=ic ic-file></i> CERP</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('ocp')"><i class=ic ic-file></i> OCP</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDFGrossiste('alliance')"><i class=ic ic-file></i> Alliance</button>
       </div>
       <div id="grossiste-filtres" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 14px;background:#fff;border:1px solid #eee;border-radius:8px">
         <span style="font-size:12px;color:var(--sub);font-weight:600">Grossistes affichés :</span>
@@ -1505,7 +1505,7 @@ function updateDeleteBtn() {
   const checked = document.querySelectorAll('.f-check:checked').length
   const btn = document.getElementById('btn-supprimer-selection')
   if (!btn) return
-  btn.textContent = `🗑️ Supprimer sélection (${checked})`
+  btn.textContent = `Supprimer sélection (${checked})`
   btn.disabled = checked === 0
   btn.style.opacity = checked === 0 ? '0.4' : '1'
 }
@@ -1540,16 +1540,16 @@ async function supprimerFacturesSelectionnees() {
 
 // ── VOIR FACTURE ────────────────────────────────────────────────────────────
 const STATUT_INFO = {
-  eligible:       { label:'Éligible remise',  badge:'badge-green',  icon:'✅' },
-  produit_cher:   { label:'Produit cher',      badge:'badge-amber',  icon:'💰' },
-  remise_facture: { label:'Remisé facture',    badge:'badge-blue',   icon:'🔵' },
-  generique:      { label:'Générique',         badge:'badge-gray',   icon:'⚪' },
-  biosimilaire:   { label:'Biosimilaire',      badge:'badge-purple', icon:'🟣' },
-  tva_20:         { label:'TVA 20% exclu',     badge:'badge-red',    icon:'🔴' },
-  tva_5_5:        { label:'TVA 5,5% exclu',    badge:'badge-red',    icon:'🔴' },
-  tva_10:         { label:'TVA 10% exclu',     badge:'badge-red',    icon:'🔴' },
-  frigo:          { label:'Frigo exclu',       badge:'badge-blue',   icon:'❄️' },
-  stupefiants:    { label:'Stupéfiant exclu',  badge:'badge-red',    icon:'⛔' },
+  eligible:       { label:'Éligible remise',  badge:'badge-green',  icon:'' },
+  produit_cher:   { label:'Produit cher',      badge:'badge-amber',  icon:'' },
+  remise_facture: { label:'Remisé facture',    badge:'badge-blue',   icon:'' },
+  generique:      { label:'Générique',         badge:'badge-gray',   icon:'' },
+  biosimilaire:   { label:'Biosimilaire',      badge:'badge-purple', icon:'' },
+  tva_20:         { label:'TVA 20% exclu',     badge:'badge-red',    icon:'' },
+  tva_5_5:        { label:'TVA 5,5% exclu',    badge:'badge-red',    icon:'' },
+  tva_10:         { label:'TVA 10% exclu',     badge:'badge-red',    icon:'' },
+  frigo:          { label:'Frigo exclu',       badge:'badge-blue',   icon:'' },
+  stupefiants:    { label:'Stupéfiant exclu',  badge:'badge-red',    icon:'' },
 }
 const ORDRE_STATUT = ['eligible','produit_cher','remise_facture','generique','biosimilaire','tva_20','tva_5_5','tva_10','frigo','stupefiants']
 
@@ -1595,9 +1595,9 @@ function _renderFacture(f) {
     const remiseCell = l.remise_pct > 0
       ? `<td style="text-align:center;color:var(--blue);font-weight:600">${l.remise_pct}%</td>`
       : `<td style="text-align:center;color:var(--sub)">—</td>`
-    const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé">✏️</span>' : ''
+    const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé"><i class=ic ic-pencil></i></span>' : ''
     const editBtn = l.cip13
-      ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})">✏️</button>`
+      ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})"><i class=ic ic-pencil></i></button>`
       : ''
     return `<tr class="${rowCls}">
       <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
@@ -1629,15 +1629,15 @@ function _renderFacture(f) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">${resumeCards}</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:12px">
-      <span style="background:var(--green-l);padding:3px 10px;border-radius:6px;color:var(--green-d)">✅ Éligible</span>
-      <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)">💰 Produit cher</span>
-      <span style="background:var(--blue-l);padding:3px 10px;border-radius:6px;color:var(--blue)">🔵 Remisé facture</span>
-      <span style="background:var(--bg2);padding:3px 10px;border-radius:6px;color:var(--sub)">⚪ Exclu</span>
+      <span style="background:var(--green-l);padding:3px 10px;border-radius:6px;color:var(--green-d)"><i class=ic ic-check></i> Éligible</span>
+      <span style="background:var(--amber-l);padding:3px 10px;border-radius:6px;color:var(--amber)"><i class=ic ic-euro></i> Produit cher</span>
+      <span style="background:var(--blue-l);padding:3px 10px;border-radius:6px;color:var(--blue)"><i class=dot dot-blue></i> Remisé facture</span>
+      <span style="background:var(--bg2);padding:3px 10px;border-radius:6px;color:var(--sub)"><i class=dot dot-gray></i> Exclu</span>
     </div>
     <div class="card">
       <div class="card-header">
         <div class="card-header-title">Détail des lignes</div>
-        <span style="font-size:11px;color:var(--sub)">Cliquez ✏️ pour modifier le statut</span>
+        <span style="font-size:11px;color:var(--sub)">Cliquez <i class=ic ic-pencil></i> pour modifier le statut</span>
       </div>
       <div style="overflow-x:auto">
         <table>
@@ -1670,7 +1670,7 @@ async function appliquerOverride() {
     })
     const result = await r.json()
     fermerModal()
-    toast(`✅ ${result.nb_lignes} ligne(s) mise(s) à jour`, 'green')
+    toast(`${result.nb_lignes} ligne(s) mise(s) à jour`, 'green')
     if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
   } catch(e) { toast('Erreur', 'red') }
 }
@@ -1681,7 +1681,7 @@ async function reinitialiserStatut() {
     await fetch(`${API}/grossiste/overrides/${encodeURIComponent(_MODAL_CIP)}`, {
       method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN }
     })
-    toast('✅ Statut réinitialisé', 'green')
+    toast('Statut réinitialisé', 'green')
     if (_CURRENT_FACTURE_ID) { const f = await apiGet(`/grossiste/factures/${_CURRENT_FACTURE_ID}`); _renderFacture(f) }
   } catch(e) { toast('Erreur', 'red') }
 }
@@ -1791,10 +1791,10 @@ async function onReleveFileSelected(files) {
   if (!files || !files.length) return
   const file = files[0]
   _RELEVE_FILE = file
-  document.getElementById('releve-filename').textContent = '📎 ' + file.name
+  document.getElementById('releve-filename').textContent = '' + file.name
   // Lancer l'analyse directement
   fermerModaleReleve()
-  toast('⏳ Analyse du relevé en cours...')
+  toast('Analyse du relevé en cours...')
   await analyserReleve(file)
 }
 
@@ -1858,7 +1858,7 @@ function afficherResultatReleve(data) {
   const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
   document.getElementById('releve-result-sub').innerHTML =
     `${sourceLabel} — N° ${data.num_releve || '?'} — Période du ${data.periode_debut || '?'} au ${data.periode_fin || '?'}<br>` +
-    `<span style="color:var(--green)">🔄 Rapprochement effectué à ${hm}</span>`
+    `<span style="color:var(--green)"><i class=ic ic-refresh></i> Rapprochement effectué à ${hm}</span>`
 
   // KPIs
   const kpiHtml = `
@@ -1880,17 +1880,17 @@ function afficherResultatReleve(data) {
     let statutBadge = ''
     let bg = ''
     if (l.statut === 'ok') {
-      statutBadge = '<span class="badge badge-green">✅ OK</span>'
+      statutBadge = '<span class="badge badge-green"><i class=ic ic-check></i> OK</span>'
     } else if (l.statut === 'manquante') {
-      statutBadge = '<span class="badge" style="background:#FEE2E2;color:#B91C1C">❌ MANQUANTE</span>'
+      statutBadge = '<span class="badge" style="background:#FEE2E2;color:#B91C1C"><i class=ic ic-x></i> MANQUANTE</span>'
       bg = 'background:#FFF5F5'
     } else if (l.statut === 'ecart') {
       const e = l.ecart != null ? ` (${eur(l.ecart)})` : ''
-      statutBadge = `<span class="badge" style="background:#FEF3C7;color:#92400E">⚠️ ÉCART${e}</span>`
+      statutBadge = `<span class="badge" style="background:#FEF3C7;color:#92400E"><i class=ic ic-alert></i> ÉCART${e}</span>`
       bg = 'background:#FFFBEB'
     }
 
-    const typeIcon = l.is_avoir ? '💰 AV' : ''
+    const typeIcon = l.is_avoir ? 'AV' : ''
     const appMontant = l.facture_match
       ? `${eur(l.facture_match.total_ht || 0)}`
       : '<span style="color:var(--sub)">—</span>'
@@ -1922,7 +1922,7 @@ function afficherResultatReleve(data) {
     `).join('')
     enTropHtml = `
       <div style="margin-top:20px">
-        <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:#D97706">⚠️ Factures dans l'app mais absentes du relevé (${data.factures_en_trop.length})</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:#D97706"><i class=ic ic-alert></i> Factures dans l'app mais absentes du relevé (${data.factures_en_trop.length})</div>
         <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Ces factures sont dans la période du relevé mais n'apparaissent pas dedans. Peut-être un problème de classement ou de date.</div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:var(--bg);font-size:11px;color:var(--sub);text-align:left">
@@ -1984,9 +1984,9 @@ function afficherListeReleves(releves) {
   if (!releves || !releves.length) {
     el.innerHTML = `
       <div style="text-align:center;padding:40px;color:var(--sub)">
-        <div style="font-size:40px">📭</div>
+        <div style="font-size:40px"><i class=ic ic-inbox></i></div>
         <div style="margin-top:12px;font-size:14px">Aucun relevé analysé pour l'instant</div>
-        <div style="font-size:12px;margin-top:4px">Cliquez sur "📋 Analyser un relevé" pour commencer</div>
+        <div style="font-size:12px;margin-top:4px">Cliquez sur "<i class=ic ic-clip></i> Analyser un relevé" pour commencer</div>
       </div>
     `
     return
@@ -2025,7 +2025,7 @@ function afficherListeReleves(releves) {
         <td style="font-size:11px;color:var(--sub)">${r.filename || ''}</td>
         <td style="text-align:center;white-space:nowrap">
           <button class="btn btn-green btn-sm" onclick="ouvrirRapprochement('${r.id}')">Voir</button>
-          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerReleve('${r.id}')">🗑️</button>
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerReleve('${r.id}')"><i class=ic ic-trash></i></button>
         </td>
       </tr>`
     }
@@ -2037,7 +2037,7 @@ function afficherListeReleves(releves) {
 
 async function ouvrirRapprochement(releveId) {
   fermerListeReleves()
-  toast('⏳ Rapprochement en cours...')
+  toast('Rapprochement en cours...')
   try {
     const data = await apiGet(`/releve/${releveId}/rapprochement`)
     afficherResultatReleve(data)
@@ -2054,7 +2054,7 @@ async function supprimerReleve(releveId) {
       headers: { 'Authorization': 'Bearer ' + TOKEN }
     })
     if (r.ok) {
-      toast('✅ Relevé supprimé', 'green')
+      toast('Relevé supprimé', 'green')
       ouvrirListeReleves()  // rafraîchir
     } else {
       toast('Erreur lors de la suppression', 'red')
@@ -2085,7 +2085,7 @@ function afficherReferentiels(refs) {
     const present = r.present
     const borderColor = present ? '#1D9E75' : '#DC2626'
     const bg = present ? '#F0FDF4' : '#FEF2F2'
-    const icon = present ? '🟢' : '🔴'
+    const icon = present ? '' : ''
     const etat = present
       ? `<span style="color:#1D9E75;font-weight:600">${r.nb_produits} produits</span>`
       : `<span style="color:#DC2626;font-weight:600">Référentiel manquant</span>`
@@ -2098,8 +2098,8 @@ function afficherReferentiels(refs) {
         </div>
         <div style="display:flex;gap:4px">
           <input type="file" id="ref-file-${r.labo.replace(/\s+/g,'_')}" accept=".xlsx,.xls" style="display:none" onchange="uploadReferentiel('${r.labo}', this.files[0])"/>
-          <button class="btn btn-outline btn-sm" title="Uploader un nouveau fichier" onclick="document.getElementById('ref-file-${r.labo.replace(/\\s+/g,'_')}').click()">📤</button>
-          ${present ? `<button class="btn btn-outline btn-sm" title="Vider ce référentiel" style="color:var(--red);border-color:var(--red)" onclick="viderReferentiel('${r.labo}')">🗑️</button>` : ''}
+          <button class="btn btn-outline btn-sm" title="Uploader un nouveau fichier" onclick="document.getElementById('ref-file-${r.labo.replace(/\\s+/g,'_')}').click()"><i class=ic ic-up></i></button>
+          ${present ? `<button class="btn btn-outline btn-sm" title="Vider ce référentiel" style="color:var(--red);border-color:var(--red)" onclick="viderReferentiel('${r.labo}')"><i class=ic ic-trash></i></button>` : ''}
         </div>
       </div>`
   }).join('')
@@ -2114,7 +2114,7 @@ async function uploadReferentiel(labo, file) {
     return
   }
 
-  toast(`⏳ Import ${labo} en cours...`)
+  toast(`Import ${labo} en cours...`)
 
   const fd = new FormData()
   fd.append('file', file)
@@ -2131,7 +2131,7 @@ async function uploadReferentiel(labo, file) {
       return
     }
     const data = await r.json()
-    let msg = `✅ ${labo} : ${data.nb_lignes_importees} produits importés`
+    let msg = `${labo} : ${data.nb_lignes_importees} produits importés`
     if (data.nb_lignes_ignorees > 0) {
       msg += ` (${data.nb_lignes_ignorees} lignes ignorées)`
     }
@@ -2159,7 +2159,7 @@ async function viderReferentiel(labo) {
     })
     if (r.ok) {
       const data = await r.json()
-      toast(`✅ ${labo} vidé (${data.lignes_supprimees} produits supprimés)`, 'green')
+      toast(`${labo} vidé (${data.lignes_supprimees} produits supprimés)`, 'green')
       chargerReferentiels()
     } else {
       toast('Erreur', 'red')
@@ -2169,12 +2169,12 @@ async function viderReferentiel(labo) {
 
 async function lancerDiagnosticCouverture() {
   const res = document.getElementById('migration-gen-result')
-  res.innerHTML = '⏳ Analyse des référentiels...'
+  res.innerHTML = 'Analyse des référentiels...'
   try {
     const r = await fetch(`${API}/generiqueur/admin/diagnose-couverture`, {
       headers: { 'Authorization': 'Bearer ' + TOKEN }
     })
-    if (!r.ok) { res.innerHTML = '❌ Erreur ' + r.status; return }
+    if (!r.ok) { res.innerHTML = 'Erreur ' + r.status; return }
     const data = await r.json()
 
     let html = '<div style="font-size:10px;margin-top:4px"><strong>Diagnostic des référentiels :</strong></div>'
@@ -2194,7 +2194,7 @@ async function lancerDiagnosticCouverture() {
     html += '</table>'
     res.innerHTML = html
   } catch(e) {
-    res.innerHTML = '❌ Erreur réseau'
+    res.innerHTML = 'Erreur réseau'
   }
 }
 
@@ -2202,7 +2202,7 @@ async function lancerMigrationGen() {
   if (!confirm('Lancer la migration ?\n\nCela ajoute les colonnes, recalcule les molécules et charge les RDP Biogaran. Pas de risque, c\'est idempotent.')) return
 
   const res = document.getElementById('migration-gen-result')
-  res.innerHTML = '⏳ Migration en cours...'
+  res.innerHTML = 'Migration en cours...'
 
   try {
     const r = await fetch(`${API}/generiqueur/admin/migrate-fix`, {
@@ -2210,11 +2210,11 @@ async function lancerMigrationGen() {
       headers: { 'Authorization': 'Bearer ' + TOKEN }
     })
     if (!r.ok) {
-      res.innerHTML = '❌ Erreur ' + r.status
+      res.innerHTML = 'Erreur ' + r.status
       return
     }
     const data = await r.json()
-    let html = '✅ Migration terminée<br>'
+    let html = '<i class=ic ic-check></i> Migration terminée<br>'
     for (const step of data.steps || []) {
       const icon = step.ok ? '✓' : '✗'
       let detail = step.step
@@ -2224,9 +2224,9 @@ async function lancerMigrationGen() {
       html += `${icon} ${detail}<br>`
     }
     res.innerHTML = html
-    toast('✅ Migration OK', 'green')
+    toast('Migration OK', 'green')
   } catch(e) {
-    res.innerHTML = '❌ Erreur réseau'
+    res.innerHTML = 'Erreur réseau'
     toast('Erreur réseau', 'red')
   }
 }
@@ -2249,7 +2249,7 @@ function afficherListeOverrides(overrides) {
   if (!overrides || !overrides.length) {
     el.innerHTML = `
       <div style="text-align:center;padding:20px;color:var(--sub);border:1px dashed var(--border);border-radius:10px">
-        <div style="font-size:28px">🖌️</div>
+        <div style="font-size:28px"><i class=ic ic-pencil></i></div>
         <div style="margin-top:6px;font-size:12px">Aucune modification manuelle</div>
         <div style="font-size:11px;margin-top:2px">Utilise le pinceau sur une facture pour forcer le statut d'un CIP</div>
       </div>`
@@ -2292,7 +2292,7 @@ function afficherListeOverrides(overrides) {
         <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--sub)">${o.nb_lignes_affectees}</td>
         <td style="padding:8px 10px;font-size:11px;color:var(--sub);white-space:nowrap">${formatDate(dateAffichee)}</td>
         <td style="padding:8px 10px;text-align:right">
-          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px" onclick="supprimerOverride('${o.cip13}','${(o.nom || '').replace(/'/g,"\\'")}')">🗑️</button>
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px" onclick="supprimerOverride('${o.cip13}','${(o.nom || '').replace(/'/g,"\\'")}')"><i class=ic ic-trash></i></button>
         </td>
       </tr>`
   }).join('')
@@ -2314,7 +2314,7 @@ function afficherListeOverrides(overrides) {
       </table>
     </div>
     <div style="font-size:11px;color:var(--sub);margin-top:8px">
-      💡 ${overrides.length} modification${overrides.length > 1 ? 's' : ''} au total. Supprimer = revenir au classement automatique pour ce CIP.
+      ${overrides.length} modification${overrides.length > 1 ? 's' : ''} au total. Supprimer = revenir au classement automatique pour ce CIP.
     </div>
   `
 }
@@ -2331,7 +2331,7 @@ async function supprimerOverride(cip13, nom) {
       headers: { 'Authorization': 'Bearer ' + TOKEN }
     })
     if (r.ok) {
-      toast('✅ Modification supprimée', 'green')
+      toast('Modification supprimée', 'green')
       chargerListeOverrides()
     } else {
       const err = await r.json().catch(() => ({}))
@@ -2364,7 +2364,7 @@ function afficherListeGeneriqueurs(configs) {
   if (!configs || !configs.length) {
     el.innerHTML = `
       <div style="text-align:center;padding:24px;color:var(--sub);border:1px dashed var(--border);border-radius:10px">
-        <div style="font-size:32px">💊</div>
+        <div style="font-size:32px"><i class=ic ic-pill></i></div>
         <div style="margin-top:8px;font-size:13px">Aucun génériqueur configuré</div>
         <div style="font-size:11px;margin-top:4px">Clique sur "+ Ajouter" pour commencer</div>
       </div>`
@@ -2378,7 +2378,7 @@ function afficherListeGeneriqueurs(configs) {
   let html = ''
 
   if (prios.length) {
-    html += `<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⭐ Prioritaires</div>`
+    html += `<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><i class=ic ic-star></i> Prioritaires</div>`
     html += prios.map(c => renderCarteGeneriqueur(c)).join('')
   }
 
@@ -2420,7 +2420,7 @@ function renderCarteGeneriqueur(c) {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="ouvrirModaleEditGeneriqueur('${c.id}')">Modifier</button>
-        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerGeneriqueur('${c.id}','${c.labo}')">🗑️</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerGeneriqueur('${c.id}','${c.labo}')"><i class=ic ic-trash></i></button>
       </div>
     </div>`
 }
@@ -2534,13 +2534,13 @@ function renderFormulaireGeneriqueur(c) {
     <div id="ge-nonprio-section" style="${!c.prioritaire?'':'display:none'};margin-bottom:14px">
       <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil mensuel HT (€)</label>
       <input type="number" id="ge-seuil-mensuel" value="${c.seuil_mensuel_ht||350}" step="10" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
-      <div style="font-size:11px;color:var(--sub);margin-top:4px">💡 350€ par défaut. Si le CA mensuel est sous ce seuil, la remise contrat ne s'applique pas.</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px"><i class=ic ic-bulb></i> 350€ par défaut. Si le CA mensuel est sous ce seuil, la remise contrat ne s'applique pas.</div>
     </div>
 
     <div style="padding:12px;background:#F8FAFC;border-radius:8px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:13px;font-weight:600">⚙️ Règles particulières</div>
+          <div style="font-size:13px;font-weight:600"><i class=ic ic-settings></i> Règles particulières</div>
           <div style="font-size:11px;color:var(--sub)" id="ge-regles-summary">Aucune règle</div>
         </div>
         <button onclick="ouvrirModaleRegles()" class="btn btn-outline btn-sm">Configurer</button>
@@ -2549,7 +2549,7 @@ function renderFormulaireGeneriqueur(c) {
 
     ${isBiogaran ? `
     <div id="ge-biogaran-section" style="${c.prioritaire && c.ordre === 1 ? '' : 'display:none'};padding:12px;background:#FEF3C7;border-radius:8px;margin-bottom:14px;border:1px solid #FCD34D">
-      <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">🎯 Règles Biogaran pré-définies</div>
+      <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px"><i class=ic ic-target></i> Règles Biogaran pré-définies</div>
       <div style="font-size:11px;color:#92400E;margin-bottom:8px">Appliquées automatiquement pour Biogaran prioritaire n°1. Tu peux les modifier ci-dessous.</div>
       ${renderSectionBiogaran(c.biogaran)}
     </div>
@@ -2599,8 +2599,8 @@ function renderSectionBiogaran(biogaran) {
       </div>
     </div>
     <div style="font-size:11px;color:#92400E;margin-top:6px">
-      🩹 Soins des plaies (paliers mensuels) : 87,50€ → +5% / 125€ → +6% / 175€ → +7%<br>
-      🩹 Hydrocellulaires (annuels) : 2500€ → +5% / 3000€ → +8% / 3500€ → +11%
+      <i class=ic ic-lab></i> Soins des plaies (paliers mensuels) : 87,50€ → +5% / 125€ → +6% / 175€ → +7%<br>
+      Hydrocellulaires (annuels) : 2500€ → +5% / 3000€ → +8% / 3500€ → +11%
     </div>
   `
 }
@@ -2666,10 +2666,10 @@ async function enregistrerGeneriqueur() {
   try {
     if (_GEN_EDIT_ID) {
       await apiPut(`/generiqueur/config/${_GEN_EDIT_ID}`, payload)
-      toast('✅ Modifications enregistrées', 'green')
+      toast('Modifications enregistrées', 'green')
     } else {
       await apiPost('/generiqueur/config', payload)
-      toast('✅ Génériqueur ajouté', 'green')
+      toast('Génériqueur ajouté', 'green')
     }
     fermerModaleEditGeneriqueur()
     chargerListeGeneriqueurs()
@@ -2687,7 +2687,7 @@ async function supprimerGeneriqueur(id, labo) {
       headers: { 'Authorization': 'Bearer ' + TOKEN }
     })
     if (r.ok) {
-      toast(`✅ ${labo} supprimé`, 'green')
+      toast(`${labo} supprimé`, 'green')
       chargerListeGeneriqueurs()
     } else {
       toast('Erreur', 'red')
@@ -2758,14 +2758,14 @@ function renderModaleRegles() {
         <span style="font-size:11px;color:var(--sub)">%</span>
       </td>
       <td style="padding:4px 8px;text-align:right">
-        <button onclick="supprimerRegleMolecule(${i})" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:2px 6px">🗑️</button>
+        <button onclick="supprimerRegleMolecule(${i})" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:2px 6px"><i class=ic ic-trash></i></button>
       </td>
     </tr>
   `).join('')
 
   el.innerHTML = `
     <div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 Par catégorie de remise</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px"><i class=ic ic-chart></i> Par catégorie de remise</div>
       <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Coche les catégories où le contrat ne s'applique pas, ou s'applique à un taux différent. <strong>0% = exclusion totale</strong>.</div>
       ${_CATEGORIES_DISPO.length ? `
         <table style="width:100%;border-collapse:collapse;background:#F8FAFC;border-radius:8px">
@@ -2775,7 +2775,7 @@ function renderModaleRegles() {
     </div>
 
     <div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">💊 Par molécule</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px"><i class=ic ic-pill></i> Par molécule</div>
       <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Ajoute une molécule spécifique avec un taux particulier. La règle molécule prime sur la règle catégorie.</div>
       <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
         <input type="text" id="mol-search" placeholder="Cherche par molécule (paracétamol), nom complet (IBUPROFENE 400 mg) ou CIP (3400930...)" oninput="chercherMolecule(this.value)" 
@@ -2978,14 +2978,14 @@ function _renderParametres() {
         </div>
         <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
           <button class="btn btn-green" style="background:${color}" onclick="ouvrirModaleSauvegarde('${source}')">Sauvegarder ${label}</button>
-          <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')">🔄 Recalculer une période</button>
+          <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')"><i class=ic ic-refresh></i> Recalculer une période</button>
         </div>
       </div>
     </div>
     ${MODULES.includes('generiqueur') ? `
     <div class="card" id="card-generiqueurs">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div class="card-title" style="margin:0">💊 Mes génériqueurs</div>
+        <div class="card-title" style="margin:0"><i class=ic ic-pill></i> Mes génériqueurs</div>
         <button class="btn btn-green btn-sm" onclick="ouvrirModaleAjoutGeneriqueur()">+ Ajouter</button>
       </div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
@@ -2994,7 +2994,7 @@ function _renderParametres() {
       <div id="generiqueurs-liste"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
     </div>` : ''}
     <div class="card" id="card-overrides">
-      <div class="card-title">🖌️ Modifications pinceau</div>
+      <div class="card-title"><i class=ic ic-pencil></i> Modifications pinceau</div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
         Liste des modifications manuelles de statut appliquées par CIP. Chaque modification est appliquée automatiquement à toutes les factures (passées et futures) contenant ce CIP. Tu peux supprimer une modification pour revenir au classement automatique.
       </div>
@@ -3002,21 +3002,21 @@ function _renderParametres() {
     </div>
     ${MODULES.includes('generiqueur') ? `
     <div class="card" id="card-referentiels">
-      <div class="card-title">📚 Référentiels génériques</div>
+      <div class="card-title"><i class=ic ic-book></i> Référentiels génériques</div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:12px">
-        Tarifs et remises par laboratoire. Chaque case représente un labo. Clique sur 📤 pour remplacer par un nouveau fichier Excel, ou sur 🗑️ pour vider.
+        Tarifs et remises par laboratoire. Chaque case représente un labo. Clique sur pour remplacer par un nouveau fichier Excel, ou sur pour vider.
         <a href="${API}/generiqueur/referentiels/template" target="_blank" style="color:var(--green);text-decoration:underline;margin-left:4px">Télécharger le modèle Excel</a>
       </div>
       <div id="referentiels-grid"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
 
       <!-- Migration one-shot : à faire 1 fois après déploiement du fix -->
       <div style="margin-top:16px;padding:12px;background:#FEF3C7;border-radius:8px;border-left:3px solid #D97706">
-        <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">🔧 Migration référentiels (à faire 1 fois)</div>
+        <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px"><i class=ic ic-wrench></i> Migration référentiels (à faire 1 fois)</div>
         <div style="font-size:11px;color:#92400E;margin-bottom:8px">
           Recalcule les noms de molécules (corrige les "par", "pellicule"...) et charge les RDP Biogaran depuis le bon de commande.
         </div>
         <button class="btn btn-outline btn-sm" onclick="lancerMigrationGen()" style="font-size:11px">▶ Lancer la migration</button>
-        <button class="btn btn-outline btn-sm" onclick="lancerDiagnosticCouverture()" style="font-size:11px;margin-left:6px">🔍 Diagnostic couverture</button>
+        <button class="btn btn-outline btn-sm" onclick="lancerDiagnosticCouverture()" style="font-size:11px;margin-left:6px"><i class=ic ic-search></i> Diagnostic couverture</button>
         <div id="migration-gen-result" style="margin-top:8px;font-size:11px;font-family:'DM Mono',monospace"></div>
       </div>
     </div>` : ''}
@@ -3096,7 +3096,7 @@ async function confirmerSauvegarde() {
   } catch(e) {}
 
   fermerModaleSauvegarde()
-  toast('💾 Sauvegarde en cours...')
+  toast('Sauvegarde en cours...')
 
   try {
     const r = await fetch(`${API}/grossiste/config/historique`, {
@@ -3112,9 +3112,9 @@ async function confirmerSauvegarde() {
 
     const nb = data.recalcul?.nb_factures_recalculees || 0
     if (recalculer && nb > 0) {
-      toast(`✅ Sauvegardé — ${nb} facture(s) recalculée(s)`, 'green')
+      toast(`Sauvegardé — ${nb} facture(s) recalculée(s)`, 'green')
     } else {
-      toast(`✅ Paramètres sauvegardés`, 'green')
+      toast(`Paramètres sauvegardés`, 'green')
     }
   } catch(e) { toast('Erreur réseau','red') }
 }
@@ -3154,7 +3154,7 @@ async function lancerRecalcul() {
   }
 
   fermerModaleRecalcul()
-  toast('🔄 Recalcul en cours...')
+  toast('Recalcul en cours...')
 
   try {
     const r = await fetch(`${API}/grossiste/recalcul/periode`, {
@@ -3166,7 +3166,7 @@ async function lancerRecalcul() {
     })
     if (!r.ok) { const err = await r.json().catch(()=>({})); toast('Erreur : '+(err.detail||r.status),'red'); return }
     const data = await r.json()
-    toast(`✅ ${data.nb_factures_recalculees} facture(s) recalculée(s)`, 'green')
+    toast(`${data.nb_factures_recalculees} facture(s) recalculée(s)`, 'green')
   } catch(e) { toast('Erreur réseau','red') }
 }
 
@@ -3202,10 +3202,10 @@ function renderGeneriqueurPage(synth) {
       </div>
       <div class="card">
         <div style="text-align:center;padding:40px;color:var(--sub)">
-          <div style="font-size:40px">💊</div>
+          <div style="font-size:40px"><i class=ic ic-pill></i></div>
           <div style="margin-top:12px;font-size:14px">Aucun génériqueur à afficher ce mois</div>
           <div style="font-size:12px;margin-top:4px">Commence par configurer tes génériqueurs dans Paramètres, ou uploade des factures grossistes pour voir les achats.</div>
-          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="goTo('parametres', document.querySelector('[onclick*=&apos;parametres&apos;]'))">⚙️ Aller aux Paramètres</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="goTo('parametres', document.querySelector('[onclick*=&apos;parametres&apos;]'))"><i class=ic ic-settings></i> Aller aux Paramètres</button>
         </div>
       </div>`
     return
@@ -3218,7 +3218,7 @@ function renderGeneriqueurPage(synth) {
       <div class="kpi-card"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val green">${eur(totaux.remise_grossiste_e||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise contrat</div><div class="kpi-val green">${eur(totaux.remise_contrat_e||0)}</div></div>
       <div class="kpi-card">
-        <div class="kpi-lbl">RDP Biogaran ${(totaux.rdp_e||0) > 0 ? '✅' : '⏳'}</div>
+        <div class="kpi-lbl">RDP Biogaran ${(totaux.rdp_e||0) > 0 ? '<i class=ic ic-check></i>' : '<i class=ic ic-clock></i>'}</div>
         <div class="kpi-val ${(totaux.rdp_e||0) > 0 ? 'green' : 'blue'}">${eur((totaux.rdp_e||0) > 0 ? totaux.rdp_e : (totaux.rdp_potentielle_e||0))}</div>
         <div style="font-size:10px;color:var(--sub);margin-top:2px">${(totaux.rdp_e||0) > 0 ? 'Atteinte' : 'Potentielle'}</div>
       </div>
@@ -3243,7 +3243,7 @@ function renderLaboSection(l) {
   // Infos ligne d'en-tête
   const infoLigne = l.configure
     ? `Contrat ${l.taux_contrat_pct}% • Promis ${l.pct_pondere_promis}% • ${isPrio ? `Obj. annuel ${eur(l.objectif_annuel_ht)}` : `Seuil mensuel ${eur(l.seuil_mensuel_ht)}`}`
-    : `⚠️ Ce labo n'est pas dans tes paramètres — configure-le pour bénéficier des remises contrat`
+    : `Ce labo n'est pas dans tes paramètres — configure-le pour bénéficier des remises contrat`
 
   // % pondéré réel avec couleur — SEULEMENT si configuré (sinon ça n'a pas de sens)
   const pctReel = l.pct_pondere_reel
@@ -3252,9 +3252,9 @@ function renderLaboSection(l) {
   let pctColor = 'var(--sub)'
   let pctIcon = ''
   if (l.configure && pctPromis > 0) {
-    if (ecart >= 0) { pctColor = '#1D9E75'; pctIcon = '🟢' }
-    else if (ecart >= -2) { pctColor = '#D97706'; pctIcon = '🟡' }
-    else { pctColor = '#DC2626'; pctIcon = '🔴' }
+    if (ecart >= 0) { pctColor = '#1D9E75'; pctIcon = '' }
+    else if (ecart >= -2) { pctColor = '#D97706'; pctIcon = '' }
+    else { pctColor = '#DC2626'; pctIcon = '' }
   }
 
   // Affichage % pondéré uniquement si configuré
@@ -3287,10 +3287,10 @@ function renderLaboSection(l) {
   // Section répartition par source
   const parSource = l.par_source || {}
   const sources = [
-    { key: 'cerp', label: '📦 CERP', color: '#1D9E75' },
-    { key: 'alliance', label: '📦 Alliance', color: '#2563EB' },
-    { key: 'ocp', label: '📦 OCP', color: '#7C3AED' },
-    { key: 'labo_direct', label: '💊 Direct labo', color: '#DC2626' },
+    { key: 'cerp', label: 'CERP', color: '#1D9E75' },
+    { key: 'alliance', label: 'Alliance', color: '#2563EB' },
+    { key: 'ocp', label: 'OCP', color: '#7C3AED' },
+    { key: 'labo_direct', label: 'Direct labo', color: '#DC2626' },
   ]
   const sourcesRows = sources.map(s => {
     const d = parSource[s.key] || { ca: 0, remise_grossiste: 0, remise_contrat: 0, nb_lignes: 0 }
@@ -3330,7 +3330,7 @@ function renderLaboSection(l) {
     const pctExclu = caBase > 0 ? (l.ca_exclu_ht / caBase * 100) : 0
     exclusSection = `
       <div style="margin-top:10px;padding:8px 12px;background:#FEF3C7;border-radius:6px;border-left:3px solid #D97706;font-size:12px">
-        <span style="font-weight:600;color:#92400E">⚠️ Produits avec règle particulière :</span>
+        <span style="font-weight:600;color:#92400E"><i class=ic ic-alert></i> Produits avec règle particulière :</span>
         ${eur(l.ca_exclu_ht)} (${pctExclu.toFixed(1)}% du CA)
       </div>`
   }
@@ -3343,7 +3343,7 @@ function renderLaboSection(l) {
          <button onclick="toggleDetailsLignes('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm">
            ${isOpen ? '▲ Cacher le détail' : '▼ Voir le détail'} (${l.details_lignes.length} ligne${l.details_lignes.length>1?'s':''})
          </button>
-         <button onclick="telechargerDetailLabo('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm">📥 Télécharger (Excel)</button>
+         <button onclick="telechargerDetailLabo('${l.labo.replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm"><i class=ic ic-down></i> Télécharger (Excel)</button>
        </div>
        <div id="details-lignes-${laboKey}" style="display:${isOpen?'block':'none'};margin-top:10px">
          ${renderDetailsLignes(l.details_lignes, l.labo)}
@@ -3407,8 +3407,8 @@ function renderMetriquesLabo(l, isPrio) {
       ? rdp.rdp_potentielle_e
       : (l.rdp_potentielle_e || 0)
     const sousTitre = rdp
-      ? (atteint ? '✅ Conditions atteintes (10%)' : '⏳ potentielle (si atteint)')
-      : (atteint ? '✅ Cumul période' : '⏳ potentielle cumulée (aucun mois atteint)')
+      ? (atteint ? 'Conditions atteintes (10%)' : 'potentielle (si atteint)')
+      : (atteint ? 'Cumul période' : 'potentielle cumulée (aucun mois atteint)')
 
     if (atteint) {
       colRDP = `
@@ -3460,17 +3460,17 @@ function renderJaugeSeuil(ca, seuil, atteint, isNonConfigure) {
   const pct = seuil > 0 ? Math.min(100, (ca / seuil) * 100) : 100
   let couleur, texte, iconHtml
   if (atteint) {
-    couleur = '#1D9E75'; iconHtml = '🟢'
+    couleur = '#1D9E75'; iconHtml = ''
     if (isNonConfigure) {
       texte = `Seuil dépassé (${eur(ca)} / ${eur(seuil)}) — tu devrais configurer ce labo pour toucher une remise contrat`
     } else {
       texte = `Seuil atteint (${eur(ca)} / ${eur(seuil)}) — remise contrat active`
     }
   } else if (pct >= 70) {
-    couleur = '#D97706'; iconHtml = '🟡'
+    couleur = '#D97706'; iconHtml = ''
     texte = `${eur(ca)} / ${eur(seuil)} — il reste ${eur(seuil - ca)} pour débloquer la remise`
   } else {
-    couleur = '#DC2626'; iconHtml = '🔴'
+    couleur = '#DC2626'; iconHtml = ''
     texte = `${eur(ca)} / ${eur(seuil)} — loin du seuil, il manque ${eur(seuil - ca)}`
   }
 
@@ -3495,19 +3495,19 @@ function renderRDPBiogaran(rdp, isBiogaranPrio1) {
     // Vert doux dans tous les cas quand atteint
     couleur = '#1D9E75'
     bg = '#ECFDF5'  // vert très pâle
-    icon = '✅'
+    icon = ''
     label = 'RDP Biogaran : CONDITIONS ATTEINTES'
   } else if (isBiogaranPrio1) {
     // Biogaran prio n°1 non atteint : bleu/gris discret (inhabituel mais pas alarmant)
     couleur = '#475569'
     bg = '#F1F5F9'
-    icon = '⏳'
+    icon = ''
     label = 'RDP Biogaran : en cours'
   } else {
     // Autres prio non atteint : orange agressif (vraie alerte)
     couleur = '#D97706'
     bg = '#FEF3C7'
-    icon = '⚠️'
+    icon = ''
     label = 'RDP : conditions non atteintes'
   }
 
@@ -3551,7 +3551,7 @@ function renderDetailsLignes(lignes, labo) {
   const rows = trie.map(l => {
     const srcColor = { cerp: '#1D9E75', alliance: '#2563EB', ocp: '#7C3AED' }[l.source] || 'var(--sub)'
     const srcLabel = { cerp: 'CERP', alliance: 'ALLI', ocp: 'OCP' }[l.source] || l.source.toUpperCase()
-    const regleIcon = l.regle_particuliere ? ' <span title="Règle particulière appliquée" style="color:#D97706">⚙️</span>' : ''
+    const regleIcon = l.regle_particuliere ? ' <span title="Règle particulière appliquée" style="color:#D97706"><i class=ic ic-settings></i></span>' : ''
 
     // Remise grossiste : comparaison avec la référence
     const rgp = l.remise_grossiste_pct || 0
@@ -3565,7 +3565,7 @@ function renderDetailsLignes(lignes, labo) {
     if (rgfn !== null && rgfn !== undefined) {
       const diff = rgp - rgfn
       if (Math.abs(diff) < 0.5) { compColor = 'var(--green)'; compIcon = '' }
-      else if (diff < 0) { compColor = '#DC2626'; compIcon = ' ⚠️' }
+      else if (diff < 0) { compColor = '#DC2626'; compIcon = ' <i class=ic ic-alert></i>' }
       else { compColor = 'var(--green)'; compIcon = '' }
     }
 
@@ -3609,8 +3609,8 @@ function renderDetailsLignes(lignes, labo) {
     <div style="margin-bottom:8px;padding:8px 12px;background:#F8FAFC;border-radius:6px;font-size:11px;color:var(--sub)">
       <strong style="color:var(--text)">Légende :</strong> 
       <span style="color:var(--green)">●</span> Remise grossiste OK (conforme à la référence) • 
-      <span style="color:#DC2626">⚠️</span> Remise grossiste insuffisante vs référence labo • 
-      <span style="color:#D97706">⚙️</span> Règle particulière appliquée
+      <span style="color:#DC2626"><i class=ic ic-alert></i></span> Remise grossiste insuffisante vs référence labo • 
+      <span style="color:#D97706"><i class=ic ic-settings></i></span> Règle particulière appliquée
     </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px">
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
@@ -3662,7 +3662,7 @@ async function telechargerDetailLabo(labo) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast('✅ Fichier téléchargé', 'green')
+    toast('Fichier téléchargé', 'green')
   } catch(e) {
     toast('Erreur réseau', 'red')
   }
@@ -3710,7 +3710,7 @@ async function uploadFactureAuto(file) {
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span>⏳</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
+  div.innerHTML = `<span><i class=ic ic-clock></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
   queue.appendChild(div)
   const fd = new FormData(); fd.append('file', file)
   try {
@@ -3720,13 +3720,13 @@ async function uploadFactureAuto(file) {
     const data = await res.json()
     if (res.ok) {
       const src = SOURCE_LABELS[data.source] || data.source
-      div.innerHTML = `<span>✅</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
-      try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='⚠️ écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
+      div.innerHTML = `<span><i class=ic ic-check></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
+      try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
     } else {
-      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
+      div.innerHTML = `<span><i class=ic ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
     }
   } catch(e) {
-    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+    div.innerHTML = `<span><i class=ic ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
   }
 }
 
@@ -3736,7 +3736,7 @@ async function uploadLaboIA(file) {
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span>🤖</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse IA en cours (5-10 sec)...</span>`
+  div.innerHTML = `<span><i class=ic ic-ai></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse IA en cours (5-10 sec)...</span>`
   queue.appendChild(div)
 
   const fd = new FormData(); fd.append('file', file)
@@ -3747,14 +3747,14 @@ async function uploadLaboIA(file) {
     const data = await res.json()
     if (!res.ok || !data.ok) {
       const msg = data.erreur || data.detail || 'Extraction impossible'
-      div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${msg}</span>`
+      div.innerHTML = `<span><i class=ic ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${msg}</span>`
       return
     }
     const stats = data.stats || {}
-    div.innerHTML = `<span>👀</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
+    div.innerHTML = `<span><i class=ic ic-eye></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
     openLaboPreview(data, div)
   } catch(e) {
-    div.innerHTML = `<span>❌</span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${e.message}</span>`
+    div.innerHTML = `<span><i class=ic ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${e.message}</span>`
   }
 }
 
@@ -3770,18 +3770,18 @@ function openLaboPreview(data, bandeau) {
   const box = document.getElementById('modal-labo-preview-box')
 
   const statutBadges = {
-    generique:    { label:'Générique',    bg:'#E5E7EB', color:'#111827', icon:'⚪' },
-    biosimilaire: { label:'Biosimilaire', bg:'#EDE9FE', color:'#6B21A8', icon:'🟣' },
+    generique:    { label:'Générique',    bg:'#E5E7EB', color:'#111827', icon:'' },
+    biosimilaire: { label:'Biosimilaire', bg:'#EDE9FE', color:'#6B21A8', icon:'' },
     autre:        { label:'Autre',        bg:'#F3F4F6', color:'#6B7280', icon:'•'  },
   }
 
   const stats = data.stats || {}
   const confColor = data.confiance === 'haute' ? 'var(--green)' : data.confiance === 'moyenne' ? '#F59E0B' : '#DC2626'
-  const confEmoji = data.confiance === 'haute' ? '✅' : data.confiance === 'moyenne' ? '⚠️' : '🔴'
+  const confEmoji = data.confiance === 'haute' ? '' : data.confiance === 'moyenne' ? '' : ''
 
   const anomalies = (data.anomalies || []).length > 0 ? `
     <div class="alert alert-amber" style="margin:10px 0;padding:10px 14px;font-size:12px">
-      <strong>⚠️ Anomalies détectées :</strong>
+      <strong><i class=ic ic-alert></i> Anomalies détectées :</strong>
       <ul style="margin:6px 0 0 18px;padding:0">
         ${data.anomalies.map(a => `<li>${a}</li>`).join('')}
       </ul>
@@ -3809,7 +3809,7 @@ function openLaboPreview(data, bandeau) {
   box.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
       <div>
-        <div style="font-size:16px;font-weight:600">🤖 Preview IA — ${data.fournisseur}</div>
+        <div style="font-size:16px;font-weight:600"><i class=ic ic-ai></i> Preview IA — ${data.fournisseur}</div>
         <div style="font-size:12px;color:var(--sub)">Extrait par ${data.model_utilise || 'Claude'} — vérifie avant d'enregistrer</div>
       </div>
       <div style="padding:6px 12px;background:${confColor}22;color:${confColor};border-radius:6px;font-size:12px;font-weight:600">
@@ -3834,11 +3834,11 @@ function openLaboPreview(data, bandeau) {
 
     <div class="three-col" style="margin-bottom:10px;gap:8px">
       <div style="padding:8px 12px;background:#E5E7EB;border-radius:8px">
-        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">⚪ Génériques</div>
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase"><i class=dot dot-gray></i> Génériques</div>
         <div style="font-size:14px;font-weight:600">${stats.nb_generiques || 0}</div>
       </div>
       <div style="padding:8px 12px;background:#EDE9FE;border-radius:8px">
-        <div style="font-size:10px;color:#6B21A8;text-transform:uppercase">🟣 Biosimilaires</div>
+        <div style="font-size:10px;color:#6B21A8;text-transform:uppercase"><i class=dot dot-purple></i> Biosimilaires</div>
         <div style="font-size:14px;font-weight:600;color:#6B21A8">${stats.nb_biosimilaires || 0}</div>
       </div>
       <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
@@ -3884,7 +3884,7 @@ function closeLaboPreview() {
 
 async function confirmLaboPreview(data, bandeau) {
   const btn = document.getElementById('btn-labo-confirm')
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Enregistrement...' }
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Enregistrement...' }
 
   const payload = {
     filename:    data.filename,
@@ -3906,7 +3906,7 @@ async function confirmLaboPreview(data, bandeau) {
     const resp = await res.json()
     if (res.ok && resp.ok) {
       if (bandeau) {
-        bandeau.innerHTML = `<span>✅</span><span>${data.filename}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
+        bandeau.innerHTML = `<span><i class=ic ic-check></i></span><span>${data.filename}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
       }
       closeLaboPreview()
       toast('Facture enregistrée', 'green')
@@ -3972,8 +3972,8 @@ function renderComparateurPage() {
   // Tabs
   const tabs = `
     <div style="display:flex;gap:6px;margin-bottom:16px">
-      <button class="btn ${_CMP_MODE==='grossiste'?'btn-green':'btn-outline'} btn-sm" onclick="_CMP_MODE='grossiste';renderComparateurPage()">⚖️ Grossistes</button>
-      <button class="btn ${_CMP_MODE==='generiqueur'?'btn-green':'btn-outline'} btn-sm" onclick="switchToGeneriqueur()">💊 Génériqueurs</button>
+      <button class="btn ${_CMP_MODE==='grossiste'?'btn-green':'btn-outline'} btn-sm" onclick="_CMP_MODE='grossiste';renderComparateurPage()"><i class=ic ic-scale></i> Grossistes</button>
+      <button class="btn ${_CMP_MODE==='generiqueur'?'btn-green':'btn-outline'} btn-sm" onclick="switchToGeneriqueur()"><i class=ic ic-pill></i> Génériqueurs</button>
     </div>`
 
   if (_CMP_MODE === 'grossiste') {
@@ -3989,7 +3989,7 @@ function renderComparateurPage() {
 function renderCompareGrossiste() {
   return `
     <div class="card">
-      <div class="card-title">⚖️ Comparateur grossiste</div>
+      <div class="card-title"><i class=ic ic-scale></i> Comparateur grossiste</div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
         Simule 2 offres grossistes sur ton vrai mix produit. Pré-remplis l'offre A avec ton contrat actuel, et saisis l'offre challenger à droite.
       </div>
@@ -4004,7 +4004,7 @@ function renderCompareGrossiste() {
           </div>
         </div>
         <div style="display:flex;align-items:end;gap:6px">
-          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGrossiste()" style="flex:1">🔄 Calculer la comparaison</button>
+          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGrossiste()" style="flex:1"><i class=ic ic-refresh></i> Calculer la comparaison</button>
         </div>
       </div>
 
@@ -4069,7 +4069,7 @@ function renderOffreGrossiste(label, offre) {
         <option value="exclu" ${t.action==='exclu'?'selected':''}>Exclu</option>
       </select>
       <input type="number" value="${t.forfait_e||0}" onchange="setTranche('${label}',${i},'forfait_e',this.value)" placeholder="€/bte" ${t.action==='exclu'?'disabled':''} style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;${t.action==='exclu'?'background:#F3F4F6':''}"/>
-      <button class="btn btn-outline btn-sm" onclick="removeTranche('${label}',${i})" style="color:var(--red);border-color:var(--red);padding:2px 6px;font-size:11px">🗑️</button>
+      <button class="btn btn-outline btn-sm" onclick="removeTranche('${label}',${i})" style="color:var(--red);border-color:var(--red);padding:2px 6px;font-size:11px"><i class=ic ic-trash></i></button>
     </div>
   `).join('')
 
@@ -4089,7 +4089,7 @@ function renderOffreGrossiste(label, offre) {
         <div style="background:#F8FAFC;border-radius:6px;padding:4px">
           ${exclusionsHtml}
         </div>
-        <div style="font-size:10px;color:var(--sub);margin-top:4px">🔒 Génériques et produits déjà remisés sont toujours exclus (automatique).</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:4px"><i class=ic ic-lock></i> Génériques et produits déjà remisés sont toujours exclus (automatique).</div>
       </div>
 
       <div>
@@ -4205,15 +4205,15 @@ function afficherResultatComparaisonGrossiste(data) {
   // Couleurs du verdict
   let verdictColor, verdictBg, verdictTxt, verdictIcon
   if (Math.abs(ecart.ecart_e) < 1) {
-    verdictColor = '#475569'; verdictBg = '#F1F5F9'; verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = '⚖️'
+    verdictColor = '#475569'; verdictBg = '#F1F5F9'; verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = ''
   } else if (ecart.ecart_e > 0) {
     verdictColor = '#D97706'; verdictBg = '#FEF3C7'
     verdictTxt = `Offre B meilleure de ${eur(Math.abs(ecart.ecart_e))} (sur la période)`
-    verdictIcon = '🔄'
+    verdictIcon = ''
   } else {
     verdictColor = '#1D9E75'; verdictBg = '#D1FAE5'
     verdictTxt = `Garde l'offre A — elle rapporte ${eur(Math.abs(ecart.ecart_e))} de plus (sur la période)`
-    verdictIcon = '✅'
+    verdictIcon = ''
   }
 
   // Tableau de comparaison ligne par ligne
@@ -4235,8 +4235,8 @@ function afficherResultatComparaisonGrossiste(data) {
 
   // Détail des exclusions par catégorie
   const catLabels = {
-    'generique': '💊 Générique (auto)',
-    'remise_facture': '🏷️ Déjà remisé (auto)',
+    'generique': 'Générique (auto)',
+    'remise_facture': 'Déjà remisé (auto)',
     'tva_2_1': 'TVA 2,1%',
     'tva_5_5': 'TVA 5,5%',
     'tva_10': 'TVA 10%',
@@ -4257,8 +4257,8 @@ function afficherResultatComparaisonGrossiste(data) {
           <td style="padding:6px 10px;font-size:12px">${catLabels[k] || k}</td>
           <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px">${eur(v.ca)}</td>
           <td style="padding:6px 10px;text-align:right;font-size:11px">${v.nb_lignes} lignes</td>
-          <td style="padding:6px 10px;text-align:center">${exclA ? '❌' : '✓'}</td>
-          <td style="padding:6px 10px;text-align:center">${exclB ? '❌' : '✓'}</td>
+          <td style="padding:6px 10px;text-align:center">${exclA ? '<i class=ic ic-x></i>' : '✓'}</td>
+          <td style="padding:6px 10px;text-align:center">${exclB ? '<i class=ic ic-x></i>' : '✓'}</td>
         </tr>`
     }).join('')
 
@@ -4266,7 +4266,7 @@ function afficherResultatComparaisonGrossiste(data) {
   resultCard.innerHTML = `
     <div class="card" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-title" style="margin:0">📊 Résultat de la comparaison</div>
+        <div class="card-title" style="margin:0"><i class=ic ic-chart></i> Résultat de la comparaison</div>
         <div style="font-size:11px;color:var(--sub)">Période : ${formatPeriode(mix.periode)}</div>
       </div>
 
@@ -4295,7 +4295,7 @@ function afficherResultatComparaisonGrossiste(data) {
             ${ligne('Nb exclusions (hors auto)', (data.offre_a.params.exclusions||[]).length, (data.offre_b.params.exclusions||[]).length, 'n', false)}
             ${ligne('CA éligible', rA.ca_eligible, rB.ca_eligible, 'e')}
             ${ligne('CA exclu', rA.ca_exclu, rB.ca_exclu, 'e', false)}
-            ${ligne('💰 Remise totale', rA.remise_totale_e, rB.remise_totale_e, 'e')}
+            ${ligne('Remise totale', rA.remise_totale_e, rB.remise_totale_e, 'e')}
             ${ligne('% pondéré réel', rA.remise_pct_reel, rB.remise_pct_reel, 'pct')}
           </tbody>
         </table>
@@ -4319,7 +4319,7 @@ function afficherResultatComparaisonGrossiste(data) {
               <tbody>${catRows}</tbody>
             </table>
           </div>
-          <div style="font-size:10px;color:var(--sub);margin-top:6px">❌ = exclu de la remise • ✓ = inclus dans la remise</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:6px"><i class=ic ic-x></i> = exclu de la remise • ✓ = inclus dans la remise</div>
         </div>
       ` : ''}
     </div>`
@@ -4391,7 +4391,7 @@ async function switchToGeneriqueur() {
 function renderCompareGeneriqueur() {
   return `
     <div class="card">
-      <div class="card-title">💊 Comparateur génériqueur</div>
+      <div class="card-title"><i class=ic ic-pill></i> Comparateur génériqueur</div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
         Simule 2 offres de labos génériqueurs sur ton potentiel générique réel (12 derniers mois). Prend en compte la couverture catalogue, la remise sur facture, la remise contrat et la RDP Biogaran.
       </div>
@@ -4406,7 +4406,7 @@ function renderCompareGeneriqueur() {
           </div>
         </div>
         <div style="display:flex;align-items:end;gap:6px">
-          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGeneriqueur()" style="flex:1">🔄 Calculer la comparaison</button>
+          <button class="btn btn-green btn-sm" onclick="lancerComparaisonGeneriqueur()" style="flex:1"><i class=ic ic-refresh></i> Calculer la comparaison</button>
         </div>
       </div>
 
@@ -4454,7 +4454,7 @@ function renderOffreGeneriqueur(label, offre) {
       ${isBiogaran ? `
         <div style="padding:8px;background:#EFF6FF;border-radius:6px;margin-bottom:10px;border-left:3px solid #2563EB">
           <div style="font-size:12px;color:#1E40AF">
-            🔵 <strong>RDP Biogaran :</strong> calculée automatiquement depuis le référentiel (10%, 20%, 27,5% selon CIP) si les conditions mensuelles (≥ 75 réfs + ≥ 3 750€) sont atteintes.
+            <i class=dot dot-blue></i> <strong>RDP Biogaran :</strong> calculée automatiquement depuis le référentiel (10%, 20%, 27,5% selon CIP) si les conditions mensuelles (≥ 75 réfs + ≥ 3 750€) sont atteintes.
           </div>
         </div>
       ` : ''}
@@ -4462,8 +4462,8 @@ function renderOffreGeneriqueur(label, offre) {
       <!-- Règles particulières -->
       <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">⚙️ Règles particulières</div>
-          ${isA ? `<button class="btn btn-outline btn-sm" onclick="copierReglesParametrage('${label}')" style="font-size:10px;padding:3px 8px">📋 Copier depuis Paramètres</button>` : ''}
+          <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px"><i class=ic ic-settings></i> Règles particulières</div>
+          ${isA ? `<button class="btn btn-outline btn-sm" onclick="copierReglesParametrage('${label}')" style="font-size:10px;padding:3px 8px"><i class=ic ic-clip></i> Copier depuis Paramètres</button>` : ''}
         </div>
 
         <!-- Règles par catégorie -->
@@ -4497,7 +4497,7 @@ function renderReglesCategorieCmp(label, regles) {
       <input type="number" step="0.1" value="${r.categorie_remise}" onchange="setRegleCatCmp('${label}',${i},'categorie_remise',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
       <span>% → taux</span>
       <input type="number" step="0.1" value="${r.taux_applique}" onchange="setRegleCatCmp('${label}',${i},'taux_applique',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
-      <button onclick="removeRegleCatCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px">🗑️</button>
+      <button onclick="removeRegleCatCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px"><i class=ic ic-trash></i></button>
     </div>
   `).join('')
 }
@@ -4511,7 +4511,7 @@ function renderReglesMoleculeCmp(label, regles) {
       <input type="text" value="${r.molecule || ''}" onchange="setRegleMolCmp('${label}',${i},'molecule',this.value)" placeholder="Molécule (ex: Amlodipine)" list="moleculesdatalist-${label}" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px"/>
       <span>→ taux</span>
       <input type="number" step="0.1" value="${r.taux_applique}" onchange="setRegleMolCmp('${label}',${i},'taux_applique',this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'DM Mono',monospace"/>
-      <button onclick="removeRegleMolCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px">🗑️</button>
+      <button onclick="removeRegleMolCmp('${label}',${i})" style="padding:2px 6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px"><i class=ic ic-trash></i></button>
     </div>
   `).join('') + `<datalist id="moleculesdatalist-${label}">${(_CMP_GEN_MOLECULES_AUTOCOMPLETE[label] || []).map(m => `<option value="${m}">`).join('')}</datalist>`
 }
@@ -4578,7 +4578,7 @@ async function copierReglesParametrage(label) {
     const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
     offre.regles_categorie = data.regles_categorie || []
     offre.regles_molecule = data.regles_molecule || []
-    toast('✅ Règles copiées depuis Mes génériqueurs', 'green')
+    toast('Règles copiées depuis Mes génériqueurs', 'green')
     renderComparateurPage()
   } catch(e) {
     toast('Erreur lors de la copie', 'red')
@@ -4652,24 +4652,24 @@ function afficherResultatComparaisonGen(data) {
   let verdictColor, verdictBg, verdictTxt, verdictIcon
   if (Math.abs(ecart) < 1) {
     verdictColor = '#475569'; verdictBg = '#F1F5F9'
-    verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = '⚖️'
+    verdictTxt = 'Les deux offres sont équivalentes'; verdictIcon = ''
   } else if (ecart > 0) {
     verdictColor = '#D97706'; verdictBg = '#FEF3C7'
     verdictTxt = `L'offre B rapporte ${eur(Math.abs(ecart))} de plus sur la période`
-    verdictIcon = '🔄'
+    verdictIcon = ''
   } else {
     verdictColor = '#1D9E75'; verdictBg = '#D1FAE5'
     verdictTxt = `Garde l'offre A — elle rapporte ${eur(Math.abs(ecart))} de plus`
-    verdictIcon = '✅'
+    verdictIcon = ''
   }
 
   const resultCard = document.getElementById('cmp-gen-result-card')
   resultCard.innerHTML = `
     <div class="card" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-title" style="margin:0">📊 Résultat de la comparaison</div>
+        <div class="card-title" style="margin:0"><i class=ic ic-chart></i> Résultat de la comparaison</div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="exportPDFGen()">📄 Export PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPDFGen()"><i class=ic ic-file></i> Export PDF</button>
         </div>
       </div>
 
@@ -4709,7 +4709,7 @@ function afficherResultatComparaisonGen(data) {
             ${rA.rdp_e > 0 || rB.rdp_e > 0 ? ligneCompGen('RDP Biogaran', rA.rdp_e, rB.rdp_e, 'e') : ''}
             ${ligneCompGen('Remise contrat', rA.remise_contrat_e, rB.remise_contrat_e, 'e')}
             <tr style="background:#F0FDF4;font-weight:700">
-              <td style="padding:10px;color:#1D9E75">💰 Remise totale</td>
+              <td style="padding:10px;color:#1D9E75"><i class=ic ic-euro></i> Remise totale</td>
               <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:#1D9E75">${eur(rA.remise_totale_e)}</td>
               <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:#1D9E75">${eur(rB.remise_totale_e)}</td>
               <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;color:${ecart>0?'#D97706':(ecart<0?'#1D9E75':'var(--sub)')}">${ecart>0?'+':''}${eur(ecart)}</td>
@@ -4721,8 +4721,8 @@ function afficherResultatComparaisonGen(data) {
 
       <!-- Bouton voir molécules perdues -->
       <div style="display:flex;gap:8px;margin-top:16px;justify-content:center">
-        ${covA.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('A')">📋 Molécules perdues chez ${prmA.labo} (${covA.nb_molecules_non_couvertes})</button>` : ''}
-        ${covB.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('B')">📋 Molécules perdues chez ${prmB.labo} (${covB.nb_molecules_non_couvertes})</button>` : ''}
+        ${covA.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('A')"><i class=ic ic-clip></i> Molécules perdues chez ${prmA.labo} (${covA.nb_molecules_non_couvertes})</button>` : ''}
+        ${covB.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('B')"><i class=ic ic-clip></i> Molécules perdues chez ${prmB.labo} (${covB.nb_molecules_non_couvertes})</button>` : ''}
       </div>
     </div>`
 }
@@ -4809,7 +4809,7 @@ function voirMoleculesPerdues(label) {
           </div>
           <button onclick="marquerCIPPrinceps('${cip}','${nomProduit.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${label}')" 
                   style="padding:2px 8px;font-size:10px;background:#FEF3C7;border:1px solid #D97706;color:#92400E;border-radius:4px;cursor:pointer;white-space:nowrap;margin-left:6px">
-            ⚠️ Princeps
+            Princeps
           </button>
         </div>`
     }).join('')
@@ -4834,13 +4834,13 @@ function voirMoleculesPerdues(label) {
           <div>
             <div style="font-size:16px;font-weight:700">Molécules perdues chez ${labo}</div>
             <div style="font-size:11px;color:var(--sub);margin-top:2px">
-              Top 20 par CA • Clique sur <strong style="color:#92400E">⚠️ Princeps</strong> si un produit n'est pas un vrai générique
+              Top 20 par CA • Clique sur <strong style="color:#92400E"><i class=ic ic-alert></i> Princeps</strong> si un produit n'est pas un vrai générique
             </div>
           </div>
-          <button onclick="document.getElementById('popup-molecules-perdues').remove()" class="btn btn-outline btn-sm">✕</button>
+          <button onclick="document.getElementById('popup-molecules-perdues').remove()" class="btn btn-outline btn-sm"><i class=ic ic-x></i></button>
         </div>
         <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;border-left:3px solid #D97706;font-size:11px;color:#92400E;margin-bottom:10px">
-          💡 <strong>Les princeps fausssent le calcul.</strong> Si tu vois un produit qui n'est pas un vrai générique (ex: Spasfon, Creon, Lamaline), clique sur ⚠️ Princeps pour l'exclure définitivement du comparateur.
+          <i class=ic ic-bulb></i> <strong>Les princeps fausssent le calcul.</strong> Si tu vois un produit qui n'est pas un vrai générique (ex: Spasfon, Creon, Lamaline), clique sur <i class=ic ic-alert></i> Princeps pour l'exclure définitivement du comparateur.
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
@@ -4878,7 +4878,7 @@ async function marquerCIPPrinceps(cip13, nom, label) {
       body: JSON.stringify({ cip13, nom: nom || '', labo: '' })
     })
     if (!r.ok) { toast('Erreur', 'red'); return }
-    toast('⚠️ Marqué comme princeps', 'green')
+    toast('Marqué comme princeps', 'green')
     // Fermer popup et refaire la comparaison
     document.getElementById('popup-molecules-perdues')?.remove()
     lancerComparaisonGeneriqueur()
@@ -4914,7 +4914,7 @@ async function exportPDFGen() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast('✅ PDF téléchargé', 'green')
+    toast('PDF téléchargé', 'green')
   } catch(e) {
     toast('Erreur réseau', 'red')
   }
@@ -4923,7 +4923,7 @@ async function exportPDFGen() {
 // ── LOCKED ─────────────────────────────────────────────────────────────────
 function lockedHTML(module) {
   const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur' }
-  return `<div class="locked-module"><div class="locked-icon">🔒</div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
+  return `<div class="locked-module"><div class="locked-icon"><i class=ic ic-lock></i></div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
 }
 
 setDepotTab('grossiste')
@@ -5014,9 +5014,9 @@ async function loadAdminDashboard() {
           </div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
-          <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
-          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')">🧬 Biosimilaires</button>
+          <button class="admin-btn" onclick="adminGoTo('pharmacies')"><i class=ic ic-clip></i> Gérer les pharmacies (${ph.total || 0})</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('classifications')"><i class=ic ic-lab></i> Classifications des produits</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')"><i class=ic ic-dna></i> Biosimilaires</button>
         </div>
       </div>
     `;
@@ -5066,7 +5066,7 @@ async function loadAdminPharmacies() {
             <div class="admin-section-title">Pharmacies clientes</div>
             <div class="admin-section-sub">${data.total || 0} pharmacie(s) enregistrée(s)</div>
           </div>
-          <input type="text" class="admin-search" id="admin-pharm-search" placeholder="🔍 Rechercher par nom, email, FINESS..." oninput="filterAdminPharmacies()" />
+          <input type="text" class="admin-search" id="admin-pharm-search" placeholder="Rechercher par nom, email, FINESS..." oninput="filterAdminPharmacies()" />
         </div>
         <table class="admin-table">
           <thead>
@@ -5181,8 +5181,8 @@ function renderPharmacieDetail(p) {
           <div class="info-field"><div class="info-field-label">FINESS</div><div class="info-field-value">${escapeHtml(p.finess || '—')}</div></div>
           <div class="info-field"><div class="info-field-label">Téléphone</div><div class="info-field-value">${escapeHtml(p.telephone || '—')}</div></div>
           <div class="info-field" style="grid-column:1/-1;"><div class="info-field-label">Adresse</div><div class="info-field-value">${escapeHtml(p.adresse || '—')}</div></div>
-          <div class="info-field"><div class="info-field-label">Statut compte</div><div class="info-field-value">${p.is_active ? '✅ Actif' : '❌ Désactivé'}</div></div>
-          <div class="info-field"><div class="info-field-label">Rôle</div><div class="info-field-value">${p.is_admin ? '👑 Admin' : 'Client'}</div></div>
+          <div class="info-field"><div class="info-field-label">Statut compte</div><div class="info-field-value">${p.is_active ? '<i class=ic ic-check></i> Actif' : '<i class=ic ic-x></i> Désactivé'}</div></div>
+          <div class="info-field"><div class="info-field-label">Rôle</div><div class="info-field-value">${p.is_admin ? '<i class=ic ic-crown></i> Admin' : 'Client'}</div></div>
         </div>
       </div>
 
@@ -5254,7 +5254,7 @@ async function loadStatsPharmacie(id) {
 }
 
 // ------------------------------------------------------------
-// ADMIN — CLASSIFICATIONS 🎯
+// ADMIN — CLASSIFICATIONS 
 // ------------------------------------------------------------
 let _CLASSIF_DATA = null;
 
@@ -5287,13 +5287,13 @@ function renderClassificationsScreen(data) {
           </div>
         </div>
         <div style="display:flex; gap:8px;">
-          <input type="text" class="admin-search" id="classif-search" placeholder="🔍 CIP ou nom..." oninput="filterClassifications()" />
-          <button class="admin-btn" onclick="recalculerClassifications()">🔄 Recalculer toutes les factures</button>
+          <input type="text" class="admin-search" id="classif-search" placeholder="CIP ou nom..." oninput="filterClassifications()" />
+          <button class="admin-btn" onclick="recalculerClassifications()"><i class=ic ic-refresh></i> Recalculer toutes les factures</button>
         </div>
       </div>
 
       <div style="font-size:12px; color:var(--sub); margin-bottom:12px; padding:10px 12px; background:var(--bg); border-radius:8px;">
-        💡 Cliquez sur ✏️ pour corriger la classification d'un produit.
+        Cliquez sur pour corriger la classification d'un produit.
         Les corrections s'appliquent <strong>globalement</strong> à toutes les pharmacies et doivent être suivies d'un recalcul pour affecter les factures existantes.
       </div>
 
@@ -5328,7 +5328,7 @@ function renderClassifRow(it, catKey) {
       <div class="classif-cip">${it.cip13}</div>
       <div class="classif-nom">${escapeHtml(it.nom || '—')}${forced ? `<span class="classif-forced-tag">✓ corrigé (était ${labelCategory(it.statut_original)})</span>` : ''}</div>
       <div class="classif-status"><span class="badge gray">${labelCategory(catKey)}</span></div>
-      <button class="classif-edit-btn" title="Modifier" onclick="openClassifModal('${it.cip13}', '${escapeAttr(it.nom || '')}', '${catKey}', '${it.statut_original || catKey}', ${forced})">✏️</button>
+      <button class="classif-edit-btn" title="Modifier" onclick="openClassifModal('${it.cip13}', '${escapeAttr(it.nom || '')}', '${catKey}', '${it.statut_original || catKey}', ${forced})"><i class=ic ic-pencil></i></button>
     </div>
   `;
 }
@@ -5428,7 +5428,7 @@ async function recalculerClassifications() {
   toast('Recalcul en cours...', 'blue');
   try {
     const r = await apiPost('/admin/classifications/recalculer', {});
-    toast(`✅ ${r.nb_lignes_changees} lignes modifiées sur ${r.nb_lignes_traitees}`, 'green');
+    toast(`${r.nb_lignes_changees} lignes modifiées sur ${r.nb_lignes_traitees}`, 'green');
     await loadAdminClassifications();
   } catch (e) {
     toast('Erreur : ' + e.message, 'red');
@@ -5563,9 +5563,9 @@ async function loadAdminDashboardReseau() {
           <div><div class="admin-section-title">Navigation rapide</div></div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="admin-btn" onclick="adminGoTo('pharmacies')">📋 Gérer les pharmacies (${ph.total || 0})</button>
-          <button class="admin-btn secondary" onclick="adminGoTo('classifications')">🔬 Classifications des produits</button>
-          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')">🧬 Biosimilaires</button>
+          <button class="admin-btn" onclick="adminGoTo('pharmacies')"><i class=ic ic-clip></i> Gérer les pharmacies (${ph.total || 0})</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('classifications')"><i class=ic ic-lab></i> Classifications des produits</button>
+          <button class="admin-btn secondary" onclick="adminGoTo('biosimilaires')"><i class=ic ic-dna></i> Biosimilaires</button>
         </div>
       </div>
     `;
@@ -5587,7 +5587,7 @@ function renderStatsGrossisteReseau(data) {
   const lignes = promis.par_pharmacie || [];
 
   // Top 3 avec médailles
-  const medailles = ['🥇', '🥈', '🥉'];
+  const medailles = ['N°1', 'N°2', 'N°3'];
   const topHtml = top.map((g, i) => `
     <tr class="no-hover">
       <td>${medailles[i] || '&nbsp;&nbsp;'} ${escapeHtml(g.label)}</td>
@@ -5609,7 +5609,7 @@ function renderStatsGrossisteReseau(data) {
     <div class="admin-section">
       <div class="admin-section-header">
         <div>
-          <div class="admin-section-title">📦 Stats Grossistes du réseau</div>
+          <div class="admin-section-title"><i class=ic ic-box></i> Stats Grossistes du réseau</div>
           <div class="admin-section-sub">Basé sur ${fmtEur(data.ca_total_reseau)} de CA total identifié</div>
         </div>
       </div>
@@ -5659,7 +5659,7 @@ function renderStatsGeneriqueurReseau(data) {
   const mc = data.taux_contrat?.moyenne_reseau_pct || 0;
   const mp = data.taux_pondere_promis?.moyenne_reseau_pct || 0;
 
-  const medailles = ['🏆', '🥈', '🥉'];
+  const medailles = ['N°1', 'N°2', 'N°3'];
   const labosHtml = topLabos.length === 0
     ? '<tr class="no-hover"><td colspan="3" style="text-align:center; color:var(--sub); padding:16px;">Aucune pharmacie n\'a configuré son génériqueur N°1</td></tr>'
     : topLabos.map((l, i) => `
@@ -5690,7 +5690,7 @@ function renderStatsGeneriqueurReseau(data) {
     <div class="admin-section">
       <div class="admin-section-header">
         <div>
-          <div class="admin-section-title">💊 Stats Génériqueurs du réseau</div>
+          <div class="admin-section-title"><i class=ic ic-pill></i> Stats Génériqueurs du réseau</div>
           <div class="admin-section-sub">${data.nb_pharmacies_configurees}/${data.nb_pharmacies_total} pharmacies ont un génériqueur N°1 configuré</div>
         </div>
       </div>
@@ -5698,7 +5698,7 @@ function renderStatsGeneriqueurReseau(data) {
       <!-- Labo N°1 le plus représenté -->
       <div style="margin-bottom:20px;">
         <div style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px;">
-          🏆 Labo N°1 le plus représenté
+          N°1 Labo N°1 le plus représenté
         </div>
         <table class="admin-table">
           <thead>
@@ -5765,7 +5765,7 @@ function _injectAuditTabSidebar() {
   const btn = document.createElement('button');
   btn.className = 'sidebar-link admin-only';
   btn.setAttribute('data-admin-screen', 'integration');
-  btn.innerHTML = '🔌 Intégration PharmaCollect';
+  btn.innerHTML = 'Intégration PharmaCollect';
   btn.onclick = () => adminGoTo('integration');
   sidebar.appendChild(btn);
 }
@@ -5794,7 +5794,7 @@ function _ensureIntegrationScreen() {
     screen.style.display = 'none';
     screen.innerHTML = `
       <div class="screen-header">
-        <h1>🔌 Intégration PharmaCollect</h1>
+        <h1><i class=ic ic-plug></i> Intégration PharmaCollect</h1>
       </div>
       <div id="admin-integration-content" style="padding: 20px;">
         <div class="loading-center"><div class="spinner"></div> Chargement...</div>
@@ -6077,7 +6077,7 @@ async function showLogDetail(logId) {
               const newBtn = document.createElement('button');
               newBtn.className = 'admin-btn secondary';
               newBtn.setAttribute('data-pmck-audit-btn', 'true');
-              newBtn.innerHTML = '🔌 Audit PharmaCollect';
+              newBtn.innerHTML = 'Audit PharmaCollect';
               newBtn.onclick = () => {
                 if (typeof adminGoTo === 'function') {
                   adminGoTo('integration');
@@ -6311,7 +6311,7 @@ async function showLogDetail(logId) {
     const sentinel = document.createElement('div');
     sentinel.setAttribute('data-pmck-scroll-sentinel', 'true');
     sentinel.style.cssText = 'height: 50px; display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px;';
-    sentinel.innerHTML = '⏳ Chargement de la suite...';
+    sentinel.innerHTML = 'Chargement de la suite...';
     footer.parentElement.insertBefore(sentinel, footer);
     footer.style.display = 'none'; // masquer "et X autres"
 
@@ -6335,7 +6335,7 @@ async function showLogDetail(logId) {
           observer.disconnect();
         }
       } catch (e) {
-        sentinel.innerHTML = '⚠️ Erreur chargement : ' + e.message;
+        sentinel.innerHTML = 'Erreur chargement : ' + e.message;
       } finally {
         _isLoadingMore = false;
       }
@@ -6723,7 +6723,7 @@ async function showLogDetail(logId) {
       if (headerSpan && headerSpan.parentElement) {
         const btnTout = document.createElement('button');
         btnTout.className = 'v311-voir-tout-btn';
-        btnTout.textContent = '👁️ Voir tout';
+        btnTout.textContent = 'Voir tout';
         btnTout.style.cssText = `margin-left: 12px; padding: 4px 12px; background: #1D9E75;
           color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;
           font-weight: 500; vertical-align: middle;`;
@@ -6760,7 +6760,7 @@ async function showLogDetail(logId) {
         const btn = document.createElement('button');
         btn.className = 'v311-voir-source-btn';
         btn.setAttribute('data-src', sourceKey);
-        btn.textContent = hasCA ? '👁️ Voir' : '—';
+        btn.textContent = hasCA ? 'Voir' : '—';
         btn.disabled = !hasCA;
         btn.style.cssText = `margin-left: 10px; padding: 3px 10px;
           background: ${hasCA ? 'white' : '#f5f5f5'};
@@ -6835,7 +6835,7 @@ async function showLogDetail(logId) {
     
     if (!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;">⏳ Chargement...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;"><i class=ic ic-clock></i> Chargement...</td></tr>`;
     totalsDiv.innerHTML = '';
     
     let url, periodLabel;
@@ -6857,7 +6857,7 @@ async function showLogDetail(logId) {
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T() } });
       const data = await r.json();
       if (!r.ok) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;">⚠️ ${data.detail || 'Erreur'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic ic-alert></i> ${data.detail || 'Erreur'}</td></tr>`;
         return;
       }
       
@@ -6915,12 +6915,12 @@ async function showLogDetail(logId) {
       btnPdfTout.style.display = 'inline-block';
       if (_currentSource) {
         btnPdfSource.style.display = 'inline-block';
-        btnPdfSource.textContent = `📄 PDF ${_currentSource.toUpperCase()} uniquement`;
+        btnPdfSource.textContent = `PDF ${_currentSource.toUpperCase()} uniquement`;
       } else {
         btnPdfSource.style.display = 'none';
       }
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;">⚠️ ${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic ic-alert></i> ${e.message}</td></tr>`;
     }
   }
 
@@ -6985,8 +6985,8 @@ async function showLogDetail(logId) {
         </div>
         
         <div style="display:inline-flex; gap:0; background:#f0f0f0; border-radius:8px; padding:3px; margin-bottom:14px;">
-          <button id="v311-mode-mois" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📅 Mois courant</button>
-          <button id="v311-mode-periode" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📊 Période entière</button>
+          <button id="v311-mode-mois" style="padding:6px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;"><i class=ic ic-calendar></i> Mois courant</button>
+          <button id="v311-mode-periode" style="padding:6px 16px; background:transparent; color:#666; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;"><i class=ic ic-chart></i> Période entière</button>
         </div>
         
         <div id="v311-modal-totals" style="margin-bottom:10px;"></div>
@@ -7012,9 +7012,9 @@ async function showLogDetail(logId) {
         </div>
         
         <div style="margin-top:18px; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
-          <span style="color:#888; font-size:12px; margin-right:auto;">📄 PDF signé PharmaRemise</span>
-          <button id="v311-btn-pdf-source" style="display:none; padding:9px 16px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF source uniquement</button>
-          <button id="v311-btn-pdf-tout" style="padding:9px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">📄 PDF (toutes sources)</button>
+          <span style="color:#888; font-size:12px; margin-right:auto;"><i class=ic ic-file></i> PDF signé PharmaRemise</span>
+          <button id="v311-btn-pdf-source" style="display:none; padding:9px 16px; background:white; color:#1D9E75; border:1px solid #1D9E75; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;"><i class=ic ic-file></i> PDF source uniquement</button>
+          <button id="v311-btn-pdf-tout" style="padding:9px 16px; background:#1D9E75; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;"><i class=ic ic-file></i> PDF (toutes sources)</button>
         </div>
       </div>
     `;
@@ -7125,7 +7125,7 @@ async function showLogDetail(logId) {
     const btn = document.createElement('button');
     btn.id = 'v312-nav-btn';
     btn.className = 'nav-item';
-    btn.textContent = '🏆 Meilleur compo';
+    btn.textContent = 'N°1 Meilleur compo';
     btn.addEventListener('click', () => {
       _showScreen();
       [...nav.querySelectorAll('button.nav-item')].forEach(b => b.classList.remove('active'));
@@ -7317,36 +7317,36 @@ async function showLogDetail(logId) {
       <div id="v317-container">
         <div id="v317-header">
           <div>
-            <h1 id="v317-title">🏆 Meilleur compo générique</h1>
+            <h1 id="v317-title">N°1 Meilleur compo générique</h1>
             <div id="v317-subtitle">Comparatif des prix nets après application de vos contrats</div>
           </div>
           <div id="v317-controls">
-            <input id="v317-search" type="text" placeholder="🔍 Rechercher..."/>
+            <input id="v317-search" type="text" placeholder="Rechercher..."/>
             <!-- Toggles admin (cachés par défaut) -->
-            <button id="v317-toggle-ppht" class="v317-toggle active" style="display:none;">📊 Grouper par PPHT</button>
-            <button id="v317-toggle-suspects" class="v317-toggle" style="display:none;">🔍 Noms suspects</button>
+            <button id="v317-toggle-ppht" class="v317-toggle active" style="display:none;"><i class=ic ic-chart></i> Grouper par PPHT</button>
+            <button id="v317-toggle-suspects" class="v317-toggle" style="display:none;"><i class=ic ic-search></i> Noms suspects</button>
             <span id="v317-admin-tag" class="v317-admin-badge" style="display:none;">ADMIN</span>
           </div>
         </div>
         
         <div id="v317-stats"></div>
         <div id="v317-list">
-          <div id="v317-loading" style="text-align:center; padding:60px; color:#888;">⏳ Chargement...</div>
+          <div id="v317-loading" style="text-align:center; padding:60px; color:#888;"><i class=ic ic-clock></i> Chargement...</div>
         </div>
-        <div id="v317-sentinel" style="display:none;">⏳ Faire défiler...</div>
+        <div id="v317-sentinel" style="display:none;"><i class=ic ic-clock></i> Faire défiler...</div>
       </div>
       
       <!-- MODAL ÉDITION (admin only) -->
       <div id="v317-edit-modal">
         <div class="box">
           <div style="display:flex; justify-content:space-between; margin-bottom:14px;">
-            <h2 id="v317-edit-title" style="margin:0;">✏️ Éditer la molécule</h2>
+            <h2 id="v317-edit-title" style="margin:0;"><i class=ic ic-pencil></i> Éditer la molécule</h2>
             <button id="v317-edit-close" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
           </div>
           
           <div class="v317-tabs">
-            <button id="v317-tab-fusionner" class="v317-tab active" data-tab="fusionner">✏️ Fusionner</button>
-            <button id="v317-tab-fractionner" class="v317-tab" data-tab="fractionner">✂️ Fractionner</button>
+            <button id="v317-tab-fusionner" class="v317-tab active" data-tab="fusionner"><i class=ic ic-pencil></i> Fusionner</button>
+            <button id="v317-tab-fractionner" class="v317-tab" data-tab="fractionner"><i class=ic ic-scissors></i> Fractionner</button>
           </div>
           
           <div id="v317-content-fusionner" class="v317-tab-content active">
@@ -7368,13 +7368,13 @@ async function showLogDetail(logId) {
             </div>
             <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:14px; border-top:1px solid #eee;">
               <button id="v317-fus-cancel" class="v317-toggle">Fermer</button>
-              <button id="v317-fus-save" class="v317-toggle active">💾 Sauvegarder fusion</button>
+              <button id="v317-fus-save" class="v317-toggle active"><i class=ic ic-save></i> Sauvegarder fusion</button>
             </div>
           </div>
           
           <div id="v317-content-fractionner" class="v317-tab-content">
             <div style="background:#fffbeb; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:12px; color:#7a5d00;">
-              💡 Coche les produits à <strong>sortir</strong> dans une nouvelle sous-molécule. Tu peux fractionner <strong>plusieurs fois</strong> sans fermer.
+              <i class=ic ic-bulb></i> Coche les produits à <strong>sortir</strong> dans une nouvelle sous-molécule. Tu peux fractionner <strong>plusieurs fois</strong> sans fermer.
             </div>
             <div id="v317-frac-history" style="display:none;">
               <strong>✓ Sous-groupes créés dans cette session :</strong>
@@ -7399,7 +7399,7 @@ async function showLogDetail(logId) {
             </div>
             <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:14px; border-top:1px solid #eee;">
               <button id="v317-frac-close" class="v317-toggle">Fermer</button>
-              <button id="v317-frac-save-continue" class="v317-toggle active">✂️ Créer et continuer</button>
+              <button id="v317-frac-save-continue" class="v317-toggle active"><i class=ic ic-scissors></i> Créer et continuer</button>
               <button id="v317-frac-save-finish" class="v317-toggle">✓ Créer et fermer</button>
             </div>
           </div>
@@ -7508,7 +7508,7 @@ async function showLogDetail(logId) {
       _applyFilterAndRender();
     } catch (e) {
       const list = document.getElementById('v317-list');
-      if (list) list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;">⚠️ ${e.message}</div>`;
+      if (list) list.innerHTML = `<div style="padding:30px; text-align:center; color:#c0392b;"><i class=ic ic-alert></i> ${e.message}</div>`;
     }
   }
 
@@ -7571,7 +7571,7 @@ async function showLogDetail(logId) {
   }
 
   function _renderProductRow(p) {
-    const star = p.meilleur_prix ? '⭐' : '';
+    const star = p.meilleur_prix ? '' : '';
     const ecart = !p.meilleur_prix && p.ecart_eur > 0 
       ? `+${_fmtEuro(p.ecart_eur)}`
       : (p.meilleur_prix ? '<span style="color:#1D9E75;">meilleur</span>' : '');
@@ -7621,18 +7621,18 @@ async function showLogDetail(logId) {
         ? `<span style="color:#888; font-size:11px;">(${m.graphies_sources.length} graphies)</span>` 
         : '';
       
-      // 🔒 ADMIN ONLY : case Masquer + bouton Éditer
+      // ADMIN ONLY : case Masquer + bouton Éditer
       const maskBox = _isAdmin ? `
         <label class="v317-mask-inline" title="Masquer cette molécule pour tous les utilisateurs">
           <input type="checkbox" class="v317-mask-cb" data-canon="${encodeURIComponent(m.canon)}" ${isHidden ? 'checked' : ''}/>
-          🚫 Ne pas afficher
+          Ne pas afficher
         </label>` : '';
       
       const editBtn = _isAdmin ? `
         <button class="v317-edit-btn" data-molecule="${encodeURIComponent(JSON.stringify({
           canon: m.canon, display: m.molecule, graphies: m.graphies_sources,
           produits: m.produits || [], is_hidden: isHidden
-        }))}">✏️ Éditer</button>` : '';
+        }))}"><i class=ic ic-pencil></i> Éditer</button>` : '';
       
       let bodyHtml;
       if (_groupByPpht && m.sous_groupes && m.sous_groupes.length > 0) {
@@ -7733,7 +7733,7 @@ async function showLogDetail(logId) {
       sentinel.style.display = 'none';
     } else {
       sentinel.style.display = 'block';
-      sentinel.innerHTML = `⏳ ${_renderedCount} / ${_filteredData.length} molécules`;
+      sentinel.innerHTML = `${_renderedCount} / ${_filteredData.length} molécules`;
     }
   }
 
@@ -7752,7 +7752,7 @@ async function showLogDetail(logId) {
     _editGraphies = [...m.graphies];
     _editHistory = [];
     
-    document.getElementById('v317-edit-title').textContent = `✏️ ${m.display}`;
+    document.getElementById('v317-edit-title').textContent = `${m.display}`;
     document.getElementById('v317-fus-display').value = m.display;
     _renderFusionGraphies();
     document.getElementById('v317-fus-extras').value = '';
@@ -7817,11 +7817,11 @@ async function showLogDetail(logId) {
       .split(',').map(s => s.trim()).filter(Boolean);
     const all = [...new Set([...graphies, ...extras])];
     if (all.length === 0) {
-      status.textContent = '⚠️ Aucune graphie cochée';
+      status.textContent = 'Aucune graphie cochée';
       status.style.color = '#c0392b';
       return;
     }
-    status.textContent = '⏳ Sauvegarde...';
+    status.textContent = 'Sauvegarde...';
     status.style.color = '#888';
     try {
       const r = await fetch(`${API}/admin/molecules/fusionner`, {
@@ -7853,18 +7853,18 @@ async function showLogDetail(logId) {
     const status = document.getElementById('v317-edit-status');
     const newName = document.getElementById('v317-frac-name').value.trim();
     if (!newName) {
-      status.textContent = '⚠️ Donne un nom au nouveau groupe';
+      status.textContent = 'Donne un nom au nouveau groupe';
       status.style.color = '#c0392b';
       return;
     }
     const cips = [...document.querySelectorAll('#v317-frac-products input:checked')]
       .map(cb => cb.dataset.cip);
     if (cips.length === 0) {
-      status.textContent = '⚠️ Coche au moins 1 produit';
+      status.textContent = 'Coche au moins 1 produit';
       status.style.color = '#c0392b';
       return;
     }
-    status.textContent = '⏳ Création...';
+    status.textContent = 'Création...';
     status.style.color = '#888';
     try {
       const r = await fetch(`${API}/admin/molecules/fractionner`, {
@@ -7943,7 +7943,7 @@ async function showLogDetail(logId) {
 // ============================================================
 // v3.0.18 — Onglets dans l'écran Paramètres
 // ============================================================
-// 3 onglets : 🚚 Grossistes / 💊 Génériqueurs / 👤 Mon compte
+// 3 onglets : Grossistes / Génériqueurs / Mon compte
 // Les cards existantes sont catégorisées et masquées/affichées selon l'onglet
 
 (function _v318_init() {
@@ -8015,15 +8015,15 @@ async function showLogDetail(logId) {
         }
       </style>
       <button class="v318-tab active" data-tab="grossistes">
-        <span class="v318-tab-icon">🚚</span>
+        <span class="v318-tab-icon"><i class=ic ic-truck></i></span>
         <span>Grossistes</span>
       </button>
       <button class="v318-tab" data-tab="generiqueurs">
-        <span class="v318-tab-icon">💊</span>
+        <span class="v318-tab-icon"><i class=ic ic-pill></i></span>
         <span>Génériqueurs</span>
       </button>
       <button class="v318-tab" data-tab="moncompte">
-        <span class="v318-tab-icon">👤</span>
+        <span class="v318-tab-icon"><i class=ic ic-user></i></span>
         <span>Mon compte</span>
       </button>
     `;
