@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Console PharmaGestion — PharmaRemise</title>
+<link rel="icon" type="image/png" href="/logo-remise.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#159B73; --brand-d:#08745A; --brand-l:#E8F7F1;
+  --petrole:#123C4A; --petrole-d:#0C2A34;
+  --ink:#101828; --sub:#667085; --bg:#F4F6F5; --surface:#FFFFFF; --border:#E3E1DA;
+  --amber:#B45309; --amber-l:#FFF4D8; --red:#C7363C; --red-l:#FEECEC;
+  --blue:#2563EB; --blue-l:#EAF0FE; --purple:#6B21A8; --purple-l:#F1EBFB;
+  --r-sm:8px; --r-md:12px; --r-lg:16px;
+  --shadow:0 8px 24px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+button{font-family:inherit;cursor:pointer}
+.hide{display:none!important}
+
+/* Topbar */
+.topbar{height:60px;background:var(--petrole);display:flex;align-items:center;gap:14px;padding:0 26px;color:#fff}
+.topbar .mark{width:32px;height:32px;border-radius:9px;background:#fff;display:grid;place-items:center;flex:0 0 32px}
+.topbar .mark img{width:25px;height:25px;object-fit:contain}
+.topbar .title{font-family:Manrope;font-weight:800;font-size:16px;letter-spacing:-.01em}
+.topbar .title span{color:var(--brand)}
+.topbar .app-tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8FB3AE;border:1px solid rgba(255,255,255,.15);padding:3px 8px;border-radius:999px}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:#B8CDC8}
+.topbar .right a{color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;opacity:.85}
+.topbar .right a:hover{opacity:1}
+.topbar .right svg{width:15px;height:15px}
+
+/* Shell */
+.wrap{max-width:1200px;margin:0 auto;padding:28px 26px 60px}
+.head h1{font-family:Manrope;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.head p{margin-top:5px;color:var(--sub);font-size:13.5px}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;margin:22px 0 24px;border-bottom:1px solid var(--border)}
+.tab{background:none;border:0;padding:11px 16px;font-size:14px;font-weight:600;color:var(--sub);
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--brand-d);border-bottom-color:var(--brand)}
+
+/* Group title */
+.group-title{font-family:Manrope;font-size:17px;font-weight:800;margin:0 0 14px}
+.group-sub{font-size:13px;color:var(--sub);margin:-8px 0 16px}
+
+/* Cards grid (pharmacies) */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow)}
+.pcard.off{opacity:.72;background:#FBFAF9}
+.pcard-top{display:flex;gap:12px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.pcard-ico{width:40px;height:40px;flex:0 0 40px;border-radius:11px;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center}
+.pcard-ico svg{width:20px;height:20px}
+.pcard-name{font-weight:700;font-size:15px;line-height:1.25;word-break:break-word}
+.pcard-finess{font-size:12px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums}
+.pcard-owner{font-size:12.5px;color:var(--ink);margin-bottom:3px}
+.pcard-owner b{font-weight:600}
+.pcard-email{font-size:12px;color:var(--sub);word-break:break-all;margin-bottom:14px}
+.pcard-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Buttons */
+.btn{height:38px;padding:0 14px;border-radius:9px;font-size:13px;font-weight:700;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.btn svg{width:15px;height:15px}
+.btn-green{background:var(--brand);color:#fff}
+.btn-green:hover{background:var(--brand-d)}
+.btn-outline{background:#fff;border-color:var(--border);color:#344054}
+.btn-outline:hover{border-color:#C9C6BB}
+.btn-danger{background:#fff;border-color:var(--red-l);color:var(--red)}
+.btn-danger:hover{background:var(--red-l)}
+.btn-sm{height:32px;padding:0 11px;font-size:12.5px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:11.5px;font-weight:700}
+.b-green{background:var(--brand-l);color:var(--brand-d)}
+.b-amber{background:var(--amber-l);color:var(--amber)}
+.b-red{background:var(--red-l);color:var(--red)}
+.b-gray{background:#EFEEE9;color:var(--sub)}
+.b-purple{background:var(--purple-l);color:var(--purple)}
+
+/* Disabled group */
+.collapse{margin-top:26px}
+.collapse-head{display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 0;color:var(--sub);font-weight:600;font-size:14px}
+.collapse-head svg{width:16px;height:16px;transition:transform .15s}
+.collapse-head.open svg{transform:rotate(90deg)}
+
+/* Référentiels : sous-onglets */
+.subtabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.subtab{background:#fff;border:1px solid var(--border);border-radius:999px;padding:8px 15px;font-size:13px;font-weight:600;color:var(--sub)}
+.subtab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+.ref-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--border)}
+td{padding:10px;border-bottom:1px solid #EDEBE4}
+tr:last-child td{border-bottom:0}
+.search{height:36px;padding:0 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;min-width:220px;font-family:inherit}
+
+/* Empty / loading */
+.center{text-align:center;padding:50px 20px;color:var(--sub)}
+.spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-ico{width:34px;height:34px;color:var(--sub);opacity:.45;margin:0 auto 12px;display:block}
+
+/* Modal */
+.modal-back{position:fixed;inset:0;background:rgba(18,24,40,.45);display:grid;place-items:center;z-index:100;padding:20px}
+.modal{background:#fff;border-radius:var(--r-lg);max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.modal h3{font-family:Manrope;font-size:18px;font-weight:800;margin-bottom:8px}
+.modal p{font-size:13.5px;color:var(--sub);line-height:1.55;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;
+  padding:12px 18px;border-radius:10px;font-size:13.5px;font-weight:600;opacity:0;transition:all .25s;z-index:200}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.green{background:var(--brand-d)} #toast.red{background:var(--red)}
+
+.gate{display:grid;place-items:center;min-height:70vh;text-align:center;padding:20px}
+.gate svg{width:40px;height:40px;color:var(--sub);opacity:.5;margin-bottom:16px}
+.gate h2{font-family:Manrope;font-size:20px;margin-bottom:8px}
+.gate p{color:var(--sub);font-size:14px;max-width:420px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="mark"><img src="/logo-remise.png" alt="" /></div>
+  <div class="title">Console <span>PharmaGestion</span></div>
+  <span class="app-tag">PharmaRemise</span>
+  <div class="right">
+    <a href="https://remise.pharmagestion.fr/app.html"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg> Ouvrir l'application</a>
+    <a href="https://pharmagestion.fr"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg> Hub</a>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <div class="wrap">
+    <div class="head">
+      <h1>Console PharmaGestion</h1>
+      <p>Gérer les comptes, les référentiels partagés et suivre les interventions. Toutes les actions sont tracées.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="pharmacies" onclick="showTab('pharmacies')">Pharmacies</button>
+      <button class="tab" data-tab="referentiels" onclick="showTab('referentiels')">Référentiels</button>
+      <button class="tab" data-tab="historique" onclick="showTab('historique')">Historique des interventions</button>
+    </div>
+
+    <section id="tab-pharmacies"><div class="center"><div class="spinner"></div>Chargement…</div></section>
+    <section id="tab-referentiels" class="hide"></section>
+    <section id="tab-historique" class="hide"></section>
+  </div>
+</div>
+
+<div id="gate" class="gate">
+  <svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <h2 id="gate-title">Vérification de l'accès…</h2>
+  <p id="gate-msg">Un instant, on vérifie vos droits d'administration.</p>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast"></div>
+
+<script>
+/* CONSOLE_SSO_GUARD : quand clerk-sso renvoie au hub, revenir sur CETTE page (pas /app.html) */
+(function(){
+  if (location.hostname !== 'remise.pharmagestion.fr') return;
+  var _replace = window.location.replace.bind(window.location);
+  window.location.replace = function(url){
+    try{
+      if (typeof url === 'string' && url.indexOf('/sign-in') !== -1){
+        url = url.replace(/redirect_url=[^&]*/,
+          'redirect_url=' + encodeURIComponent('https://remise.pharmagestion.fr/console.html'));
+      }
+      // empêche un saut intempestif vers /app.html depuis cette page
+      if (typeof url === 'string' && /\/app\.html$/.test(url) && /console\.html/.test(location.pathname)){
+        return;
+      }
+    }catch(e){}
+    return _replace(url);
+  };
+})();
+</script>
+<script src="/clerk-sso.js"></script>
+<script>
+// ============================================================================
+// Console PharmaGestion — PharmaRemise (Option A : page autonome pleine largeur)
+// Réutilise les routes admin existantes du backend. Aucune route nouvelle.
+// ============================================================================
+const API = 'https://web-production-2202b.up.railway.app';
+let TOKEN = null;
+let _PHARMS = [];
+let _REF_TAB = 'classifications';
+
+// ---- Auth : jeton Clerk (comme app.html), sinon jeton legacy ----
+async function getToken(){
+  try{
+    if (window.Clerk && window.Clerk.session){
+      const t = await window.Clerk.session.getToken();
+      if (t) return t;
+    }
+  }catch(e){}
+  try{
+    const t = localStorage.getItem('pharmaremise_token');
+    if (t && t !== '__clerk_pending__') return t;
+  }catch(e){}
+  return null;
+}
+
+async function api(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers || {});
+  if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  if (opts.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  const r = await fetch(API + path, Object.assign({}, opts, { headers }));
+  if (!r.ok){
+    let msg = 'HTTP ' + r.status;
+    try{ const j = await r.json(); msg = j.detail || j.message || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const ct = r.headers.get('content-type') || '';
+  return ct.includes('json') ? r.json() : r.text();
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function eur(n){ return (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
+function fmtDate(d){ if(!d) return ''; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){ return ''; } }
+
+let _toastTimer;
+function toast(msg, kind){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = (kind||'') + ' show';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>{ t.className = t.className.replace('show','').trim(); }, 2600);
+}
+
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+  ['pharmacies','referentiels','historique'].forEach(t =>
+    document.getElementById('tab-'+t).classList.toggle('hide', t!==name));
+  if (name==='referentiels' && !document.getElementById('tab-referentiels').dataset.loaded) loadReferentiels();
+  if (name==='historique' && !document.getElementById('tab-historique').dataset.loaded) loadHistorique();
+}
+
+// ======================= PHARMACIES =======================
+async function loadPharmacies(){
+  const el = document.getElementById('tab-pharmacies');
+  try{
+    const data = await api('/admin/pharmacies/');
+    _PHARMS = data.items || [];
+    renderPharmacies();
+  }catch(e){
+    el.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`;
+  }
+}
+
+function pharmaCard(p){
+  const off = !p.is_active;
+  const owner = p.titulaire || p.owner_name || p.contact || '';
+  return `
+    <div class="pcard ${off?'off':''}">
+      <div class="pcard-top">
+        <div class="pcard-ico"><svg viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div class="pcard-name">${esc(p.nom || '—')} ${p.is_admin?'<span class="badge b-purple">admin</span>':''} ${off?'<span class="badge b-red">désactivé</span>':''}</div>
+          ${p.finess?`<div class="pcard-finess">${esc(p.finess)}</div>`:''}
+        </div>
+      </div>
+      ${owner?`<div class="pcard-owner"><b>${esc(owner)}</b></div>`:''}
+      <div class="pcard-email">${esc(p.email || '—')}</div>
+      <div class="pcard-actions">
+        <a class="btn btn-green btn-sm" href="https://remise.pharmagestion.fr/app.html" title="Ouvrir l'app dans le contexte de ce compte">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg> Intervenir
+        </a>
+        ${off
+          ? `<button class="btn btn-outline btn-sm" onclick="askToggle('${p.id}',true)"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg> Réactiver</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="askToggle('${p.id}',false)"><svg viewBox="0 0 24 24"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2v10"/></svg> Désactiver</button>`}
+      </div>
+    </div>`;
+}
+
+function renderPharmacies(){
+  const el = document.getElementById('tab-pharmacies');
+  const actifs = _PHARMS.filter(p => p.is_active);
+  const inactifs = _PHARMS.filter(p => !p.is_active);
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+      <h2 class="group-title" style="margin:0">Comptes actifs (${actifs.length})</h2>
+      <input class="search" id="ph-search" placeholder="Rechercher nom, email, FINESS…" oninput="filterPharma()" />
+    </div>
+    <div class="cards" id="cards-actifs">${actifs.map(pharmaCard).join('') || '<div class="center" style="grid-column:1/-1">Aucun compte actif</div>'}</div>
+    ${inactifs.length ? `
+      <div class="collapse">
+        <div class="collapse-head" onclick="this.classList.toggle('open');document.getElementById('cards-inactifs').classList.toggle('hide')">
+          <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg> Comptes désactivés (${inactifs.length})
+        </div>
+        <div class="cards hide" id="cards-inactifs" style="margin-top:8px">${inactifs.map(pharmaCard).join('')}</div>
+      </div>` : ''}
+  `;
+}
+
+function filterPharma(){
+  const q = (document.getElementById('ph-search').value||'').toLowerCase();
+  const match = p => [p.nom,p.email,p.finess].some(v => (v||'').toLowerCase().includes(q));
+  document.getElementById('cards-actifs').innerHTML =
+    _PHARMS.filter(p=>p.is_active && match(p)).map(pharmaCard).join('') || '<div class="center" style="grid-column:1/-1">Aucun résultat</div>';
+  const inac = document.getElementById('cards-inactifs');
+  if (inac) inac.innerHTML = _PHARMS.filter(p=>!p.is_active && match(p)).map(pharmaCard).join('');
+}
+
+// ---- Activer / désactiver : PATCH /admin/pharmacies/{id} { is_active } ----
+function askToggle(id, activate){
+  const p = _PHARMS.find(x => String(x.id)===String(id));
+  const nom = p ? p.nom : 'cette pharmacie';
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>${activate?'Réactiver':'Désactiver'} le compte</h3>
+        <p>${activate
+          ? `<b>${esc(nom)}</b> pourra de nouveau se connecter et utiliser PharmaRemise normalement.`
+          : `<b>${esc(nom)}</b> ne pourra plus se connecter. <b>Aucune donnée n'est supprimée</b> — la réactivation restaure tout.`}</p>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+          <button class="btn ${activate?'btn-green':'btn-danger'}" id="confirm-toggle">${activate?'Réactiver':'Désactiver'}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('confirm-toggle').onclick = async () => {
+    try{
+      await api('/admin/pharmacies/'+id, { method:'PATCH', body: JSON.stringify({ is_active: activate }) });
+      if (p) p.is_active = activate;
+      closeModal(); renderPharmacies();
+      toast(activate?'Compte réactivé':'Compte désactivé', 'green');
+    }catch(e){ toast('Erreur : '+e.message, 'red'); }
+  };
+}
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+// ======================= RÉFÉRENTIELS =======================
+async function loadReferentiels(){
+  const el = document.getElementById('tab-referentiels');
+  el.dataset.loaded = '1';
+  el.innerHTML = `
+    <div class="subtabs">
+      <button class="subtab active" data-r="classifications" onclick="showRef('classifications')">Classification des produits</button>
+      <button class="subtab" data-r="generiques" onclick="showRef('generiques')">Référentiel génériques</button>
+      <button class="subtab" data-r="biosimilaires" onclick="showRef('biosimilaires')">Référentiel biosimilaires</button>
+    </div>
+    <div id="ref-body" class="ref-panel"><div class="center"><div class="spinner"></div>Chargement…</div></div>`;
+  showRef('classifications');
+}
+
+function showRef(which){
+  _REF_TAB = which;
+  document.querySelectorAll('.subtab').forEach(b => b.classList.toggle('active', b.dataset.r===which));
+  if (which==='classifications') renderRefClassifications();
+  if (which==='generiques') renderRefGeneriques();
+  if (which==='biosimilaires') renderRefBiosimilaires();
+}
+
+async function renderRefClassifications(){
+  const b = document.getElementById('ref-body');
+  b.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
+  try{
+    const data = await api('/admin/classifications');
+    const cats = data.categories || {};
+    const entries = Object.entries(cats);
+    b.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+        <div>
+          <div class="group-title" style="margin:0">Classification des produits</div>
+          <div class="group-sub" style="margin:4px 0 0">${data.total_cips_uniques||0} CIP uniques · <span style="color:var(--amber)">${data.total_corrections_actives||0} correction(s) active(s)</span></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="recalcClassif(this)"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Recalculer les factures</button>
+      </div>
+      <table><thead><tr><th>Catégorie</th><th>Produits</th></tr></thead><tbody>
+        ${entries.map(([k,c])=>`<tr><td>${esc(c.label||k)}</td><td class="num">${c.count||0}</td></tr>`).join('') || '<tr><td colspan="2" class="center">Aucune catégorie</td></tr>'}
+      </tbody></table>`;
+  }catch(e){ b.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`; }
+}
+
+async function recalcClassif(btn){
+  btn.disabled = true; const old = btn.innerHTML; btn.textContent = 'Recalcul en cours…';
+  try{ await api('/admin/classifications/recalculer', { method:'POST' }); toast('Recalcul lancé sur toutes les factures','green'); }
+  catch(e){ toast('Erreur : '+e.message,'red'); }
+  finally{ btn.disabled=false; btn.innerHTML = old; }
+}
+
+async function renderRefGeneriques(){
+  const b = document.getElementById('ref-body');
+  b.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
+  try{
+    const data = await api('/generiqueur/referentiels');
+    const labos = Array.isArray(data) ? data : (data.labos || data.items || []);
+    b.innerHTML = `
+      <div class="group-title">Référentiel génériques</div>
+      <div class="group-sub">Référentiels laboratoires chargés — partagés par toutes les pharmacies.</div>
+      <table><thead><tr><th>Laboratoire</th><th>Lignes</th><th>Mis à jour</th></tr></thead><tbody>
+        ${labos.length ? labos.map(l=>`<tr>
+          <td><b>${esc(l.labo||l.nom||l.name||'—')}</b></td>
+          <td class="num">${l.nb_lignes||l.count||l.lignes||'—'}</td>
+          <td style="color:var(--sub)">${fmtDate(l.updated_at||l.date_maj||l.maj)}</td>
+        </tr>`).join('') : '<tr><td colspan="3" class="center">Aucun référentiel chargé</td></tr>'}
+      </tbody></table>`;
+  }catch(e){ b.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`; }
+}
+
+async function renderRefBiosimilaires(){
+  const b = document.getElementById('ref-body');
+  b.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
+  try{
+    let count = null;
+    try{ const c = await api('/admin/biosimilaires-loader/count'); count = c.count!=null?c.count:(c.total!=null?c.total:null); }catch(e){}
+    b.innerHTML = `
+      <div class="group-title">Référentiel biosimilaires</div>
+      <div class="group-sub">Liste de référence des biosimilaires (tous injectables) — partagée par toutes les pharmacies.</div>
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div style="padding:16px 20px;background:var(--brand-l);border-radius:var(--r-md);min-width:160px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)">Références chargées</div>
+          <div class="num" style="font-size:26px;font-weight:800;color:var(--brand-d);margin-top:4px">${count!=null?count:'—'}</div>
+        </div>
+        <div style="font-size:13px;color:var(--sub);max-width:420px;line-height:1.6">
+          Le chargement du référentiel se fait via l'import dédié. Cette page en donne l'état ;
+          les corrections produit se gèrent dans « Classification des produits ».
+        </div>
+      </div>`;
+  }catch(e){ b.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`; }
+}
+
+// ======================= HISTORIQUE =======================
+async function loadHistorique(){
+  const el = document.getElementById('tab-historique');
+  el.dataset.loaded = '1';
+  el.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
+  try{
+    const data = await api('/admin/integration-audit/logs?limit=100').catch(()=>null)
+              || await api('/admin/audit/logs?limit=100').catch(()=>null);
+    const logs = data ? (data.items || data.logs || data || []) : [];
+    if (!logs.length){
+      el.innerHTML = `
+        <div class="ref-panel"><div class="center">
+          <svg class="empty-ico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <div style="font-weight:700;color:var(--ink)">Aucune intervention enregistrée</div>
+          <div style="margin-top:5px">Les activations, désactivations et corrections apparaîtront ici.</div>
+        </div></div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="ref-panel">
+        <div class="group-title">Historique des interventions</div>
+        <table><thead><tr><th>Date</th><th>Action</th><th>Cible</th><th>Détail</th></tr></thead><tbody>
+          ${logs.map(l=>`<tr>
+            <td style="color:var(--sub);white-space:nowrap">${fmtDate(l.created_at||l.date||l.timestamp)}</td>
+            <td><span class="badge b-gray">${esc(l.action||l.type||l.event||'—')}</span></td>
+            <td>${esc(l.target||l.cible||l.pharmacie||l.entity||'—')}</td>
+            <td style="color:var(--sub)">${esc(l.detail||l.message||l.description||'')}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>`;
+  }catch(e){
+    el.innerHTML = `<div class="ref-panel"><div class="center">Erreur : ${esc(e.message)}</div></div>`;
+  }
+}
+
+// ======================= BOOT =======================
+async function boot(){
+  // 1) attendre un jeton (Clerk peut mettre ~1s)
+  for (let i=0;i<50 && !TOKEN;i++){ TOKEN = await getToken(); if (TOKEN) break; await new Promise(r=>setTimeout(r,100)); }
+  if (!TOKEN){
+    gate("Connexion requise", "Connectez-vous sur le hub, puis rouvrez cette page.", true);
+    return;
+  }
+  // 2) vérifier que je suis admin
+  try{
+    await api('/admin/me');
+  }catch(e){
+    gate("Accès réservé", "Cette console est réservée à l'administration PharmaGestion. Votre compte n'a pas les droits nécessaires.", false);
+    return;
+  }
+  // 3) OK
+  document.getElementById('gate').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  loadPharmacies();
+}
+
+function gate(title, msg, retry){
+  document.getElementById('gate-title').textContent = title;
+  document.getElementById('gate-msg').innerHTML = esc(msg) + (retry ? ' <a href="https://pharmagestion.fr" style="color:var(--brand-d)">Aller au hub →</a>' : '');
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>
