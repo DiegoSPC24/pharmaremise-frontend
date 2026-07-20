@@ -179,7 +179,7 @@ tr:last-child td{border-bottom:0}
     try{
       if (typeof url === 'string' && url.indexOf('/sign-in') !== -1){
         url = url.replace(/redirect_url=[^&]*/,
-          'redirect_url=' + encodeURIComponent('https://remise.pharmagestion.fr/console.html'));
+          'redirect_url=' + encodeURIComponent('https://remise.pharmagestion.fr/console'));
       }
       // empêche un saut intempestif vers /app.html depuis cette page
       if (typeof url === 'string' && /\/app\.html$/.test(url) && /console\.html/.test(location.pathname)){
