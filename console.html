@@ -346,7 +346,7 @@ function askToggle(id, activate){
 }
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
-// ======================= RÉFÉRENTIELS ======================= // LOT5_RECLASS
+// ======================= RÉFÉRENTIELS ======================= // LOT6_BDPM
 // Classification : scroll infini + conservation de la position
 // + filtre "molécules reclassées" (global et par catégorie)
 
@@ -393,6 +393,7 @@ async function loadReferentiels(){
       <button class="subtab active" data-r="classifications" onclick="showRef('classifications')">Classification des produits</button>
       <button class="subtab" data-r="generiques" onclick="showRef('generiques')">Référentiel génériques</button>
       <button class="subtab" data-r="biosimilaires" onclick="showRef('biosimilaires')">Référentiel biosimilaires</button>
+      <button class="subtab" data-r="bdpm" onclick="showRef('bdpm')">Base officielle BDPM</button>
     </div>
     <div id="ref-body" class="ref-panel"><div class="center"><div class="spinner"></div>Chargement…</div></div>`;
   showRef('classifications');
@@ -405,6 +406,7 @@ function showRef(which){
   if (which==='classifications') renderRefClassifications();
   if (which==='generiques') renderRefGeneriques();
   if (which==='biosimilaires') renderRefBiosimilaires();
+  if (which==='bdpm') renderRefBdpm();
 }
 
 // ======================= CLASSIFICATION =======================
@@ -766,6 +768,104 @@ async function recalcClassif(btn){
   try{ await api('/admin/classifications/recalculer', { method:'POST' }); toast('Recalcul lancé sur toutes les factures','green'); }
   catch(e){ toast('Erreur : '+e.message,'red'); }
   finally{ btn.disabled=false; btn.innerHTML = old; }
+}
+
+// ======================= BASE OFFICIELLE BDPM =======================
+// Source : ANSM / HAS / UNCAM — fichiers officiels, actualises tous les mois.
+// Il n'existe pas d'API REST officielle : on telecharge les fichiers a la source.
+
+async function renderRefBdpm(){
+  const b = document.getElementById('ref-body');
+  b.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
+  let etat = null;
+  try{ etat = await api('/admin/bdpm/etat'); }catch(e){}
+
+  const gen = etat && etat.generiques != null ? etat.generiques : '—';
+  const pri = etat && etat.princeps   != null ? etat.princeps   : '—';
+
+  b.innerHTML = `
+    <div class="group-title">Base officielle des médicaments (BDPM)</div>
+    <div class="group-sub">
+      Identité produit — quel CIP est un générique, lequel est le princeps.
+      Source officielle ANSM / HAS / UNCAM, actualisée tous les mois.
+      <b>Partagée par toutes les pharmacies.</b>
+    </div>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 16px">
+      <div style="padding:16px 20px;background:var(--brand-l);border-radius:var(--r-md);min-width:150px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)">Génériques connus</div>
+        <div class="num" style="font-size:26px;font-weight:800;color:var(--brand-d);margin-top:4px">${gen}</div>
+      </div>
+      <div style="padding:16px 20px;background:#F5F3FF;border-radius:var(--r-md);min-width:150px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#5B21B6">Princeps connus</div>
+        <div class="num" style="font-size:26px;font-weight:800;color:#5B21B6;margin-top:4px">${pri}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-outline btn-sm" onclick="apercuBdpm(this)">Tester la source (sans rien écrire)</button>
+      <button class="btn btn-green btn-sm" onclick="rafraichirBdpm(this)">Rafraîchir depuis la BDPM</button>
+    </div>
+
+    <div style="font-size:12px;color:var(--sub);line-height:1.7;background:var(--bg);border-radius:var(--r-md);padding:12px 14px">
+      Le rafraîchissement fonctionne par <b>union</b> : seuls les CIP absents sont ajoutés.
+      Aucun CIP déjà connu n'est modifié ni supprimé, donc une classification existante
+      ne peut pas être cassée. Le téléchargement prend quelques dizaines de secondes.
+    </div>
+
+    <div id="bdpm-rapport"></div>`;
+}
+
+async function apercuBdpm(btn){
+  const z = document.getElementById('bdpm-rapport');
+  btn.disabled = true; const old = btn.innerHTML; btn.textContent = 'Téléchargement…';
+  if (z) z.innerHTML = '';
+  try{
+    const r = await api('/admin/bdpm/apercu');
+    const l = r.lecture || {};
+    if (z) z.innerHTML = `
+      <div style="margin-top:16px;padding:14px 16px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:var(--r-md);font-size:13px;line-height:1.8">
+        <b>La source répond et le format est correct.</b><br>
+        Spécialités : <b>${l.nb_specialites||0}</b> ·
+        Présentations : <b>${l.nb_presentations||0}</b> ·
+        Groupes génériques : <b>${l.nb_groupes||0}</b><br>
+        CIP génériques lus : <b>${l.nb_cip_generiques||0}</b> ·
+        CIP princeps lus : <b>${l.nb_cip_princeps||0}</b>
+        ${(r.exemples_princeps||[]).length ? `<div style="margin-top:8px;font-size:12px;color:var(--sub)">
+          Exemple princeps : ${esc((r.exemples_princeps[0]||{}).nom||'')}</div>` : ''}
+      </div>`;
+    toast('Source BDPM joignable','green');
+  }catch(e){
+    if (z) z.innerHTML = `<div style="margin-top:16px;padding:14px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--r-md);font-size:13px">
+      <b>Échec</b> — ${esc(e.message)}</div>`;
+    toast('Erreur : '+e.message,'red');
+  }finally{ btn.disabled=false; btn.innerHTML = old; }
+}
+
+async function rafraichirBdpm(btn){
+  if (!confirm('Télécharger la base officielle BDPM et compléter les référentiels ?\n\nSeuls les CIP absents seront ajoutés. Aucune donnée existante n\'est modifiée.\nL\'opération peut prendre une minute.')) return;
+  const z = document.getElementById('bdpm-rapport');
+  btn.disabled = true; const old = btn.innerHTML; btn.textContent = 'Téléchargement en cours…';
+  if (z) z.innerHTML = '<div class="center" style="padding:16px"><div class="spinner"></div> Téléchargement et analyse…</div>';
+  try{
+    const r = await api('/admin/bdpm/rafraichir', { method:'POST' });
+    const l = r.lecture || {}, g = r.generiques || {}, p = r.princeps || {};
+    if (z) z.innerHTML = `
+      <div style="margin-top:16px;padding:14px 16px;background:var(--bg);border-radius:var(--r-md);font-size:13px;line-height:1.8">
+        <b>Rafraîchissement terminé</b> — source : ${esc(r.source||'BDPM')}<br>
+        Lu : ${l.nb_cip_generiques||0} CIP génériques · ${l.nb_cip_princeps||0} CIP princeps
+        (${l.nb_groupes||0} groupes)<br>
+        Génériques — ajoutés : <b style="color:var(--brand-d)">${g.ajoutes||0}</b> · total en base : <b>${g.total||0}</b><br>
+        Princeps — ajoutés : <b style="color:#5B21B6">${p.ajoutes||0}</b> · total en base : <b>${p.total||0}</b>
+      </div>`;
+    toast(`BDPM à jour — ${(g.ajoutes||0)+(p.ajoutes||0)} CIP ajouté(s)`,'green');
+    const e2 = await api('/admin/bdpm/etat').catch(()=>null);
+    if (e2){ /* compteurs rafraichis au prochain affichage */ }
+  }catch(e){
+    if (z) z.innerHTML = `<div style="margin-top:16px;padding:14px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--r-md);font-size:13px">
+      <b>Échec</b> — ${esc(e.message)}</div>`;
+    toast('Erreur : '+e.message,'red');
+  }finally{ btn.disabled=false; btn.innerHTML = old; }
 }
 
 // ======================= GÉNÉRIQUES =======================
