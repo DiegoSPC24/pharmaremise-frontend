@@ -2096,8 +2096,26 @@ async function supprimerReleve(releveId) {
 
 // ── RÉFÉRENTIELS TARIFS LABOS ──────────────────────────────────────────────
 async function chargerReferentiels() {
+  // LOTB_ADMIN_ONLY : ce referentiel (tarifs_labos) est COMMUN a toutes les
+  // pharmacies. Seuls les administrateurs PharmaGestion peuvent le modifier.
+  // Le referentiel propre a chaque pharmacie, c'est la carte 'Modifications pinceau'.
+  const carteRef = document.getElementById('card-referentiels')
+  if (carteRef) carteRef.style.display = 'none'   // masquee tant que l'acces n'est pas confirme
   const el = document.getElementById('referentiels-grid')
   if (!el) return
+  let estAdmin = false
+  try {
+    const ra = await fetch(`${API}/admin/me`, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
+    estAdmin = ra.ok
+  } catch(e) { estAdmin = false }
+  if (!estAdmin) return
+  if (carteRef) {
+    carteRef.style.display = ''
+    if (!document.getElementById('ref-global-note')) {
+      const t = carteRef.querySelector('.card-title')
+      if (t) t.insertAdjacentHTML('afterend', '<div id="ref-global-note" style="font-size:11px;font-weight:600;color:#92400E;background:#FEF3C7;border-radius:6px;padding:6px 10px;margin:6px 0 4px">Referentiel commun a toutes les pharmacies — visible par les administrateurs uniquement.</div>')
+    }
+  }
   try {
     const refs = await apiGet('/generiqueur/referentiels')
     afficherReferentiels(refs)
