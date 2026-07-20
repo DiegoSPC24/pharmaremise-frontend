@@ -346,9 +346,9 @@ function askToggle(id, activate){
 }
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
-// ======================= RÉFÉRENTIELS ======================= // LOT4_SCROLL
-// Classification : scroll infini via /admin/classifications/page
-// Recherche et filtre catégorie côté serveur — plus aucune limite d'affichage.
+// ======================= RÉFÉRENTIELS ======================= // LOT5_RECLASS
+// Classification : scroll infini + conservation de la position
+// + filtre "molécules reclassées" (global et par catégorie)
 
 const STATUTS = [
   ['generique',           'Générique'],
@@ -370,6 +370,9 @@ const LABOS_GEN = ['Biogaran','Viatris','Teva','Sandoz','Arrow','EG Labo','Crist
 const PAGE_SIZE = 100;
 
 let _CATS = null;                 // compteurs par catégorie
+let _CORR = [];                   // corrections manuelles actives
+let _MODE = 'cats';               // 'cats' | 'corr'
+let _CORR_CAT = '';               // filtre catégorie dans la vue reclassées
 let _OPEN_CAT = null;
 let _SEARCH = '';
 let _searchTimer = null;
@@ -380,6 +383,7 @@ function statutLabel(v){
   const f = STATUTS.find(s => s[0] === v);
   return f ? f[1] : (v || '—');
 }
+function scroller(){ return document.scrollingElement || document.documentElement; }
 
 async function loadReferentiels(){
   const el = document.getElementById('tab-referentiels');
@@ -409,15 +413,27 @@ async function renderRefClassifications(force){
   const b = document.getElementById('ref-body');
   if (!_CATS || force){
     b.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
-    try{ _CATS = await api('/admin/classifications'); }
+    try{
+      const [cats, corr] = await Promise.all([
+        api('/admin/classifications'),
+        api('/admin/classifications/corrections-actives').catch(() => ({ items: [] }))
+      ]);
+      _CATS = cats;
+      _CORR = (corr && corr.items) ? corr.items : [];
+    }
     catch(e){ b.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`; return; }
   }
   paintClassif();
 }
 
+function corrParCat(cat){
+  return _CORR.filter(c => c.statut_force === cat).length;
+}
+
 function paintClassif(){
   const b = document.getElementById('ref-body');
   const data = _CATS || {};
+  const nbCorr = _CORR.length;
 
   b.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">
@@ -425,13 +441,16 @@ function paintClassif(){
         <div class="group-title" style="margin:0">Classification des produits</div>
         <div class="group-sub" style="margin:4px 0 0">
           <span id="cnt-cips">${data.total_cips_uniques||0}</span> CIP uniques ·
-          <span style="color:var(--amber)"><span id="cnt-corr">${data.total_corrections_actives||0}</span> correction(s) active(s)</span> ·
+          <span style="color:var(--amber)"><span id="cnt-corr">${nbCorr}</span> molécule(s) reclassée(s)</span> ·
           les corrections s'appliquent <b>à toutes les pharmacies</b>
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input id="classif-search" placeholder="Rechercher un produit…" value="${esc(_SEARCH)}"
+        <input id="classif-search" placeholder="Nom ou CIP13…" value="${esc(_SEARCH)}"
           style="padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);font:inherit;font-size:13px;min-width:220px">
+        <button class="btn ${_MODE==='corr'?'btn-green':'btn-outline'} btn-sm" onclick="toggleModeCorr()">
+          Molécules reclassées${nbCorr?' ('+nbCorr+')':''}
+        </button>
         <button class="btn btn-outline btn-sm" onclick="renderRefClassifications(true)">Rafraîchir</button>
         <button class="btn btn-green btn-sm" onclick="recalcClassif(this)">Recalculer les factures</button>
       </div>
@@ -441,10 +460,7 @@ function paintClassif(){
   const inp = document.getElementById('classif-search');
   inp.oninput = () => {
     clearTimeout(_searchTimer);
-    _searchTimer = setTimeout(() => {
-      _SEARCH = inp.value;
-      paintZone();
-    }, 350);
+    _searchTimer = setTimeout(() => { _SEARCH = inp.value; _MODE='cats'; paintZone(); }, 350);
   };
   inp.onkeydown = (ev) => {
     if (ev.key === 'Escape'){ inp.value=''; _SEARCH=''; clearTimeout(_searchTimer); paintZone(); }
@@ -454,14 +470,35 @@ function paintClassif(){
   if (_SEARCH){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
 }
 
+function toggleModeCorr(){
+  _MODE = (_MODE === 'corr') ? 'cats' : 'corr';
+  _CORR_CAT = '';
+  _SEARCH = '';
+  const inp = document.getElementById('classif-search');
+  if (inp) inp.value = '';
+  paintClassif();
+}
+
+function voirReclassees(cat){
+  _MODE = 'corr';
+  _CORR_CAT = cat || '';
+  _SEARCH = '';
+  const inp = document.getElementById('classif-search');
+  if (inp) inp.value = '';
+  paintClassif();
+}
+
 function paintZone(){
   const zone = document.getElementById('classif-zone');
   if (!zone) return;
   if (_obs){ _obs.disconnect(); _obs = null; }
 
+  // --- Vue "molécules reclassées" ---
+  if (_MODE === 'corr'){ paintCorrections(zone); return; }
+
   const q = _SEARCH.trim();
 
-  // --- Mode recherche : liste unique sur toutes les catégories ---
+  // --- Mode recherche ---
   if (q.length >= 2){
     zone.innerHTML = `
       <div class="group-sub" style="margin-bottom:8px">
@@ -479,11 +516,17 @@ function paintZone(){
 
   zone.innerHTML = entries.map(([k,c]) => {
     const ouvert = _OPEN_CAT === k;
+    const nbc = corrParCat(k);
     return `
       <div style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px;overflow:hidden">
         <div onclick="toggleCat('${esc(k)}')" style="display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:${ouvert?'var(--brand-l)':'#fff'}">
           <span style="transition:transform .15s;display:inline-block;transform:rotate(${ouvert?90:0}deg);color:var(--sub)">▶</span>
-          <b style="flex:1">${esc(c.label||k)}</b>
+          <b>${esc(c.label||k)}</b>
+          ${nbc ? `<span onclick="event.stopPropagation();voirReclassees('${esc(k)}')"
+              title="Voir uniquement les molécules déplacées dans cette catégorie"
+              style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">
+              ${nbc} reclassée${nbc>1?'s':''}</span>` : ''}
+          <span style="flex:1"></span>
           ${ouvert?`<span class="group-sub list-count" style="font-size:12px">…</span>`:''}
           <span class="num" data-cat-count="${esc(k)}" style="background:var(--bg);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">${c.count||0}</span>
         </div>
@@ -495,6 +538,45 @@ function paintZone(){
     const host = zone.querySelector('.liste-cip');
     if (host) startList(host, _OPEN_CAT);
   }
+}
+
+// ---- Vue des corrections manuelles ----
+function paintCorrections(zone){
+  let items = _CORR.slice();
+  if (_CORR_CAT) items = items.filter(c => c.statut_force === _CORR_CAT);
+  items.sort((a,b) => String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+
+  const filtres = [...new Set(_CORR.map(c => c.statut_force))];
+
+  zone.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="group-sub">${items.length} molécule(s) reclassée(s)${_CORR_CAT?' dans « '+esc(statutLabel(_CORR_CAT))+' »':''}</span>
+      <span style="flex:1"></span>
+      ${filtres.length>1 ? `<button class="btn ${_CORR_CAT?'btn-outline':'btn-green'} btn-sm" onclick="voirReclassees('')">Toutes</button>` : ''}
+      ${filtres.map(f => `<button class="btn ${_CORR_CAT===f?'btn-green':'btn-outline'} btn-sm" onclick="voirReclassees('${esc(f)}')">${esc(statutLabel(f))} (${corrParCat(f)})</button>`).join('')}
+    </div>
+    ${items.length ? `
+      <table><thead><tr>
+        <th>CIP13</th><th>Produit</th><th>Reclassée en</th><th>Modifiée le</th><th style="text-align:right"></th>
+      </tr></thead><tbody>
+        ${items.map(c => `<tr data-cip="${esc(c.cip13)}">
+          <td class="num" style="font-size:12px">${esc(c.cip13)}</td>
+          <td>${esc(c.nom||'—')}</td>
+          <td>
+            <select onchange="setClassif('${esc(c.cip13)}', this.value, this)"
+              style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
+              ${STATUTS.map(s => `<option value="${s[0]}" ${c.statut_force===s[0]?'selected':''}>${s[1]}</option>`).join('')}
+            </select>
+          </td>
+          <td style="color:var(--sub);font-size:12px">
+            ${esc(fmtDate(c.updated_at||c.created_at))}${c.created_by?'<br><span style="font-size:11px">'+esc(c.created_by)+'</span>':''}
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-outline btn-sm" onclick="delClassif('${esc(c.cip13)}')">Rétablir</button>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>`
+    : `<div class="center" style="padding:30px 0;color:var(--sub)">Aucune molécule reclassée${_CORR_CAT?' dans cette catégorie':''}.</div>`}`;
 }
 
 function tableShell(){
@@ -511,12 +593,18 @@ function toggleCat(k){
   paintZone();
 }
 
-// ---- Pagination : premiere tranche + observateur de bas de liste ----
-async function startList(container, category){
+// ---- Pagination ----
+async function startList(container, category, jusqua){
   _paging = { offset:0, total:0, has_more:true, loading:false };
   const tb = container.querySelector('tbody');
   if (tb) tb.innerHTML = '';
   await chargerTranche(container, category);
+  // Recharge silencieuse des tranches deja vues (conservation de la position)
+  let garde = 0;
+  while (jusqua && _paging.has_more && _paging.offset < jusqua && garde < 200){
+    await chargerTranche(container, category);
+    garde++;
+  }
   attacherSentinelle(container, category);
 }
 
@@ -525,7 +613,6 @@ function attacherSentinelle(container, category){
   const sent = container.querySelector('.sentinelle');
   if (!sent || !_paging.has_more) return;
   if (typeof IntersectionObserver === 'undefined'){
-    // Repli : bouton manuel si le navigateur ne connait pas l'API
     const info = container.querySelector('.charge-info');
     if (info) info.innerHTML = `<button class="btn btn-outline btn-sm" onclick="chargerTranche(this.closest('.liste-cip'),'${esc(category)}')">Charger la suite</button>`;
     return;
@@ -563,9 +650,9 @@ async function chargerTranche(container, category){
     document.querySelectorAll('.list-count').forEach(el => { el.textContent = _paging.offset + ' / ' + _paging.total; });
 
     if (info){
-      if (_paging.total === 0)        info.textContent = 'Aucun produit';
-      else if (_paging.has_more)      info.textContent = '';
-      else                            info.textContent = _paging.offset + ' produit(s) — fin de liste';
+      if (_paging.total === 0)   info.textContent = 'Aucun produit';
+      else if (_paging.has_more) info.textContent = '';
+      else                       info.textContent = _paging.offset + ' produit(s) — fin de liste';
     }
 
     if (!_paging.has_more && _obs){ _obs.disconnect(); _obs = null; }
@@ -595,42 +682,78 @@ function ligneCip(it){
 
 function etatCip(cip13, force){
   return force
-    ? `<span title="Corrigé manuellement" style="color:var(--amber);font-size:11px;font-weight:700;margin-right:8px">FORCÉ</span>
+    ? `<span title="Reclassée manuellement" style="color:var(--amber);font-size:11px;font-weight:700;margin-right:8px">RECLASSÉE</span>
        <button class="btn btn-outline btn-sm" onclick="delClassif('${esc(cip13)}')">Rétablir</button>`
     : `<span style="color:var(--sub);font-size:11px">auto</span>`;
 }
 
 async function setClassif(cip13, statut, sel){
   sel.disabled = true;
+  const tr = sel.closest('tr');
+  const nom = tr ? (tr.children[1] ? tr.children[1].textContent : '') : '';
   try{
     await api('/admin/classifications', { method:'POST', body: JSON.stringify({ cip13: cip13, statut_force: statut }) });
-    const tr = sel.closest('tr');
+
+    // Mise a jour locale de la liste des corrections (badges + vue reclassees)
+    const idx = _CORR.findIndex(c => c.cip13 === cip13);
+    const maj = new Date().toISOString();
+    if (idx >= 0){ _CORR[idx].statut_force = statut; _CORR[idx].updated_at = maj; }
+    else { _CORR.push({ cip13: cip13, nom: nom, statut_force: statut, updated_at: maj, created_at: maj, created_by: null }); }
+
     const cell = tr ? tr.querySelector('.cell-etat') : null;
     if (cell) cell.innerHTML = etatCip(cip13, true);
-    toast('Classification enregistrée (toutes les pharmacies)','green');
+
+    const c = document.getElementById('cnt-corr');
+    if (c) c.textContent = _CORR.length;
+
+    toast('Reclassée — appliqué à toutes les pharmacies','green');
     rafraichirCompteurs();
   }catch(e){ toast('Erreur : '+e.message,'red'); }
   finally{ sel.disabled = false; }
 }
 
 async function delClassif(cip13){
+  const y = scroller().scrollTop;
+  const dejaCharge = _paging.offset;
+  const catCourante = _OPEN_CAT;
+
   try{
     await api('/admin/classifications/'+encodeURIComponent(cip13), { method:'DELETE' });
+    _CORR = _CORR.filter(c => c.cip13 !== cip13);
     toast('Correction supprimée — retour au calcul automatique','green');
-    _CATS = null;
-    await renderRefClassifications(true);
-  }catch(e){ toast('Erreur : '+e.message,'red'); }
+  }catch(e){ toast('Erreur : '+e.message,'red'); return; }
+
+  // Vue reclassees : simple retrait de la ligne, aucun saut
+  if (_MODE === 'corr'){
+    const zone = document.getElementById('classif-zone');
+    const c = document.getElementById('cnt-corr');
+    if (c) c.textContent = _CORR.length;
+    if (zone) paintCorrections(zone);
+    scroller().scrollTop = y;
+    rafraichirCompteurs();
+    return;
+  }
+
+  // Vue catégories / recherche : on recharge en restaurant la profondeur puis la position
+  await rafraichirCompteurs();
+  paintZone();
+  const zone = document.getElementById('classif-zone');
+  const host = zone ? zone.querySelector('.liste-cip') : null;
+  if (host){
+    await startList(host, catCourante || '', dejaCharge);
+    scroller().scrollTop = y;
+  }
 }
 
-// Met a jour les compteurs sans repeindre la liste (on garde la position de scroll)
+// Met a jour les compteurs sans repeindre la liste
 async function rafraichirCompteurs(){
   try{
     const d = await api('/admin/classifications');
     _CATS = d;
     const a = document.getElementById('cnt-cips');
-    const b = document.getElementById('cnt-corr');
     if (a) a.textContent = d.total_cips_uniques || 0;
-    if (b) b.textContent = d.total_corrections_actives || 0;
+    const b = document.getElementById('cnt-corr');
+    if (b) b.textContent = _CORR.length;
     Object.entries(d.categories || {}).forEach(([k,c]) => {
       const el = document.querySelector('[data-cat-count="'+k+'"]');
       if (el) el.textContent = c.count || 0;
