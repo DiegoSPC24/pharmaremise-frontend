@@ -346,7 +346,7 @@ function askToggle(id, activate){
 }
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
-// ======================= RÉFÉRENTIELS ======================= // LOT6_BDPM
+// ======================= RÉFÉRENTIELS ======================= // LOT7_IDENTITE
 // Classification : scroll infini + conservation de la position
 // + filtre "molécules reclassées" (global et par catégorie)
 
@@ -366,6 +366,16 @@ const STATUTS = [
 ];
 
 const LABOS_GEN = ['Biogaran','Viatris','Teva','Sandoz','Arrow','EG Labo','Cristers','Zentiva','Almus','Krka','Zydus'];
+
+// Deux natures de categories :
+//  - IDENTITE : ce qu'est le produit (stable, corrigeable globalement)
+//  - CONSEQUENCE : resultat des regles de chaque pharmacie (se calcule, non corrigeable ici)
+const CATS_IDENTITE = ['generique','princeps','biosimilaire','frigo','stupefiants'];
+const CATS_CONSEQUENCE = ['eligible','remise_facture','produit_cher','sortie_hospitaliere','tva_20','tva_10','tva_5_5'];
+function estIdentite(cat){ return CATS_IDENTITE.includes(cat); }
+// Le menu de reclassement ne propose QUE des cibles d'identite.
+const STATUTS_CIBLES = STATUTS.filter(s => CATS_IDENTITE.includes(s[0]));
+
 
 const PAGE_SIZE = 100;
 
@@ -516,10 +526,25 @@ function paintZone(){
   const entries = Object.entries(cats);
   if (!entries.length){ zone.innerHTML = '<div class="center">Aucune catégorie</div>'; return; }
 
-  zone.innerHTML = entries.map(([k,c]) => {
+  // On n'affiche QUE les categories d'identite. Les consequences (eligible,
+  // remise_facture, produit_cher, TVA...) sont calculees par pharmacie et
+  // n'ont pas leur place dans une console de classification globale.
+  const idEntries = entries.filter(([k]) => estIdentite(k));
+  const cntMasque = entries.filter(([k]) => !estIdentite(k))
+                           .reduce((n,[,c]) => n + (c.count||0), 0);
+  const noteMasque = cntMasque ? `
+    <div style="margin-top:14px;font-size:12px;color:var(--sub);text-align:center;padding:10px;background:var(--bg);border-radius:var(--r-md)">
+      ${cntMasque} produit(s) dans des catégories calculées automatiquement
+      (éligible, remise sur facture, produit cher, TVA…) — non affichées ici,
+      car elles dépendent des règles de chaque pharmacie.
+    </div>` : '';
+
+  zone.innerHTML = idEntries.map(([k,c]) => {
+    const sep = '';
+    // Categorie d'identite : comportement normal (ouvrable, corrigeable)
     const ouvert = _OPEN_CAT === k;
     const nbc = corrParCat(k);
-    return `
+    return sep + `
       <div style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px;overflow:hidden">
         <div onclick="toggleCat('${esc(k)}')" style="display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:${ouvert?'var(--brand-l)':'#fff'}">
           <span style="transition:transform .15s;display:inline-block;transform:rotate(${ouvert?90:0}deg);color:var(--sub)">▶</span>
@@ -534,9 +559,9 @@ function paintZone(){
         </div>
         ${ouvert ? `<div class="liste-cip" style="padding:0 16px 12px">${tableShell()}</div>` : ''}
       </div>`;
-  }).join('');
+  }).join('') + noteMasque;
 
-  if (_OPEN_CAT){
+  if (_OPEN_CAT && estIdentite(_OPEN_CAT)){
     const host = zone.querySelector('.liste-cip');
     if (host) startList(host, _OPEN_CAT);
   }
@@ -567,7 +592,7 @@ function paintCorrections(zone){
           <td>
             <select onchange="setClassif('${esc(c.cip13)}', this.value, this)"
               style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
-              ${STATUTS.map(s => `<option value="${s[0]}" ${c.statut_force===s[0]?'selected':''}>${s[1]}</option>`).join('')}
+              ${STATUTS_CIBLES.map(s => `<option value="${s[0]}" ${c.statut_force===s[0]?'selected':''}>${s[1]}</option>`).join('')}
             </select>
           </td>
           <td style="color:var(--sub);font-size:12px">
@@ -591,6 +616,7 @@ function tableShell(){
 }
 
 function toggleCat(k){
+  if (!estIdentite(k)) return;  // les categories-consequence ne s'ouvrent pas
   _OPEN_CAT = (_OPEN_CAT === k) ? null : k;
   paintZone();
 }
@@ -675,7 +701,7 @@ function ligneCip(it){
     <td>
       <select onchange="setClassif('${esc(it.cip13)}', this.value, this)"
         style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
-        ${STATUTS.map(s => `<option value="${s[0]}" ${courant===s[0]?'selected':''}>${s[1]}</option>`).join('')}
+        ${STATUTS_CIBLES.map(s => `<option value="${s[0]}" ${courant===s[0]?'selected':''}>${s[1]}</option>`).join('')}
       </select>
     </td>
     <td class="cell-etat" style="text-align:right;white-space:nowrap">${etatCip(it.cip13, it.is_manuelle)}</td>
