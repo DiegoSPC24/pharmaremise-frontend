@@ -252,6 +252,7 @@
     <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon ic-pill"></span> Génériqueur</button>
     <button class="nav-item" onclick="goTo('depot',this)"><span class="icon ic-upload"></span> Dépôt factures</button>
     <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon ic-scale"></span> Comparateur</button>
+    <button class="nav-item" id="nav-anneesfigees" onclick="goTo('anneesfigees',this)"><span class="icon ic-lock"></span> Années figées</button>
     <button class="nav-item" onclick="goTo('parametres',this)"><span class="icon ic-settings"></span> Paramètres</button>
     <!-- === ADMIN_NAV_INJECTED_MARKER === -->
     <button class="nav-item" id="nav-admin" style="display:none" onclick="adminGoTo('dashboard')"><span class="icon ic-crown"></span> Admin</button>
@@ -328,6 +329,7 @@
     </div>
 
     <div id="screen-parametres" class="screen"><div id="parametres-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-anneesfigees" class="screen"><div id="anneesfigees-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
 
     <!-- === ADMIN_HTML_INJECTED_MARKER === -->
 <!-- ============================================================
@@ -678,14 +680,210 @@ function goTo(screen, btn) {
     const on = b.getAttribute('onclick') || ''
     b.classList.toggle('active', on.indexOf("'" + screen + "'") !== -1)
   })
-  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires' }
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires', anneesfigees:'Années figées' }
   const tt = document.getElementById('topbar-title'); if (tt) tt.textContent = titles[screen] || screen
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
   if (screen === 'parametres')  loadParametres()
   if (screen === 'comparateur') loadComparateur()
   if (screen === 'biosimilaires') loadBiosimilaires()
+  if (screen === 'anneesfigees') loadAnneesFigees()
 }
+
+/* === LOT1C_ANNEES_FIGEES ===
+   Page "Années figées" : bi-module, sélecteur d'année + segmented control.
+   Figer est irréversible côté client — seule la console peut défiger. */
+
+let _AF_DATA = null, _AF_ANNEE = null, _AF_MODULE = 'grossiste'
+
+const _AF_LABELS = { grossiste: 'Grossistes', generiqueur: 'Génériqueurs' }
+const _AF_ICONS  = { grossiste: 'ic-building', generiqueur: 'ic-pill' }
+
+function _afDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR')
+}
+
+function _afEtat(module, annee) {
+  if (!_AF_DATA) return null
+  return (_AF_DATA.etats || []).find(e => e.module === module && e.annee === annee) || null
+}
+
+function _afSetAnnee(v) { _AF_ANNEE = parseInt(v, 10); renderAnneesFigees() }
+function _afSetModule(m) { _AF_MODULE = m; renderAnneesFigees() }
+
+async function loadAnneesFigees() {
+  const el = document.getElementById('anneesfigees-content')
+  if (!el) return
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  try {
+    _AF_DATA = await apiGet('/figeage/etat')
+    const annees = _AF_DATA.annees || []
+    if (_AF_ANNEE === null || annees.indexOf(_AF_ANNEE) === -1) _AF_ANNEE = annees[0] || null
+    renderAnneesFigees()
+  } catch (e) {
+    console.error(e)
+    el.innerHTML = '<div class="alert" style="background:#FEF2F2;color:#B91C1C">Impossible de charger l\'état du figeage.</div>'
+  }
+}
+
+function renderAnneesFigees() {
+  const el = document.getElementById('anneesfigees-content')
+  if (!el || !_AF_DATA) return
+
+  const annees = _AF_DATA.annees || []
+  const opts = annees.map(a =>
+    '<option value="' + a + '"' + (a === _AF_ANNEE ? ' selected' : '') + '>' + a + '</option>'
+  ).join('')
+
+  const tabs = ['grossiste', 'generiqueur'].map(m =>
+    '<button class="btn ' + (_AF_MODULE === m ? 'btn-green' : 'btn-outline') + ' btn-sm"' +
+    ' onclick="_afSetModule(\'' + m + '\')">' +
+    '<i class="' + _AF_ICONS[m] + '"></i> ' + _AF_LABELS[m] + '</button>'
+  ).join('')
+
+  const et = _afEtat(_AF_MODULE, _AF_ANNEE)
+  const label = _AF_LABELS[_AF_MODULE]
+  const hors = (_AF_DATA.hors_figeage || {})[_AF_MODULE + ':' + _AF_ANNEE] || 0
+
+  let carte = ''
+  if (!et) {
+    carte = '<div style="color:var(--sub);font-size:13px">Aucune information pour cette année.</div>'
+  } else if (et.figee) {
+    let bloc =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+        '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;' +
+        'padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600">' +
+        '<i class="ic-lock"></i> Figé le ' + _afDate(et.figee_le) + '</span>' +
+      '</div>' +
+      '<div style="font-size:13px;color:var(--sub);line-height:1.7">' +
+        'Les chiffres ' + label.toLowerCase() + ' de ' + _AF_ANNEE + ' sont définitifs. ' +
+        'Tout reste consultable et téléchargeable, plus rien ne se recalcule.' +
+      '</div>'
+    if (hors > 0) {
+      bloc +=
+        '<div class="alert" style="background:#FFFBEB;color:#92400E;border:1px solid #FDE68A;margin-top:14px">' +
+          '<i class="ic-alert"></i>' +
+          '<div>' + hors + ' facture' + (hors > 1 ? 's' : '') + ' déposée' + (hors > 1 ? 's' : '') +
+          ' depuis le figeage concerne' + (hors > 1 ? 'nt' : '') + ' ' + _AF_ANNEE + '. ' +
+          'Elle' + (hors > 1 ? 's' : '') + ' reste' + (hors > 1 ? 'nt' : '') +
+          ' visible' + (hors > 1 ? 's' : '') + ' dans tes factures mais n\'entre' + (hors > 1 ? 'nt' : '') +
+          ' pas dans les totaux.</div>' +
+        '</div>'
+    }
+    bloc +=
+      '<div style="margin-top:14px;font-size:12px;color:var(--sub)">' +
+        'Le défigeage est réservé à l\'administrateur.' +
+      '</div>'
+    carte = bloc
+  } else if (et.figeable) {
+    carte =
+      '<div style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:14px">' +
+        'Figer ' + _AF_ANNEE + ' rend les chiffres ' + label.toLowerCase() + ' définitifs. ' +
+        'Une facture déposée après coup restera visible mais ne sera plus comptée.' +
+      '</div>' +
+      '<button class="btn btn-green" onclick="figerAnnee(\'' + _AF_MODULE + '\',' + _AF_ANNEE + ')">' +
+        '<i class="ic-lock"></i> Figer ' + _AF_ANNEE +
+      '</button>'
+  } else {
+    carte =
+      '<div class="alert" style="background:#FFFBEB;color:#92400E;border:1px solid #FDE68A">' +
+        '<i class="ic-alert"></i><div>' + _AF_ANNEE + ' n\'est pas terminée. ' +
+        'On ne fige qu\'une année révolue.</div>' +
+      '</div>'
+  }
+
+  const figees = (_AF_DATA.figees || [])
+  let recap = ''
+  if (figees.length) {
+    recap =
+      '<div class="card" style="margin-top:16px">' +
+        '<div style="font-weight:600;margin-bottom:10px;font-size:13px">Tout ce qui est figé</div>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+          '<thead><tr style="color:var(--sub);text-align:left">' +
+            '<th style="padding:6px 0">Module</th><th>Année</th><th>Figé le</th>' +
+          '</tr></thead><tbody>' +
+          figees.map(f =>
+            '<tr style="border-top:1px solid rgba(0,0,0,.06)">' +
+              '<td style="padding:8px 0">' + (_AF_LABELS[f.module] || f.module) + '</td>' +
+              '<td>' + f.annee + '</td>' +
+              '<td>' + _afDate(f.figee_le) + '</td>' +
+            '</tr>'
+          ).join('') +
+        '</tbody></table>' +
+      '</div>'
+  }
+
+  el.innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">' +
+      '<span style="font-size:12px;color:var(--sub);font-weight:600">Année :</span>' +
+      '<select onchange="_afSetAnnee(this.value)" style="padding:7px 10px;border-radius:8px;' +
+      'border:1px solid rgba(0,0,0,.15);font-size:13px;font-weight:600">' + opts + '</select>' +
+      '<div style="display:flex;gap:6px;margin-left:8px">' + tabs + '</div>' +
+    '</div>' +
+    '<div class="card">' + carte + '</div>' +
+    recap
+}
+
+async function figerAnnee(module, annee) {
+  const lbl = _AF_LABELS[module] || module
+  const ok = confirm(
+    'Figer ' + lbl + ' ' + annee + ' ?\n\n' +
+    'Les chiffres de ' + annee + ' deviendront définitifs : plus aucun recalcul.\n' +
+    'Tout reste consultable et téléchargeable.\n\n' +
+    'Seul l\'administrateur pourra défiger.'
+  )
+  if (!ok) return
+  try {
+    const r = await apiPost('/figeage/figer', { module: module, annee: annee })
+    if (r && r.ok) {
+      toast(r.message || 'Année figée', 'green')
+      await loadAnneesFigees()
+    } else {
+      toast((r && r.detail) || 'Impossible de figer cette année', 'red')
+    }
+  } catch (e) {
+    console.error(e)
+    toast('Erreur réseau', 'red')
+  }
+}
+
+/* LOT1C_BANDEAU_ACCUEIL : le tableau de bord recalcule en direct, il peut
+   diverger d'une synthèse figée. On le dit, on ne le corrige pas. */
+async function _afBandeauAccueil() {
+  const host = document.getElementById('accueil-content')
+  if (!host || document.getElementById('af-bandeau-accueil')) return
+  let data = _AF_DATA
+  if (!data) {
+    try { data = await apiGet('/figeage/etat'); _AF_DATA = data } catch (e) { return }
+  }
+  const figees = data.figees || []
+  if (!figees.length) return
+  const annees = figees.map(f => f.annee).filter((v, i, a) => a.indexOf(v) === i).sort()
+  const div = document.createElement('div')
+  div.id = 'af-bandeau-accueil'
+  div.className = 'alert'
+  div.style.cssText = 'background:#FFFBEB;color:#92400E;border:1px solid #FDE68A'
+  div.innerHTML = '<i class="ic-alert"></i><div><b>' + annees.join(', ') + ' ' +
+    (annees.length > 1 ? 'sont figées' : 'est figée') + '.</b> ' +
+    'Les chiffres du tableau de bord sont recalculés en direct et peuvent différer ' +
+    'de la synthèse figée.</div>'
+  host.insertBefore(div, host.firstChild)
+}
+
+try {
+  if (typeof renderAccueilPage === 'function' && !window._AF_WRAPPED) {
+    window._AF_WRAPPED = true
+    const _afRenderOrig = renderAccueilPage
+    renderAccueilPage = function () {
+      const res = _afRenderOrig.apply(this, arguments)
+      try { _afBandeauAccueil() } catch (e) { console.error(e) }
+      return res
+    }
+  }
+} catch (e) { console.error(e) }
+/* === FIN LOT1C_ANNEES_FIGEES === */
 
 function onMoisChange() {
   // Fallback pour l'ancien select (compat) — ne devrait plus être appelé
