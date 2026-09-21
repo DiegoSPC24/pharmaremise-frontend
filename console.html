@@ -906,10 +906,27 @@ async function renderRefGeneriques(){
     labos.forEach(l => { byLabo[l.labo] = l; });
     const liste = LABOS_GEN.map(n => byLabo[n] || { labo:n, nb_produits:0, present:false });
 
+    const total = liste.reduce((s,l)=>s+(l.nb_produits||0),0);
+
     b.innerHTML = `
       <div class="group-title">Référentiel génériques</div>
       <div class="group-sub">Tarifs laboratoires — <b>partagés par toutes les pharmacies</b>. Fichier Excel : CIP · Description · Famille · PPHT · Remise.</div>
       <input type="file" id="gen-file" accept=".xlsx,.xls" style="display:none">
+      <input type="file" id="gen-file-multi" accept=".xlsx,.xls" style="display:none">
+      <input type="file" id="bdc-file" accept=".xlsx,.xls" style="display:none">
+
+      <div style="background:var(--brand-l);border:1px solid rgba(21,155,115,.25);border-radius:var(--r-md);padding:14px 16px;margin:0 0 16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">Import complet en un fichier</div>
+        <div style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:10px">
+          Un classeur dont <b>chaque feuille porte le nom d'un laboratoire</b> remplace tous ces labos d'un coup.
+          Les CIP en 7 chiffres sont convertis en CIP13 automatiquement.<br>
+          Le bon de commande Biogaran s'importe <b>ensuite</b> : il ajoute la RDP par produit (10 / 20 / 27,5 %).
+        </div>
+        <button class="btn btn-green btn-sm" onclick="importGenMulti()">Importer le classeur complet</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:8px" onclick="importBdcBiogaran()">Importer le BdC Biogaran</button>
+        <span style="margin-left:10px;font-size:12px;color:var(--sub)">${total} ligne(s) en base</span>
+      </div>
+
       <table><thead><tr><th>Laboratoire</th><th>Lignes</th><th>État</th><th style="text-align:right">Actions</th></tr></thead><tbody>
         ${liste.map(l=>`<tr>
           <td><b>${esc(l.labo)}</b></td>
@@ -946,6 +963,95 @@ function importGen(labo){
   inp.click();
 }
 
+/* LOT 0 — import multi-feuilles : 1 feuille = 1 laboratoire */
+function importGenMulti(){
+  const inp = document.getElementById('gen-file-multi');
+  inp.value = '';
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    if (!confirm(`Importer « ${f.name} » ?\n\nChaque feuille du classeur doit porter le nom d'un laboratoire.\nCes laboratoires seront remplacés pour TOUTES les pharmacies.`)) return;
+    const fd = new FormData();
+    fd.append('file', f);
+    toast('Import en cours…','green');
+    try{
+      const r = await apiUpload('/generiqueur/referentiels/upload-multi', fd);
+      toast(`${r.nb_labos} labo(s) — ${r.nb_tarifs_importes} tarif(s), ${r.nb_identites_ajoutees} identité(s) ajoutée(s)`,'green');
+      const det = (r.feuilles||[]).map(f=>({
+        cle: f.feuille + (f.labo ? ' → '+f.labo : ''),
+        val: f.ignoree ? 'ignorée : '+f.ignoree : (f.lues + ' ligne(s)')
+      }));
+      let extra = '';
+      if (r.nb_cip_multi_labos){
+        extra = `<div style="margin-top:12px;font-size:13px;color:var(--amber)">
+            <b>${r.nb_cip_multi_labos} CIP présent(s) dans deux feuilles laboratoire</b>
+            <div style="font-size:12px;color:var(--sub);margin:4px 0 6px">
+              Un CIP13 n'a qu'un titulaire. Les deux lignes tarifaires sont conservées,
+              mais le produit apparaîtra sous deux laboratoires dans « Meilleur compo ».
+            </div>
+            <ul style="margin:0 0 0 18px;padding:0;color:var(--sub);font-size:12px">
+              ${(r.cip_multi_labos||[]).map(c=>`<li>${esc(c.cip13)} — ${esc((c.labos||[]).join(' / '))} : ${esc((c.libelles||[])[0]||'')}</li>`).join('')}
+            </ul>
+          </div>`;
+      }
+      rapportImport('Import du référentiel générique', r, det, extra);
+      renderRefGeneriques();
+    }catch(e){ toast('Erreur : '+e.message,'red'); }
+  };
+  inp.click();
+}
+
+/* LOT 0 — bon de commande Biogaran : remise + RDP par CIP */
+function importBdcBiogaran(){
+  const inp = document.getElementById('bdc-file');
+  inp.value = '';
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    if (!confirm(`Importer « ${f.name} » ?\n\nLa remise et la RDP seront appliquées aux tarifs Biogaran déjà en base.\nImportez d'abord le référentiel générique si ce n'est pas fait.`)) return;
+    const fd = new FormData();
+    fd.append('file', f);
+    toast('Import en cours…','green');
+    try{
+      const r = await apiUpload('/generiqueur/referentiels/biogaran-bdc', fd);
+      toast(`${r.nb_mises_a_jour} produit(s) mis à jour sur ${r.nb_lues} lu(s)`,'green');
+      const det = Object.entries(r.distribution_rdp_pct||{})
+        .map(([k,v])=>({cle:'RDP '+k+' %', val:v+' produit(s)'}));
+      if (r.nb_cip_absents_des_tarifs)
+        det.push({cle:'CIP absents des tarifs Biogaran', val:r.nb_cip_absents_des_tarifs});
+      rapportImport('Bon de commande Biogaran', r, det);
+      renderRefGeneriques();
+    }catch(e){ toast('Erreur : '+e.message,'red'); }
+  };
+  inp.click();
+}
+
+/* Rapport d'import : un import qui perd des lignes en silence est le pire
+   scénario sur ce type de fichier — on montre toujours le détail. */
+function rapportImport(titre, res, lignes, extraHtml){
+  const rejets = res.rejets_echantillon || [];
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:620px">
+        <h3>${esc(titre)}</h3>
+        <table style="margin:6px 0 4px"><tbody>
+          ${(lignes||[]).map(l=>`<tr><td>${esc(l.cle)}</td><td class="num" style="text-align:right">${esc(String(l.val))}</td></tr>`).join('')}
+        </tbody></table>
+        ${res.nb_rejets ? `
+          <div style="margin-top:12px;font-size:13px;color:var(--amber)">
+            <b>${res.nb_rejets} ligne(s) rejetée(s)</b>
+            <ul style="margin:6px 0 0 18px;padding:0;color:var(--sub);font-size:12px">
+              ${rejets.map(r=>`<li>${esc(r.feuille||'')} L${esc(String(r.ligne||''))} — ${esc(r.motif||'')}</li>`).join('')}
+            </ul>
+          </div>` : '<div style="margin-top:10px;font-size:13px;color:var(--brand-d)">Aucune ligne rejetée.</div>'}
+        ${extraHtml || ''}
+        ${res.note ? `<div style="margin-top:12px;font-size:12px;color:var(--sub)">${esc(res.note)}</div>` : ''}
+        <div class="modal-actions"><button class="btn btn-green" onclick="closeModal()">Fermer</button></div>
+      </div>
+    </div>`;
+}
+
 async function viderGen(labo){
   if (!confirm(`Vider le référentiel ${labo} ?\n\nCela affecte TOUTES les pharmacies.`)) return;
   try{
@@ -974,8 +1080,12 @@ async function renderRefBiosimilaires(){
       </div>
       <div style="flex:1;min-width:280px">
         <div style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:12px">
-          Formats acceptés : <b>.json</b> (cip13, nom, labo, substance, princeps) ou <b>.xlsx</b> avec ces mêmes colonnes en en-tête.
-          Les CIP13 doivent faire 13 chiffres.
+          Format attendu : un <b>.xlsx dont chaque feuille porte une DCI</b>
+          (ADALIMUMAB, ENOXAPARINE…), avec les colonnes CIP · NOM · LABORATOIRE.
+          Le nom de la feuille est la seule source du regroupement par molécule.<br>
+          Le princeps de référence (HUMIRA, ENBREL…) est repéré automatiquement —
+          sans lui, aucun taux de pénétration biosimilaire n'est calculable.
+          Un <b>.json</b> à plat reste accepté.
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-green btn-sm" onclick="importBio('remplacer')">Importer (remplacer tout)</button>
@@ -1004,16 +1114,44 @@ function importBio(mode){
     toast('Import en cours…','green');
     try{
       const r = await apiUpload('/admin/biosimilaires/upload', fd);
-      toast(`Import terminé — ${r.nb_added||0} ajouté(s)`,'green');
+      const ajoutes  = r.nb_inserees != null ? r.nb_inserees : (r.nb_added||0);
+      const ignores  = r.nb_ignorees_deja_presentes != null ? r.nb_ignorees_deja_presentes : (r.nb_skipped||0);
+      const rejets   = r.nb_rejets != null ? r.nb_rejets : (r.nb_invalides||0);
+      const totalDb  = r.total_apres != null ? r.total_apres : (r.total_db||0);
+      toast(`Import terminé — ${ajoutes} ajouté(s)`,'green');
       await renderRefBiosimilaires();
       const z = document.getElementById('bio-rapport');
-      if (z) z.innerHTML = `
+      if (!z) return;
+
+      const dciRows = (r.par_dci||[]).map(d=>`<tr>
+          <td><b>${esc(d.dci)}</b></td>
+          <td class="num" style="text-align:right">${d.nb_cip}</td>
+          <td class="num" style="text-align:right">${d.nb_labos}</td>
+          <td style="text-align:right">${d.nb_reference
+              ? '<span style="color:var(--brand-d);font-size:12px;font-weight:700">oui</span>'
+              : '<span style="color:var(--amber);font-size:12px;font-weight:700">manquant</span>'}</td>
+        </tr>`).join('');
+
+      const alerte = (r.sans_reference||[]).length
+        ? `<div style="margin-top:10px;font-size:12px;color:var(--amber)">
+             Aucun princeps de référence détecté pour : <b>${esc((r.sans_reference||[]).join(', '))}</b>.
+             Le taux de pénétration ne sera pas calculable sur ces molécules —
+             marquez le produit d'origine à la main.
+           </div>` : '';
+
+      z.innerHTML = `
         <div style="margin-top:16px;padding:14px 16px;background:var(--bg);border-radius:var(--r-md);font-size:13px;line-height:1.8">
           <b>Rapport d'import</b> — ${esc(r.fichier||'')}<br>
-          Lignes lues : <b>${r.nb_lues||0}</b> · Ajoutées : <b style="color:var(--brand-d)">${r.nb_added||0}</b>
-          · Ignorées (déjà présentes) : <b>${r.nb_skipped||0}</b>
-          · Invalides (CIP13 incorrect) : <b style="color:var(--amber)">${r.nb_invalides||0}</b><br>
-          Total en base : <b>${r.total_db||0}</b> (avant : ${r.total_avant||0})
+          Lignes lues : <b>${r.nb_lues||0}</b>
+          · Ajoutées : <b style="color:var(--brand-d)">${ajoutes}</b>
+          · Ignorées (déjà présentes) : <b>${ignores}</b>
+          · Rejetées : <b style="color:${rejets?'var(--amber)':'var(--sub)'}">${rejets}</b><br>
+          Total en base : <b>${totalDb}</b> (avant : ${r.total_avant||0})
+          ${dciRows ? `<table style="margin-top:12px"><thead><tr>
+              <th>DCI</th><th style="text-align:right">CIP</th>
+              <th style="text-align:right">Labos</th><th style="text-align:right">Référence</th>
+            </tr></thead><tbody>${dciRows}</tbody></table>` : ''}
+          ${alerte}
         </div>`;
     }catch(e){ toast('Erreur : '+e.message,'red'); }
   };
@@ -1060,9 +1198,11 @@ async function loadHistorique(){
   el.dataset.loaded = '1';
   el.innerHTML = `<div class="center"><div class="spinner"></div>Chargement…</div>`;
   try{
-    const data = await api('/admin/integration-audit/logs?limit=100').catch(()=>null)
-              || await api('/admin/audit/logs?limit=100').catch(()=>null);
-    const logs = data ? (data.items || data.logs || data || []) : [];
+    /* La route est /admin/integration/logs. Les deux URL visées jusqu'ici
+       (`integration-audit`, `audit`) n'ont jamais existé : l'onglet affichait
+       donc toujours l'état vide, quelle que soit l'activité réelle. */
+    const data = await api('/admin/integration/logs?limit=100');
+    const logs = (data && data.items) || [];
     if (!logs.length){
       el.innerHTML = `
         <div class="ref-panel"><div class="center">
@@ -1074,13 +1214,17 @@ async function loadHistorique(){
     }
     el.innerHTML = `
       <div class="ref-panel">
-        <div class="group-title">Historique des interventions</div>
-        <table><thead><tr><th>Date</th><th>Action</th><th>Cible</th><th>Détail</th></tr></thead><tbody>
+        <div class="group-title">Historique des imports PharmaCollect</div>
+        <div class="group-sub">${data.total || logs.length} import(s) enregistré(s) — les 100 plus récents.</div>
+        <table><thead><tr><th>Date</th><th>Pharmacie</th><th>Type</th><th>État</th><th>Détail</th></tr></thead><tbody>
           ${logs.map(l=>`<tr>
-            <td style="color:var(--sub);white-space:nowrap">${fmtDate(l.created_at||l.date||l.timestamp)}</td>
-            <td><span class="badge b-gray">${esc(l.action||l.type||l.event||'—')}</span></td>
-            <td>${esc(l.target||l.cible||l.pharmacie||l.entity||'—')}</td>
-            <td style="color:var(--sub)">${esc(l.detail||l.message||l.description||'')}</td>
+            <td style="color:var(--sub);white-space:nowrap">${fmtDate(l.created_at)}</td>
+            <td>${esc(l.pharmacie_nom||'—')}</td>
+            <td><span class="badge b-gray">${esc(l.endpoint||'—')}</span></td>
+            <td>${l.status==='success'
+                  ? '<span class="badge b-green">OK</span>'
+                  : '<span class="badge b-red">erreur</span>'}</td>
+            <td style="color:var(--sub)">${esc(l.summary_short || l.error_message || l.filename || '')}</td>
           </tr>`).join('')}
         </tbody></table>
       </div>`;

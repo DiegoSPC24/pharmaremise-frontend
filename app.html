@@ -1618,6 +1618,7 @@ function renderDetailRemise(d){
     <div class="ds-item"><span class="ds-l">Produits chers</span><b>${eur(d.ca_produit_cher)}</b></div>
     <div class="ds-item"><span class="ds-l">Remise supplémentaire${tauxLbl}</span><b>${eur(d.remise_pct)}</b></div>
     <div class="ds-item"><span class="ds-l">Remise boîtes${forfaitLbl}</span><b>${eur(d.remise_forfait)}</b></div>
+    ${d.remise_sortie_hospi ? `<div class="ds-item"><span class="ds-l">Sortie hospitalière (\u00d7 ${d.nb_boites_hospi||0})</span><b>${eur(d.remise_sortie_hospi)}</b></div>` : ''}
   </div>`
 }
 
@@ -1770,18 +1771,40 @@ async function supprimerFacturesSelectionnees() {
 
 // ── VOIR FACTURE ────────────────────────────────────────────────────────────
 const STATUT_INFO = {
-  eligible:       { label:'Éligible remise',  badge:'badge-green',  icon:'' },
-  produit_cher:   { label:'Produit cher',      badge:'badge-amber',  icon:'' },
-  remise_facture: { label:'Remisé facture',    badge:'badge-blue',   icon:'' },
-  generique:      { label:'Générique',         badge:'badge-gray',   icon:'' },
-  biosimilaire:   { label:'Biosimilaire',      badge:'badge-purple', icon:'' },
-  tva_20:         { label:'TVA 20% exclu',     badge:'badge-red',    icon:'' },
-  tva_5_5:        { label:'TVA 5,5% exclu',    badge:'badge-red',    icon:'' },
-  tva_10:         { label:'TVA 10% exclu',     badge:'badge-red',    icon:'' },
-  frigo:          { label:'Frigo exclu',       badge:'badge-blue',   icon:'' },
-  stupefiants:    { label:'Stupéfiant exclu',  badge:'badge-red',    icon:'' },
+  generique:           { label:'Générique',          badge:'badge-gray',   icon:'' },
+  biosimilaire:        { label:'Biosimilaire',       badge:'badge-purple', icon:'' },
+  princeps:            { label:'Princeps',           badge:'badge-green',  icon:'' },
+  sortie_hospitaliere: { label:'Sortie hospitalière',badge:'badge-amber',  icon:'' },
+  produit_cher:        { label:'Produit cher',       badge:'badge-amber',  icon:'' },
+  tva_20:              { label:'TVA 20%',            badge:'badge-red',    icon:'' },
+  eligible:            { label:'Éligible remise',    badge:'badge-green',  icon:'' },
+  remise_facture:      { label:'Remisé facture',     badge:'badge-blue',   icon:'' },
+  tva_5_5:             { label:'TVA 5,5% exclu',     badge:'badge-red',    icon:'' },
+  tva_10:              { label:'TVA 10% exclu',      badge:'badge-red',    icon:'' },
+  frigo:               { label:'Frigo exclu',        badge:'badge-blue',   icon:'' },
+  stupefiants:         { label:'Stupéfiant exclu',   badge:'badge-red',    icon:'' },
 }
-const ORDRE_STATUT = ['eligible','produit_cher','remise_facture','generique','biosimilaire','tva_20','tva_5_5','tva_10','frigo','stupefiants']
+/* LOT1 : l'ordre suit la chaîne de classification — générique, biosimilaire,
+   puis les princeps ventilés par seuil de prix, puis le reste. `princeps` et
+   `sortie_hospitaliere` manquaient : ces lignes tombaient en fin de tableau
+   avec les statuts inconnus. */
+const ORDRE_STATUT = ['generique','biosimilaire','princeps','sortie_hospitaliere',
+                      'produit_cher','tva_20','eligible','remise_facture',
+                      'tva_5_5','tva_10','frigo','stupefiants']
+
+/* Taux légaux du médicament. 19,6 % (factures anciennes) est ramené à 20 %. */
+function tvaGroupe(v) {
+  if (v === null || v === undefined || v === '') return null
+  const n = parseFloat(v)
+  if (isNaN(n)) return null
+  if (n >= 19) return 20
+  for (const t of [2.1, 5.5, 10]) if (Math.abs(n - t) <= 0.6) return t
+  return null
+}
+function tvaLabel(g) {
+  return g === null ? 'TVA autre / non renseignée'
+                    : 'TVA ' + String(g).replace('.', ',') + ' %'
+}
 
 async function voirFacture(id) {
   _CURRENT_FACTURE_ID = id
@@ -1814,12 +1837,15 @@ function _renderFacture(f) {
     </div>`
   }).join('')
 
-  lignes.sort((a,b) => {
-    const ia = ORDRE_STATUT.indexOf(a.statut), ib = ORDRE_STATUT.indexOf(b.statut)
-    return (ia===-1?99:ia) - (ib===-1?99:ib)
-  })
+  /* LOT1 — Regroupement : catégorie métier, puis taux de TVA, puis ordre
+     alphabétique. Le pharmacien cherche un produit dans sa catégorie, pas
+     dans une liste de 400 lignes triées par statut seulement. */
+  const NB_COLONNES = 10
 
-  const rows = lignes.map(l => {
+  /* Le seuil « produit cher » se compare au PRIX NET. Afficher le seul prix
+     brut rendait la classification incompréhensible sur une ligne remisée :
+     on montre donc les deux, net en gras. */
+  function ligneHtml(l) {
     const info = STATUT_INFO[l.statut] || { label:l.statut, badge:'badge-gray' }
     const rowCls = l.statut==='eligible' ? 'row-eligible' : l.statut==='produit_cher' ? 'row-cher' : l.statut==='remise_facture' ? 'row-remise' : ''
     const remiseCell = l.remise_pct > 0
@@ -1829,17 +1855,67 @@ function _renderFacture(f) {
     const editBtn = l.cip13
       ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})"><i class=ic-pencil></i></button>`
       : ''
+    const net = (l.pfht != null && l.pfht !== '') ? l.pfht : l.ppht
     return `<tr class="${rowCls}">
       <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
       <td style="font-weight:500">${l.nom||'—'}</td>
       <td>${l.fournisseur||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${eur(l.ppht||l.pfht)}</td>
-      <td style="text-align:center">${l.qte}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--sub)">${eur(l.ppht)}</td>
       ${remiseCell}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:600" title="Prix net : c'est lui que les seuils comparent">${eur(net)}</td>
+      <td style="text-align:center">${l.qte}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:600">${eur(l.total_ht)}</td>
       <td style="text-align:center;color:var(--sub)">${l.tva_pct ? l.tva_pct+'%' : '—'}</td>
       <td><span class="badge ${info.badge}">${info.label}${forceTag}</span>${editBtn}</td>
     </tr>`
+  }
+
+  const parStatut = {}
+  for (const l of lignes) (parStatut[l.statut || 'autre'] ||= []).push(l)
+
+  const statutsTries = Object.keys(parStatut).sort((a,b) => {
+    const ia = ORDRE_STATUT.indexOf(a), ib = ORDRE_STATUT.indexOf(b)
+    return (ia===-1?99:ia) - (ib===-1?99:ib)
+  })
+
+  const rows = statutsTries.map(statut => {
+    const groupe = parStatut[statut]
+    const info = STATUT_INFO[statut] || { label:statut, badge:'badge-gray' }
+    const caCat = groupe.reduce((s,l) => s + parseFloat(l.total_ht||0), 0)
+
+    const enTeteCat = `<tr style="background:var(--bg2)">
+      <td colspan="${NB_COLONNES}" style="padding:9px 12px;font-weight:700;font-size:12px">
+        <span class="badge ${info.badge}">${info.label}</span>
+        <span style="color:var(--sub);font-weight:500;margin-left:8px">${groupe.length} ligne(s)</span>
+        <span style="float:right;font-family:'DM Mono',monospace">${eur(caCat)}</span>
+      </td></tr>`
+
+    const parTva = {}
+    for (const l of groupe) {
+      const g = tvaGroupe(l.tva_pct)
+      ;(parTva[g === null ? 'null' : String(g)] ||= []).push(l)
+    }
+    const clesTva = Object.keys(parTva).sort((a,b) => {
+      if (a === 'null') return 1
+      if (b === 'null') return -1
+      return parseFloat(a) - parseFloat(b)
+    })
+
+    /* Un seul taux dans la catégorie : le sous-en-tête n'apprend rien. */
+    const sousGroupes = clesTva.map(cle => {
+      const sousLignes = parTva[cle].slice().sort((a,b) =>
+        (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity:'base' }))
+      const enTeteTva = clesTva.length > 1
+        ? `<tr><td colspan="${NB_COLONNES}" style="padding:5px 12px 5px 26px;font-size:11px;color:var(--sub);border-bottom:1px dashed var(--border)">
+             ${tvaLabel(cle === 'null' ? null : parseFloat(cle))}
+             <span style="margin-left:6px">— ${sousLignes.length} ligne(s)</span>
+             <span style="float:right;font-family:'DM Mono',monospace">${eur(sousLignes.reduce((s,l)=>s+parseFloat(l.total_ht||0),0))}</span>
+           </td></tr>`
+        : ''
+      return enTeteTva + sousLignes.map(ligneHtml).join('')
+    }).join('')
+
+    return enTeteCat + sousGroupes
   }).join('')
 
   el.innerHTML = `
@@ -1871,7 +1947,7 @@ function _renderFacture(f) {
       </div>
       <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>CIP</th><th>Produit</th><th>Fournisseur</th><th style="text-align:right">PFHT</th><th style="text-align:center">Qté</th><th style="text-align:center">Remise</th><th style="text-align:right">Total HT</th><th style="text-align:center">TVA</th><th>Statut</th></tr></thead>
+          <thead><tr><th>CIP</th><th>Produit</th><th>Fournisseur</th><th style="text-align:right">PFHT</th><th style="text-align:center">Remise</th><th style="text-align:right">Prix net</th><th style="text-align:center">Qté</th><th style="text-align:right">Total HT</th><th style="text-align:center">TVA</th><th>Statut</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -3227,6 +3303,12 @@ function _renderParametres() {
         <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
           <button class="btn btn-green" style="background:${color}" onclick="ouvrirModaleSauvegarde('${source}')">Sauvegarder ${label}</button>
           <button class="btn btn-outline" onclick="ouvrirModaleRecalcul('${source}')"><i class=ic-refresh></i> Recalculer une période</button>
+          <button class="btn btn-outline" onclick="reclasserToutesLignes()" title="Applique les seuils actuels au classement de toutes les lignes"><i class=ic-lab></i> Reclasser les produits</button>
+        </div>
+        <div style="font-size:11px;color:var(--sub);margin-top:8px">
+          « Recalculer » rejoue les <b>montants</b> avec les règles en vigueur.
+          « Reclasser » rejoue le <b>classement</b> des produits avec les seuils ci-dessus —
+          nécessaire après avoir changé un seuil, sinon l'historique garde l'ancien classement.
         </div>
       </div>
     </div>
@@ -3365,6 +3447,79 @@ async function confirmerSauvegarde() {
       toast(`Paramètres sauvegardés`, 'green')
     }
   } catch(e) { toast('Erreur réseau','red') }
+}
+
+/* LOT1 — Reclassement des produits avec les seuils actuels.
+   Distinct du recalcul : celui-ci rejoue les MONTANTS, celui-là le CLASSEMENT.
+   Changer « Seuil produit cher » ne retouche pas l'historique sans ça. */
+async function reclasserToutesLignes() {
+  if (!confirm(
+    'Reclasser tous vos produits avec les seuils actuels ?\n\n' +
+    'Chaque ligne de facture est reclassée : générique, biosimilaire, puis pour ' +
+    'les princeps selon les seuils « produit cher » et « sortie hospitalière ».\n\n' +
+    'Vos corrections au pinceau sont conservées.\n' +
+    'Les années figées ne sont pas touchées.'
+  )) return
+
+  toast('Reclassement en cours…')
+  try {
+    const r = await fetch(`${API}/grossiste/reclasser`, {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + TOKEN }
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      toast('Erreur : ' + (err.detail || r.status), 'red'); return
+    }
+    const d = await r.json()
+    toast(`${d.nb_changees} ligne(s) reclassée(s) sur ${d.nb_lignes}`, 'green')
+
+    const cats = [...new Set([...Object.keys(d.avant||{}), ...Object.keys(d.apres||{})])]
+      .sort((a,b) => {
+        const ia = ORDRE_STATUT.indexOf(a), ib = ORDRE_STATUT.indexOf(b)
+        return (ia===-1?99:ia) - (ib===-1?99:ib)
+      })
+    const lignes = cats.map(c => {
+      const av = (d.avant||{})[c] || 0, ap = (d.apres||{})[c] || 0
+      const delta = ap - av
+      const info = STATUT_INFO[c] || { label:c }
+      const coul = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--sub)'
+      return `<tr>
+        <td style="padding:4px 8px">${info.label}</td>
+        <td style="padding:4px 8px;text-align:right;color:var(--sub)">${av}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:600">${ap}</td>
+        <td style="padding:4px 8px;text-align:right;color:${coul}">${delta>0?'+':''}${delta||'—'}</td>
+      </tr>`
+    }).join('')
+
+    const gel = d.nb_ignorees_annees_figees
+      ? `<div style="margin-top:10px;font-size:12px;color:var(--amber)">
+           ${d.nb_ignorees_annees_figees} ligne(s) non touchée(s) —
+           année(s) figée(s) : ${(d.annees_figees||[]).join(', ')}.
+         </div>` : ''
+
+    const o = document.createElement('div')
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999'
+    o.onclick = () => o.remove()
+    o.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;width:520px;max-width:94vw" onclick="event.stopPropagation()">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">Reclassement terminé</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+        ${d.nb_factures} facture(s), ${d.nb_lignes} ligne(s) — ${d.nb_changees} changement(s).
+      </div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="color:var(--sub);font-size:11px">
+          <th style="text-align:left;padding:4px 8px">Catégorie</th>
+          <th style="text-align:right;padding:4px 8px">Avant</th>
+          <th style="text-align:right;padding:4px 8px">Après</th>
+          <th style="text-align:right;padding:4px 8px">Δ</th>
+        </tr></thead><tbody>${lignes}</tbody>
+      </table>
+      ${gel}
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-green btn-sm" onclick="this.closest('div[style*=fixed]').remove()">Fermer</button>
+      </div>
+    </div>`
+    document.body.appendChild(o)
+  } catch (e) { toast('Erreur réseau', 'red') }
 }
 
 // ── RECALCUL PÉRIODE INDÉPENDANT ──────────────────────────────────────────
@@ -3794,6 +3949,48 @@ function renderRDPBiogaran(rdp, isBiogaranPrio1) {
           </div>
         </div>
       </div>
+      ${renderRDPDetailTaux(rdp, couleur, atteint)}
+    </div>`
+}
+
+/* LOT3 — La RDP n'est pas un taux unique : le bon de commande donne 10, 20 ou
+   27,5 % selon le produit. Le taux moyen affiché est donc pondéré par le mix
+   réellement acheté, et le détail par palier explique d'où il vient. */
+function renderRDPDetailTaux(rdp, couleur, atteint) {
+  const rep = rdp.repartition_taux || []
+  if (!rep.length && !rdp.ca_sans_rdp) return ''
+
+  const paliers = rep.map(r => `
+    <span style="display:inline-flex;align-items:baseline;gap:5px;background:rgba(255,255,255,.7);
+                 border-radius:6px;padding:3px 9px;font-size:11px">
+      <b style="font-family:'DM Mono',monospace">${r.taux_pct} %</b>
+      <span style="color:var(--sub)">sur ${eur(r.ca)}</span>
+      <b style="font-family:'DM Mono',monospace;color:${couleur}">${eur(r.rdp_e)}</b>
+    </span>`).join('')
+
+  const sansRdp = rdp.ca_sans_rdp > 0
+    ? `<span style="display:inline-flex;align-items:baseline;gap:5px;background:rgba(255,255,255,.7);
+                    border-radius:6px;padding:3px 9px;font-size:11px">
+         <b style="font-family:'DM Mono',monospace;color:var(--sub)">0 %</b>
+         <span style="color:var(--sub)">sur ${eur(rdp.ca_sans_rdp)} — ${rdp.nb_produits_sans_rdp} produit(s) hors bon de commande</span>
+       </span>` : ''
+
+  return `
+    <div style="margin-top:10px;padding-top:9px;border-top:1px dashed rgba(0,0,0,.12)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin-bottom:6px">
+        <span style="color:var(--sub)">Taux par produit (bon de commande)</span>
+        <span>Taux moyen pondéré :
+          <b style="font-family:'DM Mono',monospace;color:${couleur}">${(rdp.taux_applique_pct || 0).toFixed(2)} %</b>
+        </span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${paliers}${sansRdp}</div>
+      ${!atteint && rdp.rdp_potentielle_e
+        ? `<div style="margin-top:8px;font-size:11px;color:var(--sub)">
+             Potentiel si les conditions sont atteintes :
+             <b style="font-family:'DM Mono',monospace;color:var(--text)">${eur(rdp.rdp_potentielle_e)}</b>
+             ${rdp.manque_refs ? ` — il manque ${rdp.manque_refs} référence(s)` : ''}
+             ${rdp.manque_ca ? ` et ${eur(rdp.manque_ca)} de CA` : ''}
+           </div>` : ''}
     </div>`
 }
 
@@ -8419,62 +8616,191 @@ async function showLogDetail(logId) {
   }
 
   /* ---------- Pharmacien : biosimilaires consommes + parts de marche ---------- */
+  /* ==================================================================
+     LOT 2 \u2014 Consommation biosimilaire : tableau crois\u00e9 DCI \u00d7 laboratoire.
+
+     Une ligne par mol\u00e9cule, une colonne par labo. Au-del\u00e0 de 6 labos les
+     suivants sont cumul\u00e9s dans \u00ab Autres \u00bb : avec 28 titulaires au
+     r\u00e9f\u00e9rentiel, une colonne par labo donnerait une matrice vide \u00e0 90 %.
+     Rien n'est perdu \u2014 le d\u00e9tail par mol\u00e9cule les montre tous.
+     ================================================================== */
+  var _BIOSIM = null, _BIOSIM_OUVERTES = {}, _BIOSIM_MAX_COL = 6;
+
+  function _biosimParams(){
+    if (typeof urlParamsMoisOuPeriode === 'function') {
+      var p = urlParamsMoisOuPeriode();
+      if (p.mode === 'periode') return p.params;
+    }
+    return 'annee=' + CURRENT_ANNEE + (CURRENT_MOIS ? ('&mois=' + CURRENT_MOIS) : '');
+  }
+
+  window.toggleBiosimDci = function(dci){
+    _BIOSIM_OUVERTES[dci] = !_BIOSIM_OUVERTES[dci];
+    _renderBiosim();
+  };
+
+  window.exportBiosimExcel = async function(){
+    try {
+      var r = await fetch(API + '/grossiste/biosimilaires-consommes/export-excel?' + _biosimParams(),
+                          { headers: { Authorization: 'Bearer ' + TOKEN } });
+      if (!r.ok) { var e = await r.json().catch(function(){return {};});
+                   toast('Erreur : ' + (e.detail || r.status), 'red'); return; }
+      var blob = await r.blob(), u = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = u; a.download = 'biosimilaires.xlsx'; a.click(); URL.revokeObjectURL(u);
+      toast('Export t\u00e9l\u00e9charg\u00e9', 'green');
+    } catch(e){ toast('Erreur r\u00e9seau', 'red'); }
+  };
+
+  function _cellule(x, caDci){
+    if (!x || !x.ca) return '<td style="text-align:right;color:#cfd5d2">\u2014</td>';
+    var fort = x.pct >= 50;
+    return '<td style="text-align:right;font-family:\'DM Mono\',monospace;white-space:nowrap">'
+      + '<div style="font-weight:' + (fort ? 700 : 500) + '">' + eurx(x.ca) + '</div>'
+      + '<div style="font-size:10px;color:' + (fort ? 'var(--green)' : 'var(--sub)') + '">'
+      + x.pct.toFixed(1) + ' %' + (x.est_reference ? ' \u00b7 r\u00e9f.' : '') + '</div></td>';
+  }
+
+  function _barrePenetration(pct){
+    var coul = pct >= 80 ? 'var(--green)' : pct >= 50 ? '#E8A33D' : 'var(--red)';
+    return '<div style="display:flex;align-items:center;gap:7px;justify-content:flex-end">'
+      + '<div style="width:52px;height:6px;background:#eef2f0;border-radius:3px;overflow:hidden">'
+      + '<div style="width:' + Math.max(0, Math.min(100, pct)) + '%;height:6px;background:' + coul + '"></div></div>'
+      + '<span style="font-family:\'DM Mono\',monospace;font-weight:600;color:' + coul + ';min-width:44px;text-align:right">'
+      + pct.toFixed(1) + ' %</span></div>';
+  }
+
+  function _detailDci(m, nbCol){
+    var labos = m.labos.map(function(l){
+      return '<tr><td style="padding:3px 8px 3px 26px">' + esc(l.labo)
+        + (l.est_reference ? ' <span class="badge badge-amber" style="font-size:9px">r\u00e9f\u00e9rence</span>' : '')
+        + '</td><td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(l.ca) + '</td>'
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + l.pct.toFixed(1) + ' %</td>'
+        + '<td style="text-align:right">' + l.qte + '</td></tr>';
+    }).join('');
+    var produits = m.produits.map(function(p){
+      return '<tr><td style="padding:3px 8px 3px 26px">' + esc(p.nom)
+        + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--sub)">' + p.cip13 + '</div></td>'
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(p.ca) + '</td>'
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + p.pct.toFixed(1) + ' %</td>'
+        + '<td style="text-align:right">' + p.qte + '</td></tr>';
+    }).join('');
+    var tete = '<tr style="color:var(--sub);font-size:10px"><th style="text-align:left;padding-left:26px">%s</th>'
+             + '<th style="text-align:right">CA HT</th><th style="text-align:right">Part</th>'
+             + '<th style="text-align:right">Qt\u00e9</th></tr>';
+    return '<tr><td colspan="' + nbCol + '" style="padding:0;background:#fbfcfb">'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:12px 14px">'
+      + '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead>'
+      + tete.replace('%s', 'Tous les laboratoires (' + m.nb_labos + ')')
+      + '</thead><tbody>' + labos + '</tbody></table>'
+      + '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead>'
+      + tete.replace('%s', 'Pr\u00e9sentations achet\u00e9es (' + m.produits.length + ')')
+      + '</thead><tbody>' + produits + '</tbody></table>'
+      + '</div></td></tr>';
+  }
+
+  function _renderBiosim(){
+    var el = document.getElementById('biosim-content');
+    if (!el || !_BIOSIM) return;
+    var d = _BIOSIM, t = d.totaux;
+
+    var colonnes = d.labos.slice(0, _BIOSIM_MAX_COL).map(function(l){ return l.labo; });
+    var reste = d.labos.slice(_BIOSIM_MAX_COL).map(function(l){ return l.labo; });
+    var avecAutres = reste.length > 0;
+    var nbCol = colonnes.length + (avecAutres ? 1 : 0) + 3;
+
+    var thLabos = colonnes.map(function(c){
+      return '<th style="text-align:right;min-width:92px">' + esc(c) + '</th>';
+    }).join('') + (avecAutres
+      ? '<th style="text-align:right;min-width:92px" title="' + esc(reste.join(', ')) + '">Autres ('
+        + reste.length + ')</th>' : '');
+
+    var lignes = d.molecules.map(function(m){
+      var parLabo = {}; m.labos.forEach(function(l){ parLabo[l.labo] = l; });
+      var cellules = colonnes.map(function(c){ return _cellule(parLabo[c], m.ca_total); }).join('');
+      if (avecAutres) {
+        var ca = 0, q = 0;
+        reste.forEach(function(c){ if (parLabo[c]) { ca += parLabo[c].ca; q += parLabo[c].qte; } });
+        cellules += _cellule(ca ? { ca: ca, pct: ca / m.ca_total * 100, qte: q } : null, m.ca_total);
+      }
+      var ouvert = !!_BIOSIM_OUVERTES[m.dci];
+      var ligne = '<tr style="cursor:pointer" onclick="toggleBiosimDci(\'' + m.dci.replace(/'/g, "\\'") + '\')">'
+        + '<td style="font-weight:600;white-space:nowrap">'
+        + '<span style="color:var(--sub);font-size:10px;margin-right:5px">' + (ouvert ? '\u25be' : '\u25b8') + '</span>'
+        + esc(m.dci) + '<div style="font-size:10px;color:var(--sub);font-weight:400">'
+        + m.nb_labos + ' labo(s) \u00b7 ' + m.qte + ' unit\u00e9(s)</div></td>'
+        + cellules
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-weight:700">' + eurx(m.ca_total) + '</td>'
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace;color:var(--sub)">' + eurx(m.ca_reference) + '</td>'
+        + '<td style="text-align:right">' + _barrePenetration(m.taux_penetration_pct) + '</td></tr>';
+      return ligne + (ouvert ? _detailDci(m, nbCol) : '');
+    }).join('');
+
+    var parLaboGlobal = {}; d.labos.forEach(function(l){ parLaboGlobal[l.labo] = l; });
+    var totCellules = colonnes.map(function(c){
+      var l = parLaboGlobal[c];
+      return '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-weight:700">'
+        + (l ? eurx(l.ca) : '\u2014')
+        + '<div style="font-size:10px;color:var(--sub);font-weight:400">' + (l ? l.pct.toFixed(1) + ' %' : '') + '</div></td>';
+    }).join('');
+    if (avecAutres) {
+      var caR = 0; reste.forEach(function(c){ caR += parLaboGlobal[c] ? parLaboGlobal[c].ca : 0; });
+      totCellules += '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-weight:700">' + eurx(caR)
+        + '<div style="font-size:10px;color:var(--sub);font-weight:400">'
+        + (t.ca_total_ht ? (caR / t.ca_total_ht * 100).toFixed(1) + ' %' : '') + '</div></td>';
+    }
+
+    el.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">'
+      + '<div><div style="font-size:19px;font-weight:700">Biosimilaires consomm\u00e9s</div>'
+      + '<div style="font-size:12px;color:var(--sub)">' + esc(d.periode.libelle)
+      + ' \u00b7 part de march\u00e9 par laboratoire et taux de p\u00e9n\u00e9tration</div></div>'
+      + '<button class="btn btn-outline btn-sm" onclick="exportBiosimExcel()"><i class=ic-file></i> Export Excel</button></div>'
+
+      + '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">'
+      + '<div class="kpi-card"><div class="kpi-lbl">CA biologiques</div><div class="kpi-val">' + eurx(t.ca_total_ht) + '</div>'
+      + '<div class="kpi-sub">' + t.nb_dci + ' mol\u00e9cule(s) \u00b7 ' + t.nb_labos + ' labo(s)</div></div>'
+      + '<div class="kpi-card"><div class="kpi-lbl">Dont biosimilaires</div><div class="kpi-val green">' + eurx(t.ca_biosimilaire) + '</div>'
+      + '<div class="kpi-sub">hors princeps de r\u00e9f\u00e9rence</div></div>'
+      + '<div class="kpi-card"><div class="kpi-lbl">Dont r\u00e9f\u00e9rence</div><div class="kpi-val" style="color:var(--amber)">' + eurx(t.ca_reference) + '</div>'
+      + '<div class="kpi-sub">marge de substitution</div></div>'
+      + '<div class="kpi-card"><div class="kpi-lbl">Taux de p\u00e9n\u00e9tration</div>'
+      + '<div class="kpi-val ' + (t.taux_penetration_pct >= 80 ? 'green' : '') + '">' + t.taux_penetration_pct.toFixed(1) + ' %</div>'
+      + '<div class="kpi-sub">part achet\u00e9e en biosimilaire</div></div></div>'
+
+      + '<div class="card"><div class="card-header">'
+      + '<div class="card-header-title">Mol\u00e9cule \u00d7 laboratoire</div>'
+      + '<span style="font-size:11px;color:var(--sub)">Cliquez une mol\u00e9cule pour voir tous ses labos et pr\u00e9sentations</span></div>'
+      + '<div style="overflow-x:auto"><table><thead><tr>'
+      + '<th style="min-width:180px">Mol\u00e9cule (DCI)</th>' + thLabos
+      + '<th style="text-align:right;min-width:100px">Total HT</th>'
+      + '<th style="text-align:right;min-width:100px">Dont r\u00e9f\u00e9rence</th>'
+      + '<th style="text-align:right;min-width:120px">P\u00e9n\u00e9tration</th>'
+      + '</tr></thead><tbody>' + lignes
+      + '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--green)">'
+      + '<td>TOTAL</td>' + totCellules
+      + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(t.ca_total_ht) + '</td>'
+      + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(t.ca_reference) + '</td>'
+      + '<td style="text-align:right">' + _barrePenetration(t.taux_penetration_pct) + '</td></tr>'
+      + '</tbody></table></div></div>';
+  }
+
   window.loadBiosimilaires = async function(){
     var el = document.getElementById('biosim-content'); if(!el) return;
     el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
     try {
-      var url = '/grossiste/biosimilaires-consommes?annee='+CURRENT_ANNEE+(CURRENT_MOIS?('&mois='+CURRENT_MOIS):'');
-      var d = await apiGet(url);
-      if (!d || !d.lignes || d.lignes.length===0){
+      var d = await apiGet('/grossiste/biosimilaires-consommes?' + _biosimParams());
+      if (!d || !d.molecules || d.molecules.length === 0){
         el.innerHTML = '<div class="card"><div class="card-title"><i class=ic-syringe></i> Biosimilaires consomm\u00e9s</div>'
-          + '<div style="color:var(--sub);padding:24px;text-align:center">Aucun biosimilaire consomm\u00e9 sur la p\u00e9riode.<br>'
-          + '<span style="font-size:12px">(V\u00e9rifie que le r\u00e9f\u00e9rentiel admin est rempli et que des factures grossistes sont import\u00e9es.)</span></div></div>';
+          + '<div style="color:var(--sub);padding:28px;text-align:center;line-height:1.7">'
+          + 'Aucun biologique consomm\u00e9 sur ' + esc((d && d.periode && d.periode.libelle) || 'la p\u00e9riode') + '.<br>'
+          + '<span style="font-size:12px">Un produit appara\u00eet ici d\u00e8s que son CIP est au r\u00e9f\u00e9rentiel biosimilaires '
+          + '(console admin \u2192 R\u00e9f\u00e9rentiels) et qu\'une facture le contient.</span></div></div>';
         return;
       }
-      var kpis = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-        + kpi('Total HT biosimilaires', eurx(d.total_ht))
-        + kpi('Pr\u00e9sentations', d.nb_presentations)
-        + kpi('Laboratoires', d.nb_labos) + '</div>';
-
-      var maxht = Math.max.apply(null, d.parts_marche.map(function(p){return p.total_ht;}).concat([1]));
-      var parts = d.parts_marche.map(function(p){
-        var w = Math.round(100*p.total_ht/maxht);
-        return '<div style="margin-bottom:12px">'
-          + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
-          + '<span style="font-weight:600">'+esc(p.labo)+'</span>'
-          + '<span style="font-family:\'DM Mono\',monospace">'+p.part_pct+'% \u00b7 '+eurx(p.total_ht)+'</span></div>'
-          + '<div style="background:#eef2f0;border-radius:5px;height:10px"><div style="width:'+w+'%;height:10px;background:#2563EB;border-radius:5px"></div></div></div>';
-      }).join('');
-      var partsCard = '<div class="card"><div class="card-title">Parts de march\u00e9 par laboratoire</div>'+parts+'</div>';
-
-      var mols = d.molecules.map(function(m){
-        var rows = m.labos.map(function(x){
-          return '<tr><td>'+esc(x.labo)+'</td><td style="text-align:right">'+eurx(x.total_ht)+'</td>'
-            + '<td style="text-align:right;font-weight:600">'+x.part_pct+'%</td></tr>';
-        }).join('');
-        return '<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:5px">'
-          + esc(m.substance)+' <span style="color:var(--sub);font-weight:400">\u2014 '+eurx(m.total_ht)+'</span></div>'
-          + '<table class="admin-table" style="font-size:12px"><tbody>'+rows+'</tbody></table></div>';
-      }).join('');
-      var molCard = '<div class="card"><div class="card-title">R\u00e9partition par mol\u00e9cule</div>'+mols+'</div>';
-
-      var lr = d.lignes.map(function(l){
-        return '<tr><td>'+esc(l.nom)+'</td>'
-          + '<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+l.cip13+'</td>'
-          + '<td>'+esc(l.labo)+'</td>'
-          + '<td style="text-align:right">'+l.qte+'</td>'
-          + '<td style="text-align:right">'+l.remise_pct+'%</td>'
-          + '<td style="text-align:right">'+eurx(l.total_ht)+'</td>'
-          + '<td style="text-align:right">'+eurx(l.total_ht_remise)+'</td></tr>';
-      }).join('');
-      var lignesCard = '<div class="card"><div class="card-title">Lignes consomm\u00e9es ('+d.nb_presentations+')</div>'
-        + '<div style="overflow-x:auto"><table class="admin-table"><thead><tr>'
-        + '<th>Nom</th><th>CIP</th><th>Labo</th><th style="text-align:right">Qt\u00e9</th>'
-        + '<th style="text-align:right">Remise gross.</th><th style="text-align:right">Total HT</th>'
-        + '<th style="text-align:right">HT remis\u00e9</th></tr></thead><tbody>'+lr+'</tbody></table></div></div>';
-
-      el.innerHTML = kpis + partsCard + molCard + lignesCard;
+      _BIOSIM = d;
+      _renderBiosim();
     } catch(e){
+      console.error(e);
       el.innerHTML = '<div class="card"><div style="color:var(--red);padding:16px">Erreur de chargement.</div></div>';
     }
   };
@@ -8484,31 +8810,53 @@ async function showLogDetail(logId) {
     var el = document.getElementById('admin-biosim-content'); if(!el) return;
     el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>';
     try {
-      var d = await apiGet('/grossiste/admin/biosimilaires');
+      var d = await apiGet('/admin/biosimilaires?limit=2000');
       var items = (d && d.items) || [];
 
       var importCard = '<div class="card"><div class="card-title">Import Excel</div>'
-        + '<div style="font-size:12px;color:var(--sub);margin-bottom:10px">Colonnes d\u00e9tect\u00e9es automatiquement : CIP13 \u00b7 Substance \u00b7 Laboratoire \u00b7 Nom \u00b7 R\u00e9f\u00e9rent princeps \u00b7 Dosage/forme.</div>'
-        + '<input type="file" id="biosim-file" accept=".xlsx,.xls" style="font-size:12px"/>'
+        + '<div style="font-size:12px;color:var(--sub);margin-bottom:10px;line-height:1.6">'
+        + 'Classeur dont <b>chaque feuille porte une DCI</b> (ADALIMUMAB, ENOXAPARINE\u2026), '
+        + 'colonnes CIP \u00b7 NOM \u00b7 LABORATOIRE. Le princeps de r\u00e9f\u00e9rence est rep\u00e9r\u00e9 '
+        + 'automatiquement \u2014 sans lui, pas de taux de p\u00e9n\u00e9tration.</div>'
+        + '<input type="file" id="biosim-file" accept=".xlsx,.xls,.json" style="font-size:12px"/>'
         + '<label style="font-size:12px;margin:0 10px"><input type="checkbox" id="biosim-replace"/> Remplacer tout le r\u00e9f\u00e9rentiel</label>'
-        + '<button class="admin-btn" onclick="importBiosimExcel()">\uD83D\uDCE5 Importer</button>'
+        + '<button class="admin-btn" onclick="importBiosimExcel()">Importer</button>'
         + '<span id="biosim-import-msg" style="margin-left:10px;font-size:12px;color:var(--sub)"></span></div>';
 
-      var addCard = '<div class="card"><div class="card-title">Ajouter un biosimilaire</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
-        + inp('ab-cip','CIP13') + inp('ab-substance','Substance (mol\u00e9cule)') + inp('ab-labo','Laboratoire')
-        + inp('ab-nom','Nom biosimilaire') + inp('ab-princeps','R\u00e9f\u00e9rent princeps') + inp('ab-molecule','Dosage / forme')
-        + '</div><button class="admin-btn" style="margin-top:10px" onclick="addBiosim()">+ Ajouter</button></div>';
+      var addCard = '<div class="card"><div class="card-title">Ajouter un produit</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'
+        + inp('ab-cip','CIP13') + inp('ab-substance','DCI (mol\u00e9cule)')
+        + inp('ab-labo','Laboratoire') + inp('ab-nom','Nom commercial')
+        + '</div>'
+        + '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin-top:10px">'
+        + '<input type="checkbox" id="ab-reference"/> C\'est le princeps de r\u00e9f\u00e9rence de cette DCI</label>'
+        + '<button class="admin-btn" style="margin-top:10px;margin-left:12px" onclick="addBiosim()">+ Ajouter</button></div>';
+
+      var parDci = {};
+      items.forEach(function(b){ (parDci[b.dci || '(sans DCI)'] = parDci[b.dci || '(sans DCI)'] || []).push(b); });
+      var sansRef = Object.keys(parDci).filter(function(d){
+        return !parDci[d].some(function(b){ return b.est_reference; });
+      });
+      var alerte = sansRef.length
+        ? '<div class="alert" style="background:#FFFBEB;color:#92400E;border:1px solid #FDE68A;margin-bottom:12px">'
+          + '<i class="ic-alert"></i><div>Aucun princeps de r\u00e9f\u00e9rence pour : <b>' + esc(sansRef.join(', '))
+          + '</b>. Le taux de p\u00e9n\u00e9tration ne sera pas calculable sur ces mol\u00e9cules \u2014 '
+          + 'cochez le produit d\'origine ci-dessous.</div></div>'
+        : '';
 
       var rows = items.map(function(b){
         return '<tr><td style="font-family:\'DM Mono\',monospace;font-size:11px">'+(b.cip13||'')+'</td>'
-          + '<td>'+esc(b.substance)+'</td><td>'+esc(b.labo)+'</td><td>'+esc(b.nom)+'</td><td>'+esc(b.princeps)+'</td>'
+          + '<td>'+esc(b.dci)+'</td><td>'+esc(b.labo)+'</td><td>'+esc(b.nom)+'</td>'
+          + '<td style="text-align:center"><label style="cursor:pointer" title="Princeps de r\u00e9f\u00e9rence">'
+          + '<input type="checkbox" ' + (b.est_reference ? 'checked' : '')
+          + ' onchange="setBiosimReference(\''+b.id+'\', this.checked)"/></label></td>'
           + '<td style="text-align:center"><button class="admin-btn danger" style="padding:4px 10px" onclick="deleteBiosim(\''+b.id+'\')">\u00d7</button></td></tr>';
       }).join('');
-      var listCard = '<div class="card"><div class="card-title">R\u00e9f\u00e9rentiel ('+items.length+')</div>'
+      var listCard = '<div class="card"><div class="card-title">R\u00e9f\u00e9rentiel ('+items.length+' CIP \u00b7 '
+        + Object.keys(parDci).length+' DCI)</div>' + alerte
         + '<div style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="admin-table"><thead><tr>'
-        + '<th>CIP</th><th>Substance</th><th>Labo</th><th>Nom</th><th>Princeps</th><th></th></tr></thead><tbody>'
-        + (rows || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">R\u00e9f\u00e9rentiel vide \u2014 importe ton fichier Excel.</td></tr>')
+        + '<th>CIP</th><th>DCI</th><th>Labo</th><th>Nom</th><th style="text-align:center">R\u00e9f\u00e9rence</th><th></th></tr></thead><tbody>'
+        + (rows || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:16px">R\u00e9f\u00e9rentiel vide \u2014 importez le classeur.</td></tr>')
         + '</tbody></table></div></div>';
 
       el.innerHTML = importCard + addCard + listCard;
@@ -8518,19 +8866,35 @@ async function showLogDetail(logId) {
   };
 
   window.addBiosim = async function(){
-    var body = { cip13:val('ab-cip'), substance:val('ab-substance'), labo:val('ab-labo'),
-                 nom:val('ab-nom'), princeps:val('ab-princeps'), molecule:val('ab-molecule') };
+    var ref = document.getElementById('ab-reference');
+    var body = { cip13:val('ab-cip'), dci:val('ab-substance'), labo:val('ab-labo'),
+                 nom:val('ab-nom'), est_reference: !!(ref && ref.checked) };
     if (!body.cip13){ toast('CIP requis','red'); return; }
     try {
-      var r = await apiPost('/grossiste/admin/biosimilaires', body);
-      if (r && r.success===false){ toast('Erreur ajout','red'); return; }
-      toast('Biosimilaire ajout\u00e9','green'); loadAdminBiosimilaires();
+      var r = await apiPost('/admin/biosimilaires', body);
+      if (!r || r.ok === false){ toast((r && r.detail) || 'Erreur ajout','red'); return; }
+      toast('Produit ajout\u00e9','green'); loadAdminBiosimilaires();
     } catch(e){ toast('Erreur ajout','red'); }
+  };
+
+  /* Le rep\u00e9rage automatique du princeps se fait par marque : un produit
+     nouvellement commercialis\u00e9 peut lui \u00e9chapper. C'est corrigeable ici. */
+  window.setBiosimReference = async function(id, valeur){
+    try {
+      var r = await fetch(API+'/admin/biosimilaires/'+id, {
+        method:'PATCH',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ est_reference: valeur })
+      });
+      if (!r.ok){ toast('Erreur','red'); loadAdminBiosimilaires(); return; }
+      toast(valeur ? 'Marqu\u00e9 comme r\u00e9f\u00e9rence' : 'N\'est plus la r\u00e9f\u00e9rence','green');
+      loadAdminBiosimilaires();
+    } catch(e){ toast('Erreur r\u00e9seau','red'); }
   };
 
   window.deleteBiosim = async function(id){
     try {
-      await fetch(API+'/grossiste/admin/biosimilaires/'+id, { method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN } });
+      await fetch(API+'/admin/biosimilaires/'+id, { method:'DELETE', headers:{ Authorization:'Bearer '+TOKEN } });
       toast('Supprim\u00e9','green'); loadAdminBiosimilaires();
     } catch(e){ toast('Erreur','red'); }
   };
@@ -8540,15 +8904,17 @@ async function showLogDetail(logId) {
     var msg = document.getElementById('biosim-import-msg');
     if (!f || !f.files || !f.files[0]){ toast('Choisis un fichier','red'); return; }
     var repl = document.getElementById('biosim-replace') && document.getElementById('biosim-replace').checked;
-    var fd = new FormData(); fd.append('file', f.files[0]);
+    var fd = new FormData();
+    fd.append('file', f.files[0]);
+    fd.append('mode', repl ? 'remplacer' : 'completer');
     if (msg) msg.textContent = 'Import en cours...';
     try {
-      var r = await fetch(API+'/grossiste/admin/biosimilaires/import?remplacer='+(repl?'true':'false'),
+      var r = await fetch(API+'/admin/biosimilaires/upload',
         { method:'POST', headers:{ Authorization:'Bearer '+TOKEN }, body:fd });
       var j = await r.json();
       if (!r.ok){ if(msg) msg.textContent=''; toast('Erreur : '+((j&&j.detail)||r.status),'red'); return; }
       if (msg) msg.textContent = '';
-      toast('Import OK : '+j.total+' lignes ('+j.ajoutes+' ajout., '+j.mis_a_jour+' maj)','green');
+      toast('Import OK : '+(j.nb_inserees||0)+' ajout\u00e9(s) sur '+(j.nb_lues||0)+' lu(s)','green');
       loadAdminBiosimilaires();
     } catch(e){ if(msg) msg.textContent=''; toast('Erreur r\u00e9seau','red'); }
   };
