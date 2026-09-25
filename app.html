@@ -250,6 +250,8 @@
     <button class="nav-item active" onclick="goTo('accueil',this)"><span class="icon ic-home"></span> Accueil</button>
     <button class="nav-item" id="nav-grossiste" onclick="goTo('grossiste',this)"><span class="icon ic-building"></span> Grossiste</button>
     <button class="nav-item" id="nav-generiqueur" onclick="goTo('generiqueur',this)"><span class="icon ic-pill"></span> Génériqueur</button>
+    <button class="nav-item" id="nav-rfa" onclick="goTo('rfa',this)"><span class="icon ic-euro"></span> RFA</button>
+    <button class="nav-item" id="nav-groupement" onclick="goTo('groupement',this)"><span class="icon ic-shop"></span> Remise groupement</button>
     <button class="nav-item" onclick="goTo('depot',this)"><span class="icon ic-upload"></span> Dépôt factures</button>
     <button class="nav-item" onclick="goTo('comparateur',this)"><span class="icon ic-scale"></span> Comparateur</button>
     <button class="nav-item" id="nav-anneesfigees" onclick="goTo('anneesfigees',this)"><span class="icon ic-lock"></span> Années figées</button>
@@ -298,6 +300,8 @@
     <div id="screen-accueil" class="screen active"><div id="accueil-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
     <div id="screen-grossiste" class="screen"><div id="grossiste-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
     <div id="screen-generiqueur" class="screen"><div id="generiqueur-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-rfa" class="screen"><div id="rfa-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
+    <div id="screen-groupement" class="screen"><div id="groupement-content"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div></div>
 
     <div id="screen-depot" class="screen">
       <div class="card">
@@ -309,7 +313,7 @@
         <div class="depot-step"><span class="depot-num">2</span><span class="depot-step-t">Importez vos PDF</span></div>
         <div id="depot-form">
           <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="onFileDrop(event)">
-            <input type="file" id="file-input" accept=".pdf" multiple style="display:none" onchange="onFilesSelected(this.files)" />
+            <input type="file" id="file-input" accept=".pdf,.xml" multiple style="display:none" onchange="onFilesSelected(this.files)" />
             <div class="upload-icon"><i class=ic-file></i></div>
             <div class="upload-title">Glissez vos factures PDF ici</div>
             <div class="upload-sub">ou cliquez pour parcourir — plusieurs fichiers acceptés</div>
@@ -321,6 +325,15 @@
             Les montants sont rapprochés avec vos remises attendues.
           </div>
         </div>
+      </div>
+      <!-- LOT_DIRECT : factures direct labo déposées -->
+      <div class="card" id="depot-labo-card" style="display:none">
+        <div class="card-title">Factures direct labo déposées</div>
+        <div style="font-size:12px;color:var(--sub);margin-bottom:10px">
+          Achats en direct au laboratoire : ils alimentent uniquement l'onglet Génériqueur du labo, sur la ligne « Direct labo ».
+          Les factures électroniques (Factur-X, XML) sont lues directement, sans IA.
+        </div>
+        <div id="depot-labo-liste"></div>
       </div>
     </div>
 
@@ -653,6 +666,8 @@ async function init() {
     document.getElementById('plan-label').textContent = abo.plan.replace('_',' ')
     if (!MODULES.includes('grossiste')) document.getElementById('nav-grossiste').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
     if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
+    if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
+    if (!MODULES.includes('generiqueur')) document.getElementById('nav-groupement').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
     if (MODULES.includes('grossiste')) {
       const configs = await apiGet('/grossiste/config')
       if (Array.isArray(configs)) {
@@ -680,7 +695,7 @@ function goTo(screen, btn) {
     const on = b.getAttribute('onclick') || ''
     b.classList.toggle('active', on.indexOf("'" + screen + "'") !== -1)
   })
-  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires', anneesfigees:'Années figées' }
+  const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires', anneesfigees:'Années figées', rfa:'RFA', groupement:'Remise groupement' }
   const tt = document.getElementById('topbar-title'); if (tt) tt.textContent = titles[screen] || screen
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
@@ -688,6 +703,8 @@ function goTo(screen, btn) {
   if (screen === 'comparateur') loadComparateur()
   if (screen === 'biosimilaires') loadBiosimilaires()
   if (screen === 'anneesfigees') loadAnneesFigees()
+  if (screen === 'rfa') loadRFA()
+  if (screen === 'groupement') loadGroupement()
 }
 
 /* === LOT1C_ANNEES_FIGEES ===
@@ -2825,6 +2842,12 @@ function fermerModaleEditGeneriqueur() {
 function renderFormulaireGeneriqueur(c) {
   const isBiogaran = c.labo === 'Biogaran'
   const html = `
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Date de début du contrat</label>
+      <input type="date" id="ge-date-debut" value="${c.date_debut||''}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"/>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">Avant cette date, le labo est traité comme non configuré. Laisser vide = depuis toujours.</div>
+      ${historiqueVersionsHTML(c.versions, v => `contrat ${v.taux_contrat_pct||0} %${v.prioritaire ? ` · prioritaire n°${v.ordre}` : ''}`)}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
       <div>
         <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Statut</label>
@@ -2958,6 +2981,7 @@ async function enregistrerGeneriqueur() {
     regles_categorie: _GEN_EDIT_REGLES_CAT,
     regles_molecule: _GEN_EDIT_REGLES_MOL,
     biogaran: null,
+    date_debut: (document.getElementById('ge-date-debut') || {}).value || null,
   }
 
   // Si Biogaran prioritaire n°1 : lire les champs Biogaran
@@ -2989,8 +3013,13 @@ async function enregistrerGeneriqueur() {
 
   try {
     if (_GEN_EDIT_ID) {
-      await apiPut(`/generiqueur/config/${_GEN_EDIT_ID}`, payload)
-      toast('Modifications enregistrées', 'green')
+      // LOT_DATES : à partir de quand, et faut-il recalculer le passé ?
+      const quand = await demanderDateEffet({ titre: `Modifier le contrat ${_GEN_EDIT_LABO}` })
+      if (!quand) return
+      payload.date_effet = quand.date_effet
+      payload.recalculer = quand.recalculer
+      const r = await apiSend('PUT', `/generiqueur/config/${_GEN_EDIT_ID}`, payload)
+      toast(`Modifications appliquées à partir de ${moisLisible(r && r.applique_a_partir_de)}`, 'green')
     } else {
       await apiPost('/generiqueur/config', payload)
       toast('Génériqueur ajouté', 'green')
@@ -3700,6 +3729,7 @@ function renderLaboSection(l) {
     { key: 'alliance', label: 'Alliance', color: '#2563EB' },
     { key: 'ocp', label: 'OCP', color: '#7C3AED' },
     { key: 'labo_direct', label: 'Direct labo', color: '#DC2626' },
+    { key: 'groupement', label: 'Groupement', color: '#0891B2' },
   ]
   const sourcesRows = sources.map(s => {
     const d = parSource[s.key] || { ca: 0, remise_grossiste: 0, remise_contrat: 0, nb_lignes: 0 }
@@ -3723,7 +3753,7 @@ function renderLaboSection(l) {
           <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
             <th style="padding:4px 10px;text-align:left">Source</th>
             <th style="padding:4px 10px;text-align:right">CA HT</th>
-            <th style="padding:4px 10px;text-align:right">Remise gros.</th>
+            <th style="padding:4px 10px;text-align:right" title="Remise accordée sur la facture : par le grossiste, ou par le labo pour un achat direct">Remise facture</th>
             <th style="padding:4px 10px;text-align:right">Remise contrat</th>
           </tr>
         </thead>
@@ -4073,7 +4103,7 @@ function renderDetailsLignes(lignes, labo) {
             <th style="padding:6px 6px">Qté</th>
             <th style="padding:6px 6px;text-align:right">PFHT</th>
             <th style="padding:6px 6px;text-align:right">Total HT</th>
-            <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#E0F2FE">Rem. grossiste</th>
+            <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#E0F2FE" title="Remise sur facture : du grossiste, ou du labo pour un achat direct">Rem. facture</th>
             <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#FEF3C7">Rem. générique (réf.)</th>
             ${isBiogaran ? '<th style="padding:6px 6px;text-align:right" colspan="2" style="background:#DBEAFE">Rem. RDP</th>' : ''}
             <th style="padding:6px 6px;text-align:right" colspan="2" style="background:#D1FAE5">Rem. contrat</th>
@@ -4141,6 +4171,10 @@ function setDepotTab(tab) {
   ;['grossiste','labo'].forEach(t => {
     document.getElementById('depot-tab-'+t).className = 'btn ' + (t===tab ? 'btn-green' : 'btn-outline')
   })
+  // LOT_DIRECT : la liste des factures direct labo n'a de sens que sur cet onglet
+  const card = document.getElementById('depot-labo-card')
+  if (card) card.style.display = tab === 'labo' ? '' : 'none'
+  if (tab === 'labo') renderListeDepots('depot-labo-liste', { source: 'labo_direct' })
 }
 function onFileDrop(event) {
   event.preventDefault(); event.currentTarget.style.borderColor = 'var(--border)'; onFilesSelected(event.dataTransfer.files)
@@ -4148,7 +4182,8 @@ function onFileDrop(event) {
 function onFilesSelected(files) {
   if (!files || files.length === 0) return
   Array.from(files).forEach(f => {
-    if (f.type !== 'application/pdf') return
+    const estXml = /\.xml$/i.test(f.name)
+    if (f.type !== 'application/pdf' && !(estXml && depot_tab === 'labo')) return
     if (depot_tab === 'labo') {
       uploadLaboIA(f)
     } else {
@@ -4183,39 +4218,50 @@ async function uploadFactureAuto(file) {
 
 // ── UPLOAD LABO DIRECT via IA (Claude) + preview ─────────────────────────────
 async function uploadLaboIA(file) {
-  const queue = document.getElementById('upload-queue')
+  return uploadDepot(file, { source: 'labo_direct', queueId: 'upload-queue',
+                             onSaved: () => renderListeDepots('depot-labo-liste', { source: 'labo_direct' }) })
+}
+
+/* LOT_DIRECT : dépôt commun aux zones Direct labo, RFA et Groupement.
+   opts = { source, fiche_id, queueId, onSaved } */
+async function uploadDepot(file, opts) {
+  const queue = document.getElementById(opts.queueId || 'upload-queue')
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span><i class=ic-ai></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse IA en cours (5-10 sec)...</span>`
+  div.innerHTML = `<span><i class=ic-ai></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Lecture en cours (facture électronique ou IA, 5-10 sec)...</span>`
   queue.appendChild(div)
 
   const fd = new FormData(); fd.append('file', file)
+  fd.append('source', opts.source)
+  if (opts.fiche_id) fd.append('fiche_id', opts.fiche_id)
   try {
-    const res = await fetch(`${API}/labo-direct/preview`, {
+    const res = await fetch(`${API}/depots/preview`, {
       method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {
-      const msg = data.erreur || data.detail || 'Extraction impossible'
-      div.innerHTML = `<span><i class=ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${msg}</span>`
+      let msg = data.erreur || data.detail || 'Extraction impossible'
+      if (Array.isArray(msg)) msg = msg.map(d => d.msg).join(' ; ')
+      div.innerHTML = `<span><i class=ic-x></i></span><span>${escapeHtml(file.name)}</span><span style="margin-left:auto;font-size:12px;color:red">${escapeHtml(msg)}</span>`
       return
     }
     const stats = data.stats || {}
-    div.innerHTML = `<span><i class=ic-eye></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
-    openLaboPreview(data, div)
+    div.innerHTML = `<span><i class=ic-eye></i></span><span>${escapeHtml(file.name)}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${escapeHtml(data.fournisseur)} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
+    openLaboPreview(data, div, opts)
   } catch(e) {
     div.innerHTML = `<span><i class=ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${e.message}</span>`
   }
 }
 
-function openLaboPreview(data, bandeau) {
+function openLaboPreview(data, bandeau, opts) {
+  opts = opts || { source: 'labo_direct' }
   let modal = document.getElementById('modal-labo-preview')
   if (!modal) {
     modal = document.createElement('div')
     modal.id = 'modal-labo-preview'
     modal.className = 'modal-overlay'
-    modal.innerHTML = `<div class="modal-box" id="modal-labo-preview-box" style="max-width:1100px;max-height:90vh;overflow-y:auto"></div>`
+    modal.innerHTML = `<div class="modal-box" id="modal-labo-preview-box" style="width:1100px;max-width:94vw;max-height:90vh;overflow-y:auto"></div>`
     document.body.appendChild(modal)
   }
   const box = document.getElementById('modal-labo-preview-box')
@@ -4230,21 +4276,36 @@ function openLaboPreview(data, bandeau) {
   const confColor = data.confiance === 'haute' ? 'var(--green)' : data.confiance === 'moyenne' ? '#F59E0B' : '#DC2626'
   const confEmoji = data.confiance === 'haute' ? '' : data.confiance === 'moyenne' ? '' : ''
 
+  // LOT_DIRECT : avertissements propres à la zone de dépôt
+  let alertes = ''
+  if (data.doublon) {
+    alertes += `<div class="alert alert-amber" style="margin:10px 0;padding:10px 14px;font-size:12px">
+      <i class=ic-alert></i> Facture n° ${escapeHtml(data.num_facture)} déjà déposée (${String(data.doublon.mois).padStart(2,'0')}/${data.doublon.annee}, ${escapeHtml(data.doublon.filename)}) :
+      l'enregistrer <strong>remplacera</strong> l'ancienne, sans doubler les chiffres.</div>`
+  }
+  if (opts.source === 'labo_direct' && !data.est_generiqueur) {
+    alertes += `<div class="alert alert-amber" style="margin:10px 0;padding:10px 14px;font-size:12px">
+      <i class=ic-alert></i> « ${escapeHtml(data.fournisseur || '?')} » n'est pas un des génériqueurs suivis. Seules les lignes dont le CIP est au
+      référentiel génériques compteront dans l'onglet Génériqueur. S'il s'agit d'un labo à RFA, déposez plutôt la facture dans l'onglet <strong>RFA</strong>.</div>`
+  }
+  const destination = { labo_direct: `Génériqueur → ${escapeHtml(data.labo_canonique || data.fournisseur)} (ligne Direct labo)`,
+                        rfa: 'Fiche RFA', groupement: 'Fiche groupement (et Génériqueur, ligne Groupement)' }[opts.source] || ''
+
   const anomalies = (data.anomalies || []).length > 0 ? `
     <div class="alert alert-amber" style="margin:10px 0;padding:10px 14px;font-size:12px">
       <strong><i class=ic-alert></i> Anomalies détectées :</strong>
       <ul style="margin:6px 0 0 18px;padding:0">
-        ${data.anomalies.map(a => `<li>${a}</li>`).join('')}
+        ${data.anomalies.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
       </ul>
     </div>` : ''
 
   const lignesRows = (data.lignes || []).map(l => {
     const badge = statutBadges[l.statut] || statutBadges.autre
-    const laboGen = l.labo_genrq ? ` <span style="font-size:10px;color:var(--sub)">(${l.labo_genrq})</span>` : ''
+    const laboGen = l.labo_genrq ? ` <span style="font-size:10px;color:var(--sub)">(${escapeHtml(l.labo_genrq)})</span>` : ''
     return `
       <tr>
-        <td style="font-family:'DM Mono',monospace;font-size:11px">${l.cip13 || '—'}</td>
-        <td style="font-size:12px">${l.designation || ''}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px">${escapeHtml(l.cip13 || '—')}</td>
+        <td style="font-size:12px">${escapeHtml(l.designation || '')}</td>
         <td style="text-align:right;font-family:'DM Mono',monospace">${l.qte}</td>
         <td style="text-align:right;font-family:'DM Mono',monospace">${(l.pu_ht_brut||0).toFixed(2)}€</td>
         <td style="text-align:right;font-family:'DM Mono',monospace">${(l.remise_pct||0).toFixed(1)}%</td>
@@ -4260,22 +4321,24 @@ function openLaboPreview(data, bandeau) {
   box.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
       <div>
-        <div style="font-size:16px;font-weight:600"><i class=ic-ai></i> Preview IA — ${data.fournisseur}</div>
-        <div style="font-size:12px;color:var(--sub)">Extrait par ${data.model_utilise || 'Claude'} — vérifie avant d'enregistrer</div>
+        <div style="font-size:16px;font-weight:600"><i class=ic-ai></i> Aperçu — ${escapeHtml(data.fournisseur)}</div>
+        <div style="font-size:12px;color:var(--sub)">${data.methode === 'facturx'
+          ? 'Lu depuis la facture électronique (XML), sans IA'
+          : `Extrait par IA (${escapeHtml(data.model_utilise || 'Claude')})`} — vérifiez avant d'enregistrer${destination ? ` · Destination : <strong>${destination}</strong>` : ''}</div>
       </div>
       <div style="padding:6px 12px;background:${confColor}22;color:${confColor};border-radius:6px;font-size:12px;font-weight:600">
-        ${confEmoji} Confiance ${data.confiance}
+        ${confEmoji} Confiance ${escapeHtml(data.confiance)}
       </div>
     </div>
 
     <div class="three-col" style="margin-bottom:10px;gap:8px">
       <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
         <div style="font-size:10px;color:var(--sub);text-transform:uppercase">N° Facture</div>
-        <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${data.num_facture || '—'}</div>
+        <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${escapeHtml(data.num_facture || '—')}</div>
       </div>
       <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
         <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Date</div>
-        <div style="font-size:13px;font-weight:600">${data.date || '—'}</div>
+        <div style="font-size:13px;font-weight:600">${escapeHtml(data.date || '—')}</div>
       </div>
       <div style="padding:8px 12px;background:var(--bg);border-radius:8px">
         <div style="font-size:10px;color:var(--sub);text-transform:uppercase">Total HT</div>
@@ -4298,6 +4361,7 @@ function openLaboPreview(data, bandeau) {
       </div>
     </div>
 
+    ${alertes}
     ${anomalies}
 
     <div style="font-size:12px;color:var(--sub);margin-bottom:6px">Lignes détectées (${data.nb_lignes}) — classification via référentiel pharmacie :</div>
@@ -4324,16 +4388,17 @@ function openLaboPreview(data, bandeau) {
     </div>
   `
 
-  modal.classList.add('active')
-  document.getElementById('btn-labo-confirm').onclick = () => confirmLaboPreview(data, bandeau)
+  modal.classList.add('open')  /* LOT_DIRECT : la CSS n'affiche .modal-overlay qu'avec .open */
+  document.getElementById('btn-labo-confirm').onclick = () => confirmLaboPreview(data, bandeau, opts)
 }
 
 function closeLaboPreview() {
   const m = document.getElementById('modal-labo-preview')
-  if (m) m.classList.remove('active')
+  if (m) m.classList.remove('open')
 }
 
-async function confirmLaboPreview(data, bandeau) {
+async function confirmLaboPreview(data, bandeau, opts) {
+  opts = opts || { source: 'labo_direct' }
   const btn = document.getElementById('btn-labo-confirm')
   if (btn) { btn.disabled = true; btn.innerHTML = 'Enregistrement...' }
 
@@ -4345,11 +4410,14 @@ async function confirmLaboPreview(data, bandeau) {
     mois:        CURRENT_MOIS,
     annee:       CURRENT_ANNEE,
     total_ht:    data.total_ht,
+    total_ttc:   data.total_ttc,
     lignes:      data.lignes,
+    source:      opts.source,
+    fiche_id:    opts.fiche_id || null,
   }
 
   try {
-    const res = await fetch(`${API}/labo-direct/confirmer`, {
+    const res = await fetch(`${API}/depots/confirmer`, {
       method:'POST',
       headers:{ 'Authorization':'Bearer '+TOKEN, 'Content-Type':'application/json' },
       body: JSON.stringify(payload),
@@ -4357,10 +4425,11 @@ async function confirmLaboPreview(data, bandeau) {
     const resp = await res.json()
     if (res.ok && resp.ok) {
       if (bandeau) {
-        bandeau.innerHTML = `<span><i class=ic-check></i></span><span>${data.filename}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${data.fournisseur} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
+        bandeau.innerHTML = `<span><i class=ic-check></i></span><span>${escapeHtml(data.filename)}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${escapeHtml(data.fournisseur)} — ${eur(resp.total_ht)} HT — ${resp.nb_lignes} lignes enregistrées</span>`
       }
       closeLaboPreview()
-      toast('Facture enregistrée', 'green')
+      toast(`Facture enregistrée (${String(resp.mois).padStart(2,'0')}/${resp.annee})`, 'green')
+      if (opts.onSaved) opts.onSaved(resp)
     } else {
       if (btn) { btn.disabled = false; btn.innerHTML = '✓ Enregistrer cette facture' }
       toast(resp.detail || 'Erreur lors de l\'enregistrement', 'red')
@@ -5379,7 +5448,7 @@ async function exportPDFGen() {
 
 // ── LOCKED ─────────────────────────────────────────────────────────────────
 function lockedHTML(module) {
-  const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur' }
+  const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur', rfa:'RFA' }
   return `<div class="locked-module"><div class="locked-icon"><i class=ic-lock></i></div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
 }
 
@@ -7066,6 +7135,10 @@ async function showLogDetail(logId) {
       seuil_sortie_hospi:num('.v390-seuil-hospi',1500), forfait_sortie_hospi:num('.v390-forfait-hospi',50)
     });
     const tEl = document.getElementById('p-taux'); if (tEl) cfgPayload.taux_remise_pct = parseFloat(tEl.value)||0;
+    /* LOT_DATES : a partir de quand s'appliquent ces regles */
+    const quand = window.demanderDateEffet ? await window.demanderDateEffet({ titre: 'Nouvelles règles ' + source.toUpperCase() }) : null;
+    if (window.demanderDateEffet && !quand) { status.textContent=''; return; }
+    if (quand) { cfgPayload.date_effet = quand.date_effet; cfgPayload.recalculer = quand.recalculer; }
     try {
       const T = tk();
       await fetch(`${API}/grossiste/config-detail/${source}`, {method:'POST',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(detail)});
@@ -8922,5 +8995,6 @@ async function showLogDetail(logId) {
 /* =================== FIN V394_BIOSIM_SCREENS =================== */
 
 </script>
+<script src="/rfa-groupement.js"></script>
 </body>
 </html>
