@@ -200,6 +200,9 @@ const API = 'https://web-production-2202b.up.railway.app';
 let TOKEN = null;
 let _PHARMS = [];
 let _REF_TAB = 'classifications';
+// LOT_ROLES_HUB : l'admin d'application (hub) a la console en lecture et les
+// interventions ; activer/désactiver un compte reste au super admin.
+let SUPER_ADMIN = false;
 
 // ---- Auth : jeton Clerk (comme app.html), sinon jeton legacy ----
 async function getToken(){
@@ -278,10 +281,10 @@ function pharmaCard(p){
       ${owner?`<div class="pcard-owner"><b>${esc(owner)}</b></div>`:''}
       <div class="pcard-email">${esc(p.email || '—')}</div>
       <div class="pcard-actions">
-        <a class="btn btn-green btn-sm" href="https://remise.pharmagestion.fr/app.html" title="Ouvrir l'app dans le contexte de ce compte">
+        ${off ? '' : `<button class="btn btn-green btn-sm" onclick="askIntervention('${p.id}')" title="Agir dans le compte de cette pharmacie (tracé)">
           <svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg> Intervenir
-        </a>
-        ${off
+        </button>`}
+        ${!SUPER_ADMIN ? '' : off
           ? `<button class="btn btn-outline btn-sm" onclick="askToggle('${p.id}',true)"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg> Réactiver</button>`
           : `<button class="btn btn-danger btn-sm" onclick="askToggle('${p.id}',false)"><svg viewBox="0 0 24 24"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2v10"/></svg> Désactiver</button>`}
       </div>
@@ -345,6 +348,47 @@ function askToggle(id, activate){
   };
 }
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+// ---- Intervention (LOT_ROLES_HUB) : POST /admin/interventions ----
+// La pharmacie cible est mémorisée côté serveur : tant que l'intervention est
+// ouverte, l'application agit dans CE compte, bandeau visible, écritures tracées.
+const MOTIFS = ['Dépôt de factures','Contrôle facture','Correction paramètres','Support client','Demande du pharmacien','Bug technique','Vérification interne'];
+function askIntervention(id){
+  const p = _PHARMS.find(x => String(x.id)===String(id));
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>Intervenir sur ${esc(p ? p.nom : 'ce compte')}</h3>
+        <p>L'application s'ouvrira dans le compte de cette pharmacie. Un bandeau reste affiché et <b>chaque action est tracée</b> avec votre nom.</p>
+        <div style="display:grid;gap:10px;margin-bottom:18px">
+          <label style="font-size:12.5px;font-weight:700">Motif
+            <select id="iv-motif" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border)">${MOTIFS.map(m=>`<option>${esc(m)}</option>`).join('')}</select></label>
+          <label style="font-size:12.5px;font-weight:700">Type
+            <select id="iv-type" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border)">
+              <option value="PRODUCTION">Production (je travaille pour le client)</option>
+              <option value="ASSISTANCE">Assistance (je regarde avec lui)</option></select></label>
+          <label style="font-size:12.5px;font-weight:700">Précision (facultatif)
+            <input id="iv-com" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border)" placeholder="ex. factures CERP de mars"></label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+          <button class="btn btn-green" id="confirm-iv">Ouvrir l'application</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('confirm-iv').onclick = async () => {
+    try{
+      await api('/admin/interventions', { method:'POST', body: JSON.stringify({
+        pharmacie_id: id,
+        type: document.getElementById('iv-type').value,
+        motif: document.getElementById('iv-motif').value,
+        commentaire: document.getElementById('iv-com').value || null,
+      })});
+      window.location.href = '/app.html';
+    }catch(e){ toast('Erreur : '+e.message, 'red'); }
+  };
+}
 
 // ======================= RÉFÉRENTIELS ======================= // LOT7_IDENTITE
 // Classification : scroll infini + conservation de la position
@@ -459,7 +503,7 @@ function paintClassif(){
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="classif-search" placeholder="Nom ou CIP13…" value="${esc(_SEARCH)}"
-          style="padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);font:inherit;font-size:13px;min-width:220px">
+          style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);font:inherit;font-size:13px;min-width:220px">
         <button class="btn ${_MODE==='corr'?'btn-green':'btn-outline'} btn-sm" onclick="toggleModeCorr()">
           Molécules reclassées${nbCorr?' ('+nbCorr+')':''}
         </button>
@@ -545,7 +589,7 @@ function paintZone(){
     const ouvert = _OPEN_CAT === k;
     const nbc = corrParCat(k);
     return sep + `
-      <div style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px;overflow:hidden">
+      <div style="border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:8px;overflow:hidden">
         <div onclick="toggleCat('${esc(k)}')" style="display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:${ouvert?'var(--brand-l)':'#fff'}">
           <span style="transition:transform .15s;display:inline-block;transform:rotate(${ouvert?90:0}deg);color:var(--sub)">▶</span>
           <b>${esc(c.label||k)}</b>
@@ -591,7 +635,7 @@ function paintCorrections(zone){
           <td>${esc(c.nom||'—')}</td>
           <td>
             <select onchange="setClassif('${esc(c.cip13)}', this.value, this)"
-              style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
+              style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
               ${STATUTS_CIBLES.map(s => `<option value="${s[0]}" ${c.statut_force===s[0]?'selected':''}>${s[1]}</option>`).join('')}
             </select>
           </td>
@@ -700,7 +744,7 @@ function ligneCip(it){
     <td>${esc(it.nom||'—')}</td>
     <td>
       <select onchange="setClassif('${esc(it.cip13)}', this.value, this)"
-        style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
+        style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:12px;max-width:190px">
         ${STATUTS_CIBLES.map(s => `<option value="${s[0]}" ${courant===s[0]?'selected':''}>${s[1]}</option>`).join('')}
       </select>
     </td>
@@ -1201,10 +1245,28 @@ async function loadHistorique(){
     /* La route est /admin/integration/logs. Les deux URL visées jusqu'ici
        (`integration-audit`, `audit`) n'ont jamais existé : l'onglet affichait
        donc toujours l'état vide, quelle que soit l'activité réelle. */
+    // LOT_ROLES_HUB : les interventions de l'équipe dans les comptes clients.
+    let ivs = [];
+    try{ ivs = ((await api('/admin/interventions?limit=100')) || {}).items || []; }catch(e){}
+    const blocIv = !ivs.length ? '' : `
+      <div class="ref-panel" style="margin-bottom:16px">
+        <div class="group-title">Interventions dans les comptes</div>
+        <div class="group-sub">Qui est entré dans quel compte, pourquoi, et combien d'écritures y ont été faites.</div>
+        <table><thead><tr><th>Début</th><th>Fin</th><th>Pharmacie</th><th>Par</th><th>Motif</th><th>Écritures</th></tr></thead><tbody>
+          ${ivs.map(i=>`<tr>
+            <td style="white-space:nowrap">${fmtDate(i.debut)}</td>
+            <td style="white-space:nowrap">${i.fin ? fmtDate(i.fin) : '<span class="badge b-green">en cours</span>'}</td>
+            <td>${esc(i.pharmacie_nom||'—')}</td>
+            <td style="color:var(--sub)">${esc(i.acteur_email)}</td>
+            <td>${i.type==='PRODUCTION'?'<span class="badge b-purple">prod.</span>':'<span class="badge b-gray">assist.</span>'} ${esc(i.motif)}</td>
+            <td>${i.nb_actions||0}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>`;
     const data = await api('/admin/integration/logs?limit=100');
     const logs = (data && data.items) || [];
     if (!logs.length){
-      el.innerHTML = `
+      el.innerHTML = blocIv + `
         <div class="ref-panel"><div class="center">
           <svg class="empty-ico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
           <div style="font-weight:700;color:var(--ink)">Aucune intervention enregistrée</div>
@@ -1212,7 +1274,7 @@ async function loadHistorique(){
         </div></div>`;
       return;
     }
-    el.innerHTML = `
+    el.innerHTML = blocIv + `
       <div class="ref-panel">
         <div class="group-title">Historique des imports PharmaCollect</div>
         <div class="group-sub">${data.total || logs.length} import(s) enregistré(s) — les 100 plus récents.</div>
@@ -1243,7 +1305,8 @@ async function boot(){
   }
   // 2) vérifier que je suis admin
   try{
-    await api('/admin/me');
+    const me = await api('/admin/me');
+    SUPER_ADMIN = !!(me && me.super_admin);
   }catch(e){
     gate("Accès réservé", "Cette console est réservée à l'administration PharmaGestion. Votre compte n'a pas les droits nécessaires.", false);
     return;

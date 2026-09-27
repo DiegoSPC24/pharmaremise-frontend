@@ -655,8 +655,97 @@ const SOURCE_LABELS = { cerp:'CERP', alliance:'Alliance', ocp:'OCP', labo_direct
 const SOURCE_COLORS = { cerp:'var(--green)', alliance:'var(--blue)', ocp:'var(--amber)' }
 const SOURCE_RANG   = { cerp:'Gé1', alliance:'Gé2', ocp:'Gé3' }
 
+/* ============================================================================
+   LOT_ROLES_HUB / LOT_DEMO — dans quel mode l'application s'ouvre.
+   /auth/contexte répond : client (sa pharmacie), intervention (un admin
+   PharmaGestion agit DANS ce compte) ou démo (commercial, Pharmacie du Bourg).
+   Refus codés : DEMO_INACTIVE (commercial sans démo ouverte), AUCUNE_PHARMACIE
+   (membre de l'équipe sans intervention : sa place est la console).
+   ============================================================================ */
+const HUB_URL = 'https://pharmagestion.fr'
+
+function barreMode(html, fond) {
+  const b = document.createElement('div')
+  b.id = 'barre-mode'
+  b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:10px 18px;font-size:13px;color:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.18);background:' + fond
+  b.innerHTML = html
+  document.body.appendChild(b)
+  document.body.style.paddingBottom = '52px'
+}
+const BTN_BARRE = 'border:0;border-radius:8px;padding:6px 12px;font-weight:600;font-size:12px;cursor:pointer'
+
+function bandeauIntervention(ctx) {
+  const iv = ctx.intervention
+  barreMode(
+    '<b>MODE INTERVENTION</b><span style="opacity:.6">•</span><b>' + escapeHtml(ctx.pharmacie.nom) + '</b>' +
+    '<span style="opacity:.6">•</span><span style="opacity:.9">' + (iv.type === 'PRODUCTION' ? 'Production' : 'Assistance') + ' — ' + escapeHtml(iv.motif) + '</span>' +
+    '<span style="opacity:.75;font-size:11px">(toutes vos actions sont tracées)</span><span style="flex:1"></span>' +
+    '<button id="btn-fin-iv" style="' + BTN_BARRE + ';background:#fff;color:#8A5310">Terminer l’intervention</button>',
+    '#B45309')
+  document.getElementById('btn-fin-iv').onclick = async () => {
+    if (!confirm('Terminer l’intervention et revenir à la console ?')) return
+    await apiPost('/admin/interventions/' + iv.id + '/fin', {})
+    window.location.href = '/console'
+  }
+}
+
+function bandeauDemo() {
+  barreMode(
+    '<b>MODE DÉMONSTRATION</b><span style="opacity:.6">•</span><b>Pharmacie du Bourg</b>' +
+    '<span style="opacity:.75;font-size:11px">(données fictives, rien n’est conservé)</span><span style="flex:1"></span>' +
+    '<button id="btn-demo-reco" style="' + BTN_BARRE + ';background:rgba(255,255,255,.18);color:#fff">Recommencer</button>' +
+    '<button id="btn-demo-quit" style="' + BTN_BARRE + ';background:#fff;color:#0F6E56">Quitter la démo</button>',
+    '#0F6E56')
+  document.getElementById('btn-demo-reco').onclick = async () => {
+    if (!confirm('Repartir d’une démo neuve ? Tout ce que vous avez fait sera effacé.')) return
+    const r = await apiPost('/demo/demarrer', {})
+    if (r && r.success) location.reload(); else toast((r && r.detail) || 'Démo indisponible', 'red')
+  }
+  document.getElementById('btn-demo-quit').onclick = async () => {
+    try { await apiPost('/demo/quitter', {}) } finally { window.location.href = HUB_URL + '/commercial' }
+  }
+}
+
+function ecranLancementDemo() {
+  const d = document.createElement('div')
+  d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#F4F7F6;display:flex;align-items:center;justify-content:center;padding:24px'
+  d.innerHTML =
+    '<div style="background:#fff;border-radius:16px;max-width:520px;width:100%;padding:36px;box-shadow:0 12px 40px rgba(0,0,0,.08)">' +
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green)">Démonstration</div>' +
+    '<h1 style="font-family:DM Serif Display,serif;font-size:30px;margin:6px 0 14px">Pharmacie du Bourg</h1>' +
+    '<p style="color:var(--sub);line-height:1.6;font-size:14px">Une officine complète, avec ses factures grossistes, ses contrats génériqueurs et ses RFA. Déposez, paramétrez, figez : tout fonctionne comme chez un client.</p>' +
+    '<p style="color:var(--sub);line-height:1.6;font-size:14px;margin-top:10px"><b style="color:#111">Rien n’est conservé.</b> Chaque démo repart d’une copie neuve, effacée quand vous la quittez.</p>' +
+    '<div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap">' +
+    '<button id="btn-demo-go" class="btn btn-green">Lancer la démo</button>' +
+    '<a class="btn btn-outline" href="' + HUB_URL + '/commercial">Retour à mon espace</a></div>' +
+    '<div id="demo-msg" style="color:#B42318;font-size:13px;margin-top:12px"></div></div>'
+  document.body.appendChild(d)
+  document.getElementById('btn-demo-go').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = 'Préparation de la démo…'
+    const r = await apiPost('/demo/demarrer', {})
+    if (r && r.success) { location.reload(); return }
+    e.target.disabled = false; e.target.textContent = 'Lancer la démo'
+    document.getElementById('demo-msg').textContent = (r && r.detail) || 'La démonstration n’a pas pu être préparée.'
+  }
+}
+
+async function initContexte() {
+  try {
+    const r = await fetch(`${API}/auth/contexte`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
+    let j = {}
+    try { j = await r.json() } catch (e) {}
+    const code = j && j.detail && j.detail.code
+    if (r.status === 403 && code === 'DEMO_INACTIVE') { ecranLancementDemo(); return false }
+    if (r.status === 403 && code === 'AUCUNE_PHARMACIE') { window.location.href = '/console'; return false }
+    if (r.ok && j.mode === 'intervention') bandeauIntervention(j)
+    if (r.ok && j.mode === 'demo') bandeauDemo()
+  } catch (e) { console.error('[contexte]', e) }
+  return true
+}
+
 async function init() {
   try {
+    if (!(await initContexte())) return
     PHARMACIE = await apiGet('/auth/me')
     const abo = await apiGet('/abonnement/current')
     MODULES = abo.modules || []
