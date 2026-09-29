@@ -4263,31 +4263,81 @@ function onFilesSelected(files) {
     uploadFactureAuto(f)
   })
 }
+/* LOT_DEPOT_FILE — file d'attente des dépôts.
+   Toutes les factures d'un lot partaient EN MÊME TEMPS. Le serveur (un seul
+   processus) les traitait l'une après l'autre : les dernières attendaient au
+   point que leur jeton de connexion (60 s) expirait (401), ou que le serveur
+   renvoyait une erreur brute (« Connexion au serveur impossible »).
+   On envoie désormais 2 fichiers à la fois, et une erreur passagère (réseau,
+   serveur, jeton expiré) est retentée une fois — le jeton est renouvelé à
+   chaque envoi. Un nouvel envoi du même fichier remplace l'ancien : sans risque. */
+const _DEPOT_PARALLELE = 2
+let _depotActifs = 0
+const _depotAttente = []
+function _depotPlanifier(tache) {
+  return new Promise(resolve => {
+    _depotAttente.push(async () => { try { await tache() } finally { resolve() } })
+    _depotSuivant()
+  })
+}
+function _depotSuivant() {
+  while (_depotActifs < _DEPOT_PARALLELE && _depotAttente.length) {
+    const t = _depotAttente.shift()
+    _depotActifs++
+    t().finally(() => { _depotActifs--; _depotSuivant() })
+  }
+}
+/* POST d'un fichier avec une seconde tentative sur erreur passagère.
+   Rend { res, data } ; res = null si le serveur n'a jamais répondu. */
+async function _depotEnvoyer(url, fabriquerCorps) {
+  let res = null, data = null
+  for (let essai = 1; essai <= 2; essai++) {
+    try {
+      res = await fetch(url, { method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body: fabriquerCorps() })
+      data = await res.json().catch(() => null)
+      const passager = data === null || res.status >= 500 || res.status === 401
+      if (!passager || essai === 2) break
+    } catch (e) {
+      res = null; data = null
+      if (essai === 2) break
+    }
+    await new Promise(r => setTimeout(r, 3000))
+  }
+  return { res, data }
+}
+function _depotMessageEchec(res, data) {
+  if (!res) return 'Connexion au serveur impossible — vérifiez votre connexion internet et redéposez ce fichier.'
+  if (res.status === 401) return 'Session expirée — rechargez la page (F5) puis redéposez ce fichier.'
+  if (data && data.detail) return typeof data.detail === 'string' ? data.detail : (data.detail.message || JSON.stringify(data.detail))
+  return `Erreur serveur (HTTP ${res.status}) — redéposez ce fichier ; si l'erreur revient, envoyez-le au support PharmaRemise.`
+}
+
 async function uploadFactureAuto(file) {
   const queue = document.getElementById('upload-queue')
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span><i class=ic-clock></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Analyse en cours...</span>`
+  div.innerHTML = `<span><i class=ic-clock></i></span><span>${file.name}</span><span class="depot-etat" style="margin-left:auto;font-size:12px">En attente…</span>`
   queue.appendChild(div)
-  const fd = new FormData(); fd.append('file', file)
+  await _depotPlanifier(() => _uploadFactureAuto(file, div))
+}
+async function _uploadFactureAuto(file, div) {
+  const etat = div.querySelector('.depot-etat')
+  if (etat) etat.textContent = 'Analyse en cours...'
   try {
-    const res = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
-      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
-    })
-    // Réponse non JSON (serveur planté, délai dépassé) : on affiche le code
-    // HTTP au lieu d'un « Erreur réseau » qui ne permettait aucun diagnostic.
-    const data = await res.json().catch(() => ({ detail: `Erreur serveur (HTTP ${res.status}) — réessayez ce fichier seul` }))
-    if (res.ok) {
+    const { res, data } = await _depotEnvoyer(
+      `${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`,
+      () => { const fd = new FormData(); fd.append('file', file); return fd })
+    if (res && res.ok && data) {
       const src = SOURCE_LABELS[data.source] || data.source
       div.innerHTML = `<span><i class=ic-check></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
       try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
     } else {
       // LOT_FACTURE_NON_LUE : le refus explique quoi faire, il doit se lire en entier.
-      _afficherRefusFacture(div, file.name, data.detail || 'Erreur')
+      _afficherRefusFacture(div, file.name, _depotMessageEchec(res, data))
     }
   } catch(e) {
-    _afficherRefusFacture(div, file.name, 'Connexion au serveur impossible — vérifiez votre connexion internet et redéposez ce fichier.')
+    _afficherRefusFacture(div, file.name, 'Erreur d\'affichage : ' + e.message)
   }
 }
 
@@ -4310,19 +4360,23 @@ async function uploadDepot(file, opts) {
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span><i class=ic-ai></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px">Lecture en cours (facture électronique ou IA, 5-10 sec)...</span>`
+  div.innerHTML = `<span><i class=ic-ai></i></span><span>${escapeHtml(file.name)}</span><span class="depot-etat" style="margin-left:auto;font-size:12px">En attente…</span>`
   queue.appendChild(div)
-
-  const fd = new FormData(); fd.append('file', file)
-  fd.append('source', opts.source)
-  if (opts.fiche_id) fd.append('fiche_id', opts.fiche_id)
+  // LOT_DEPOT_FILE : même file d'attente que le dépôt grossiste.
+  await _depotPlanifier(() => _uploadDepot(file, opts, div))
+}
+async function _uploadDepot(file, opts, div) {
+  const etat = div.querySelector('.depot-etat')
+  if (etat) etat.textContent = 'Lecture en cours (facture électronique ou IA, 5-10 sec)...'
   try {
-    const res = await fetch(`${API}/depots/preview`, {
-      method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
+    const { res, data } = await _depotEnvoyer(`${API}/depots/preview`, () => {
+      const fd = new FormData(); fd.append('file', file)
+      fd.append('source', opts.source)
+      if (opts.fiche_id) fd.append('fiche_id', opts.fiche_id)
+      return fd
     })
-    const data = await res.json()
-    if (!res.ok || !data.ok) {
-      let msg = data.erreur || data.detail || 'Extraction impossible'
+    if (!res || !data || !res.ok || !data.ok) {
+      let msg = (data && (data.erreur || data.detail)) || _depotMessageEchec(res, data)
       if (Array.isArray(msg)) msg = msg.map(d => d.msg).join(' ; ')
       div.innerHTML = `<span><i class=ic-x></i></span><span>${escapeHtml(file.name)}</span><span style="margin-left:auto;font-size:12px;color:red">${escapeHtml(msg)}</span>`
       return
