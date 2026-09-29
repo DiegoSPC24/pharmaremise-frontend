@@ -3561,6 +3561,8 @@ async function reclasserToutesLignes() {
     'Reclasser tous vos produits avec les seuils actuels ?\n\n' +
     'Chaque ligne de facture est reclassée : générique, biosimilaire, puis pour ' +
     'les princeps selon les seuils « produit cher » et « sortie hospitalière ».\n\n' +
+    'Les lignes qui portent un prix brut et un prix net sans le % de remise ' +
+    'sont aussi complétées.\n\n' +
     'Vos corrections au pinceau sont conservées.\n' +
     'Les années figées ne sont pas touchées.'
   )) return
@@ -3608,6 +3610,7 @@ async function reclasserToutesLignes() {
       <div style="font-size:16px;font-weight:700;margin-bottom:4px">Reclassement terminé</div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
         ${d.nb_factures} facture(s), ${d.nb_lignes} ligne(s) — ${d.nb_changees} changement(s).
+        ${d.nb_remises_completees ? `<br>${d.nb_remises_completees} ligne(s) dont la remise facture a été complétée d'après le prix brut et le prix net.` : ''}
       </div>
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <thead><tr style="color:var(--sub);font-size:11px">
@@ -3718,6 +3721,12 @@ function renderGeneriqueurPage(synth) {
     return
   }
 
+  // RDP Biogaran : montant ET taux (rapporté au CA Biogaran, seule base de la RDP)
+  const rdpAtteinte = (totaux.rdp_e||0) > 0
+  const rdpMontant = rdpAtteinte ? totaux.rdp_e : (totaux.rdp_potentielle_e||0)
+  const caBiogaran = (labos.find(x => x.labo === 'Biogaran') || {}).ca_total_ht || 0
+  const rdpPctKpi = caBiogaran > 0 ? (rdpMontant / caBiogaran * 100) : 0
+
   // KPIs globaux
   const kpiHtml = `
     <div class="kpi-grid">
@@ -3725,9 +3734,9 @@ function renderGeneriqueurPage(synth) {
       <div class="kpi-card"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val green">${eur(totaux.remise_grossiste_e||0)}</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Remise contrat</div><div class="kpi-val green">${eur(totaux.remise_contrat_e||0)}</div></div>
       <div class="kpi-card">
-        <div class="kpi-lbl">RDP Biogaran ${(totaux.rdp_e||0) > 0 ? '<i class=ic-check></i>' : '<i class=ic-clock></i>'}</div>
-        <div class="kpi-val ${(totaux.rdp_e||0) > 0 ? 'green' : 'blue'}">${eur((totaux.rdp_e||0) > 0 ? totaux.rdp_e : (totaux.rdp_potentielle_e||0))}</div>
-        <div style="font-size:10px;color:var(--sub);margin-top:2px">${(totaux.rdp_e||0) > 0 ? 'Atteinte' : 'Potentielle'}</div>
+        <div class="kpi-lbl">RDP Biogaran ${rdpAtteinte ? '<i class=ic-check></i>' : '<i class=ic-clock></i>'}</div>
+        <div class="kpi-val ${rdpAtteinte ? 'green' : 'blue'}">${eur(rdpMontant)}</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:2px">${rdpAtteinte ? 'Atteinte' : 'Potentielle'} · <b>${rdpPctKpi.toFixed(2).replace('.', ',')} %</b> du CA Biogaran</div>
       </div>
     </div>`
 
@@ -3920,25 +3929,24 @@ function renderMetriquesLabo(l, isPrio) {
     const rdpPotentielle = (rdp && rdp.rdp_potentielle_e)
       ? rdp.rdp_potentielle_e
       : (l.rdp_potentielle_e || 0)
+    /* LOT_REMISE_FACTURE — la RDP en € ET en %. Le sous-titre affichait
+       « (10%) » en dur depuis que le taux varie par produit (10 / 20 / 27,5 %) :
+       on montre le taux réellement obtenu, montant RDP / CA Biogaran. */
+    const rdpMontant = atteint ? rdpEffective : rdpPotentielle
+    const rdpPct = l.ca_total_ht > 0 ? (rdpMontant / l.ca_total_ht * 100) : 0
+    const pctTxt = `${rdpPct.toFixed(2).replace('.', ',')} % du CA`
     const sousTitre = rdp
-      ? (atteint ? 'Conditions atteintes (10%)' : 'potentielle (si atteint)')
+      ? (atteint ? 'Conditions atteintes' : 'potentielle (si atteint)')
       : (atteint ? 'Cumul période' : 'potentielle cumulée (aucun mois atteint)')
+    const couleurRdp = atteint ? '#2563EB' : 'var(--sub)'
 
-    if (atteint) {
-      colRDP = `
-        <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
-          <div style="font-size:18px;font-weight:600;color:#2563EB;font-family:'DM Mono',monospace">${eur(rdpEffective)}</div>
-          <div style="font-size:10px;color:#2563EB;margin-top:2px">${sousTitre}</div>
-        </div>`
-    } else {
-      colRDP = `
-        <div>
-          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
-          <div style="font-size:18px;font-weight:600;color:var(--sub);font-family:'DM Mono',monospace">${eur(rdpPotentielle)}</div>
-          <div style="font-size:10px;color:var(--sub);margin-top:2px">${sousTitre}</div>
-        </div>`
-    }
+    colRDP = `
+      <div>
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px">RDP</div>
+        <div style="font-size:18px;font-weight:600;color:${couleurRdp};font-family:'DM Mono',monospace">${eur(rdpMontant)}</div>
+        <div style="font-size:11px;font-weight:600;color:${couleurRdp};font-family:'DM Mono',monospace;margin-top:2px">${pctTxt}</div>
+        <div style="font-size:10px;color:${couleurRdp};margin-top:1px">${sousTitre}</div>
+      </div>`
   }
 
   // Colonne 4 : Contrat
@@ -4114,6 +4122,9 @@ function renderDetailsLignes(lignes, labo) {
     const rge = l.remise_grossiste_e || 0
     const rgfn = l.remise_generique_pct   // référence (peut être null)
     const rgfe = l.remise_generique_e || 0
+    // LOT_REMISE_FACTURE : % absent de la facture, estimé d'après le PPHT catalogue
+    const estim = l.remise_origine === 'catalogue'
+    const estimAttr = estim ? ` title="Remise non imprimée sur la facture : estimée d'après le prix catalogue du labo (${eur(l.ppht)})"` : ''
 
     // Comparaison % grossiste vs % référence (est-ce que le grossiste applique bien ce que le labo promet ?)
     let compColor = 'var(--text)'
@@ -4148,8 +4159,8 @@ function renderDetailsLignes(lignes, labo) {
         <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.pfht)}</td>
         <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;font-weight:600">${eur(l.total_ht)}</td>
 
-        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}">${rgp}%${compIcon}</td>
-        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}">${eur(rge)}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}"${estimAttr}>${estim ? '≈ ' : ''}${rgp}%${compIcon}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${compColor}"${estimAttr}>${estim ? '≈ ' : ''}${eur(rge)}</td>
 
         <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--sub)">${rgfn !== null && rgfn !== undefined ? rgfn+'%' : '—'}</td>
         <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--sub)">${rgfn !== null && rgfn !== undefined ? eur(rgfe) : '—'}</td>
@@ -4166,7 +4177,8 @@ function renderDetailsLignes(lignes, labo) {
       <strong style="color:var(--text)">Légende :</strong> 
       <span style="color:var(--green)">●</span> Remise grossiste OK (conforme à la référence) • 
       <span style="color:#DC2626"><i class=ic-alert></i></span> Remise grossiste insuffisante vs référence labo • 
-      <span style="color:#D97706"><i class=ic-settings></i></span> Règle particulière appliquée
+      <span style="color:#D97706"><i class=ic-settings></i></span> Règle particulière appliquée •
+      <b>≈</b> Remise non imprimée sur la facture, estimée d'après le prix catalogue du labo
     </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px">
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
@@ -4263,17 +4275,31 @@ async function uploadFactureAuto(file) {
     const res = await fetch(`${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`, {
       method:'POST', headers:{ 'Authorization':'Bearer '+TOKEN }, body:fd
     })
-    const data = await res.json()
+    // Réponse non JSON (serveur planté, délai dépassé) : on affiche le code
+    // HTTP au lieu d'un « Erreur réseau » qui ne permettait aucun diagnostic.
+    const data = await res.json().catch(() => ({ detail: `Erreur serveur (HTTP ${res.status}) — réessayez ce fichier seul` }))
     if (res.ok) {
       const src = SOURCE_LABELS[data.source] || data.source
       div.innerHTML = `<span><i class=ic-check></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
       try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
     } else {
-      div.innerHTML = `<span><i class=ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">${data.detail||'Erreur'}</span>`
+      // LOT_FACTURE_NON_LUE : le refus explique quoi faire, il doit se lire en entier.
+      _afficherRefusFacture(div, file.name, data.detail || 'Erreur')
     }
   } catch(e) {
-    div.innerHTML = `<span><i class=ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau</span>`
+    _afficherRefusFacture(div, file.name, 'Connexion au serveur impossible — vérifiez votre connexion internet et redéposez ce fichier.')
   }
+}
+
+function _afficherRefusFacture(div, nomFichier, message) {
+  div.className = 'alert'
+  div.style = 'margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B'
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+  div.innerHTML = `<span><i class=ic-x></i></span>
+    <div style="min-width:0">
+      <div style="font-weight:600">${esc(nomFichier)}</div>
+      <div style="font-size:12px;margin-top:2px">${esc(message)}</div>
+    </div>`
 }
 
 
@@ -7364,7 +7390,15 @@ async function showLogDetail(logId) {
     });
   }
 
+  /* LOT_REMISE_FACTURE — le mois choisi en haut de l'écran vit dans
+     CURRENT_MOIS / CURRENT_ANNEE (déclarés en `let`, donc absents de
+     `window`). Les tests ci-dessous ne les trouvaient jamais : la fenêtre
+     « Voir tout » montrait toujours le mois calendaire en cours, quel que
+     soit le mois affiché derrière elle. */
   function _getMonthYear() {
+    if (typeof CURRENT_MOIS !== 'undefined' && typeof CURRENT_ANNEE !== 'undefined') {
+      return { mois: CURRENT_MOIS, annee: CURRENT_ANNEE };
+    }
     if (window.currentMois !== undefined && window.currentAnnee !== undefined) {
       return { mois: window.currentMois, annee: window.currentAnnee };
     }
@@ -7376,6 +7410,13 @@ async function showLogDetail(logId) {
   }
 
   function _getPeriode() {
+    // Période choisie en haut de l'écran (mode « Période »), sinon repli.
+    if (typeof _PERIODE_MODE !== 'undefined' && _PERIODE_MODE && _PERIODE_DEBUT && _PERIODE_FIN) {
+      return {
+        debut_mois: _PERIODE_DEBUT.mois, debut_annee: _PERIODE_DEBUT.annee,
+        fin_mois: _PERIODE_FIN.mois, fin_annee: _PERIODE_FIN.annee,
+      };
+    }
     if (window.periodeDebutMois !== undefined && window.periodeFinMois !== undefined) {
       return {
         debut_mois: window.periodeDebutMois,
@@ -7405,6 +7446,8 @@ async function showLogDetail(logId) {
     return Number(v).toFixed(1) + ' %';
   }
 
+  const _ESTIM_TITLE = ` title="Remise non imprimée sur la facture : estimée d'après le prix catalogue du labo"`;
+
   let _currentLabo = null;
   let _currentSource = null;
   let _currentMode = 'mois';
@@ -7419,7 +7462,7 @@ async function showLogDetail(logId) {
     
     if (!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;"><i class=ic-clock></i> Chargement...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#888;"><i class=ic-clock></i> Chargement...</td></tr>`;
     totalsDiv.innerHTML = '';
     
     let url, periodLabel;
@@ -7441,7 +7484,7 @@ async function showLogDetail(logId) {
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + T() } });
       const data = await r.json();
       if (!r.ok) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic-alert></i> ${data.detail || 'Erreur'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic-alert></i> ${data.detail || 'Erreur'}</td></tr>`;
         return;
       }
       
@@ -7478,7 +7521,7 @@ async function showLogDetail(logId) {
       
       // Tableau produits
       if (produits.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#888;">Aucun produit ${_currentSource ? 'chez ' + _currentSource.toUpperCase() : ''} sur cette période.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#888;">Aucun produit ${_currentSource ? 'chez ' + _currentSource.toUpperCase() : ''} sur cette période.</td></tr>`;
       } else {
         tbody.innerHTML = produits.map(p => `
           <tr>
@@ -7487,13 +7530,17 @@ async function showLogDetail(logId) {
             <td style="text-align:center; font-size:11px;">${(p.source || '').toUpperCase()}</td>
             <td style="text-align:right;">${p.qte || 0}</td>
             <td style="text-align:right;">${_fmtEuro(p.total_ht)}</td>
-            <td style="text-align:right; color:#888;">${_fmtPct(p.remise_grossiste_pct)}</td>
-            <td style="text-align:right;">${_fmtEuro(p.remise_grossiste_e)}</td>
-            <td style="text-align:right;">${_fmtEuro(p.rdp_e)}</td>
+            <td style="text-align:right; color:#888;"${p.remise_estimee ? _ESTIM_TITLE : ''}>${p.remise_estimee ? '≈ ' : ''}${_fmtPct(p.remise_grossiste_pct)}</td>
+            <td style="text-align:right;"${p.remise_estimee ? _ESTIM_TITLE : ''}>${p.remise_estimee ? '≈ ' : ''}${_fmtEuro(p.remise_grossiste_e)}</td>
+            <td style="text-align:right; color:#2563EB;">${_fmtPct(p.rdp_pct)}</td>
+            <td style="text-align:right; color:#2563EB;">${_fmtEuro(p.rdp_e)}</td>
             <td style="text-align:right; color:#888;">${_fmtPct(p.taux_contrat_applique_pct)}</td>
             <td style="text-align:right; font-weight:500; color:#1D9E75;">${_fmtEuro(p.remise_contrat_e)}</td>
           </tr>
-        `).join('');
+        `).join('') + (produits.some(p => p.remise_estimee) ? `
+          <tr><td colspan="11" style="font-size:11px; color:#888; padding:10px 8px;">
+            <b>≈</b> Remise non imprimée sur la facture : estimée d'après le prix catalogue du laboratoire.
+          </td></tr>` : '');
       }
       
       btnPdfTout.style.display = 'inline-block';
@@ -7504,7 +7551,7 @@ async function showLogDetail(logId) {
         btnPdfSource.style.display = 'none';
       }
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic-alert></i> ${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#c0392b;"><i class=ic-alert></i> ${e.message}</td></tr>`;
     }
   }
 
@@ -7586,6 +7633,7 @@ async function showLogDetail(logId) {
                 <th style="text-align:right;">Total HT</th>
                 <th style="text-align:right;">Rem. fact %</th>
                 <th style="text-align:right;">Rem. fact €</th>
+                <th style="text-align:right;">RDP %</th>
                 <th style="text-align:right;">RDP €</th>
                 <th style="text-align:right;">Rem. contrat %</th>
                 <th style="text-align:right;">Rem. contrat €</th>

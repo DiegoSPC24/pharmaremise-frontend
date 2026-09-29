@@ -1276,7 +1276,7 @@ async function loadHistorique(){
     }
     el.innerHTML = blocIv + `
       <div class="ref-panel">
-        <div class="group-title">Historique des imports PharmaCollect</div>
+        <div class="group-title">Imports PharmaCollect et factures non lues</div>
         <div class="group-sub">${data.total || logs.length} import(s) enregistré(s) — les 100 plus récents.</div>
         <table><thead><tr><th>Date</th><th>Pharmacie</th><th>Type</th><th>État</th><th>Détail</th></tr></thead><tbody>
           ${logs.map(l=>`<tr>
