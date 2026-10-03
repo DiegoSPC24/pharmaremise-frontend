@@ -230,6 +230,10 @@
 .info-field-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--sub); margin-bottom:4px; }
 .info-field-value { font-size:14px; color:var(--text); font-weight:500; }
 
+/* LOT_CONTRAT : grossiste sans contrat de remise arrière */
+.contrat-absent { font-size:12.5px; color:#92400E; background:#FFFBEB; border:1px solid #F0E2B8; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+.sans-contrat .seg-mode, .sans-contrat [id^="bloc-simplifie-"], .sans-contrat .v390-block { opacity:.4; pointer-events:none; filter:grayscale(.4); }
+
 </style>
   <script src="/clerk-sso.js"></script>
   <link rel="stylesheet" href="/refonte.css?v=6" />
@@ -772,6 +776,8 @@ function goTo(screen, btn) {
   })
   const titles = { accueil:'Accueil', grossiste:'Contrôle Grossiste', generiqueur:'Contrôle Génériqueur', depot:'Dépôt de factures', comparateur:'Comparateur', parametres:'Paramètres', biosimilaires:'Biosimilaires', anneesfigees:'Années figées', rfa:'RFA', groupement:'Remise groupement' }
   const tt = document.getElementById('topbar-title'); if (tt) tt.textContent = titles[screen] || screen
+  /* LOT_CONTRAT : un contrat coché/décoché ailleurs doit se voir en revenant */
+  if (screen === 'accueil')     loadAccueil()
   if (screen === 'grossiste')   loadGrossiste()
   if (screen === 'generiqueur') loadGeneriqueur()
   if (screen === 'parametres')  loadParametres()
@@ -1142,6 +1148,17 @@ let _ACCUEIL_DATA = null
 let _TRESO_ANNEE = (typeof CURRENT_ANNEE !== 'undefined' && CURRENT_ANNEE) ? CURRENT_ANNEE : new Date().getFullYear()
 const _MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 
+/* LOT_CONTRAT : un tableau par génériqueur (n°1, n°2…), dans l'ordre de
+   Paramètres > Mes génériqueurs. Attendu = remise contrat + RDP : la remise
+   déjà déduite sur la facture du grossiste n'est pas de l'argent à percevoir. */
+let _TRESO = { gens: [], percu: { grossiste:{}, generique:{} } }
+
+function _ordreGeneriqueurs(cfgs) {
+  const prios = cfgs.filter(c => c.prioritaire).sort((a,b) => (a.ordre||999) - (b.ordre||999))
+  const autres = cfgs.filter(c => !c.prioritaire).sort((a,b) => a.labo.localeCompare(b.labo))
+  return [...prios, ...autres].map(c => c.labo)
+}
+
 async function loadAccueil() {
   const el = document.getElementById('accueil-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
@@ -1151,25 +1168,49 @@ async function loadAccueil() {
     const results = await Promise.all([
       apiGet(`/grossiste/remise-annuelle?annee=${annee}`).catch(()=>({par_mois:{}})),
       apiGet(`/grossiste/tresorerie?annee=${annee}`).catch(()=>[]),
+      apiGet('/generiqueur/config').catch(()=>[]),
       ...mois.map(m => apiGet(`/generiqueur/synthese?mois=${m}&annee=${annee}`).catch(()=>({})))
     ])
     const gAnnuel = results[0] || {par_mois:{}}
-    const percus = results[1] || []
-    const genSynth = results.slice(2)
+    const percus = Array.isArray(results[1]) ? results[1] : []
+    const cfgsGen = Array.isArray(results[2]) ? results[2] : []
+    const genSynth = results.slice(3)
+
+    // Génériqueurs sous contrat, puis ceux qui n'apparaissent plus dans
+    // Paramètres mais ont un montant cette année (année figée, saisie).
+    const gens = _ordreGeneriqueurs(cfgsGen)
+    genSynth.forEach(s => ((s && s.labos) || []).forEach(l => {
+      if (l.configure && ((l.remise_contrat_e||0) + (l.rdp_e||0)) > 0 && !gens.includes(l.labo)) gens.push(l.labo)
+    }))
+    percus.forEach(r => { if (r.type === 'generique' && r.labo && !gens.includes(r.labo)) gens.push(r.labo) })
+    if (!gens.length) gens.push('')  // aucun génériqueur : un seul tableau
+
     const attendu = { grossiste:{}, generique:{} }
     const percu = { grossiste:{}, generique:{} }
-    const rattrapage = { grossiste:[], generique:[] }
+    const rattrapage = { grossiste:[], generique:{} }
+    gens.forEach(k => { attendu.generique[k] = {}; percu.generique[k] = {}; rattrapage.generique[k] = [] })
     mois.forEach((m,i)=>{
       attendu.grossiste[m] = (gAnnuel.par_mois && gAnnuel.par_mois[m]) || 0
-      const t = (genSynth[i] && genSynth[i].totaux) || {}
-      attendu.generique[m] = t.remise_totale || t.remise_totale_e || 0
+      ;((genSynth[i] && genSynth[i].labos) || []).forEach(l => {
+        if (attendu.generique[l.labo]) attendu.generique[l.labo][m] = Math.round(((l.remise_contrat_e||0) + (l.rdp_e||0)) * 100) / 100
+      })
     })
     percus.forEach(r=>{
-      const ty = (r.type === 'generique') ? 'generique' : 'grossiste'
-      if (r.is_rattrapage) rattrapage[ty].push(r)
-      else percu[ty][r.mois] = r
+      if (r.type !== 'generique') {
+        if (r.is_rattrapage) rattrapage.grossiste.push(r)
+        else percu.grossiste[r.mois] = r
+        return
+      }
+      // Saisie d'avant le suivi par génériqueur : rangée sous le n°1.
+      const k = (r.labo && percu.generique[r.labo]) ? r.labo : gens[0]
+      if (r.is_rattrapage) { rattrapage.generique[k].push(r); return }
+      const deja = percu.generique[k][r.mois]
+      percu.generique[k][r.mois] = deja
+        ? Object.assign({}, deja, { montant_ht: (deja.montant_ht||0) + (r.montant_ht||0) })
+        : r
     })
-    el.innerHTML = _renderTreso(annee, attendu, percu, rattrapage)
+    _TRESO = { gens, percu }
+    el.innerHTML = _renderTreso(annee, attendu, percu, rattrapage, gens)
   } catch(e) {
     el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
     console.error(e)
@@ -1180,14 +1221,26 @@ function _sommeAttendu(att){ let s=0; for(let m=1;m<=12;m++) s += (att[m]||0); r
 function _sommePercuMois(pc){ let s=0; for(let m=1;m<=12;m++) s += (pc[m] ? (pc[m].montant_ht||0) : 0); return s }
 function _sommeRattrapage(rl){ return (rl||[]).reduce((a,r)=>a+(r.montant_ht||0),0) }
 
-function _renderTreso(annee, attendu, percu, rattrapage){
+function _titreGeneriqueur(gi) {
+  const labo = _TRESO.gens[gi]
+  return labo ? `Génériqueur n°${gi+1} — ${labo}` : 'Génériqueurs'
+}
+
+function _renderTreso(annee, attendu, percu, rattrapage, gens){
   const dehorsG = _sommeAttendu(attendu.grossiste) - _sommePercuMois(percu.grossiste) - _sommeRattrapage(rattrapage.grossiste)
-  const dehorsGen = _sommeAttendu(attendu.generique) - _sommePercuMois(percu.generique) - _sommeRattrapage(rattrapage.generique)
+  let attGen = 0, percuGen = 0
+  gens.forEach(k => {
+    attGen += _sommeAttendu(attendu.generique[k])
+    percuGen += _sommePercuMois(percu.generique[k]) + _sommeRattrapage(rattrapage.generique[k])
+  })
+  const dehorsGen = attGen - percuGen
   const dehorsTotal = dehorsG + dehorsGen
   /* REFONTE_P3_EQUATION — derive des memes sommes : dehorsTotal === attTotal - percuTotal */
-  const attTotal = _sommeAttendu(attendu.grossiste) + _sommeAttendu(attendu.generique)
-  const percuTotal = _sommePercuMois(percu.grossiste) + _sommePercuMois(percu.generique)
-                   + _sommeRattrapage(rattrapage.grossiste) + _sommeRattrapage(rattrapage.generique)
+  const attTotal = _sommeAttendu(attendu.grossiste) + attGen
+  const percuTotal = _sommePercuMois(percu.grossiste) + _sommeRattrapage(rattrapage.grossiste) + percuGen
+  const sousTitreGen = gens[0]
+    ? 'Remise contrat + RDP. La remise déjà déduite sur vos factures n\'est pas comptée.'
+    : 'Aucun génériqueur configuré : ajoutez vos contrats dans Paramètres › Mes génériqueurs.'
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px">
     <div>
@@ -1223,12 +1276,13 @@ function _renderTreso(annee, attendu, percu, rattrapage){
     <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:20px">${eur(dehorsG)}</div></div>
     <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:20px">${eur(dehorsGen)}</div></div>
   </div>
-  ${_tableTreso('grossiste','Grossistes', attendu.grossiste, percu.grossiste, rattrapage.grossiste)}
-  ${_tableTreso('generique','Génériqueurs', attendu.generique, percu.generique, rattrapage.generique)}
+  ${_tableTreso('grossiste', 'Grossistes', '', attendu.grossiste, percu.grossiste, rattrapage.grossiste, -1)}
+  ${gens.map((k, gi) => _tableTreso('generique', _titreGeneriqueur(gi), sousTitreGen,
+      attendu.generique[k], percu.generique[k], rattrapage.generique[k], gi)).join('')}
   `
 }
 
-function _tableTreso(type, titre, attendu, percu, rattrapage){
+function _tableTreso(type, titre, sousTitre, attendu, percu, rattrapage, gi){
   /* V371_TRESO_HORIZONTAL : mois en colonnes */
   const ABBR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
   let totAtt = 0, totPercu = 0
@@ -1244,7 +1298,7 @@ function _tableTreso(type, titre, attendu, percu, rattrapage){
     const cell = 'text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 8px'
     thMois += `<th style="text-align:right;min-width:80px;font-size:11px;padding:6px 8px;color:var(--sub)">${ABBR[m-1]}</th>`
     rAtt += `<td style="${cell}">${eur(att)}</td>`
-    rPercu += `<td onclick="_saisirPercu('${type}',${m})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span class=chip-saisir>Saisir</span>'}</td>`
+    rPercu += `<td onclick="_saisirPercu('${type}',${m},${gi})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span class=chip-saisir>Saisir</span>'}</td>`
     rDiff += `<td style="${cell};color:${diffColor}">${eur(diff)}</td>`
   }
   const totRat = _sommeRattrapage(rattrapage)
@@ -1261,8 +1315,11 @@ function _tableTreso(type, titre, attendu, percu, rattrapage){
   }
   return `<div class="card" style="margin-top:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:16px;font-weight:700">${titre}</div>
-      <button class="btn btn-outline btn-sm" onclick="_saisirRattrapage('${type}')">+ Rattrapage fin d'année</button>
+      <div>
+        <div style="font-size:16px;font-weight:700">${titre}</div>
+        ${sousTitre ? `<div style="font-size:11.5px;color:var(--sub);margin-top:2px">${sousTitre}</div>` : ''}
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="_saisirRattrapage('${type}',${gi})">+ Rattrapage fin d'année</button>
     </div>
     <div style="overflow-x:auto">
       <table style="border-collapse:collapse;min-width:100%">
@@ -1282,13 +1339,19 @@ function _tableTreso(type, titre, attendu, percu, rattrapage){
 
 function _changerAnneeTreso(d){ _TRESO_ANNEE += d; loadAccueil() }
 function _fermerModalTreso(){ const o=document.getElementById('treso-modal'); if(o) o.remove() }
-function _saisirPercu(type, mois){ _modalTreso(type, mois, false) }
-function _saisirRattrapage(type){ _modalTreso(type, 0, true) }
+function _saisirPercu(type, mois, gi){ _modalTreso(type, mois, false, gi) }
+function _saisirRattrapage(type, gi){ _modalTreso(type, 0, true, gi) }
 
-function _modalTreso(type, mois, isRat){
+function _ligneTreso(type, mois, gi){
+  if (type === 'generique') return ((_TRESO.percu.generique[_TRESO.gens[gi]]) || {})[mois] || null
+  return _TRESO.percu.grossiste[mois] || null
+}
+
+function _modalTreso(type, mois, isRat, gi){
   _fermerModalTreso()
-  const tt = (type==='generique') ? 'Génériqueur' : 'Grossiste'
+  const tt = (type==='generique') ? (_TRESO.gens[gi] ? _titreGeneriqueur(gi) : 'Génériqueur') : 'Grossiste'
   const titre = isRat ? ('Rattrapage — '+tt) : ('Remise perçue — '+tt+' — '+_MOIS_NOMS[mois-1])
+  const ex = isRat ? null : _ligneTreso(type, mois, gi)
   const o = document.createElement('div')
   o.id = 'treso-modal'
   o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999'
@@ -1297,22 +1360,22 @@ function _modalTreso(type, mois, isRat){
     <div style="font-size:16px;font-weight:700;margin-bottom:16px">${titre}</div>
     ${isRat ? `<label style="font-size:12px;color:var(--sub)">Libellé (optionnel)</label><input id="tr-lib" type="text" placeholder="ex : RFA 2024" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">` : ''}
     <label style="font-size:12px;color:var(--sub)">Date d'encaissement</label>
-    <input id="tr-date" type="date" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">
+    <input id="tr-date" type="date" value="${(ex && ex.date_encaissement) || ''}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">
     <label style="font-size:12px;color:var(--sub)">Montant saisi en</label>
     <div style="display:flex;gap:10px;margin:6px 0 10px">
       <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ht" checked> HT</label>
       <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ttc"> TTC (→ HT à 20%)</label>
     </div>
-    <input id="tr-montant" type="number" step="0.01" placeholder="0.00" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:18px;box-sizing:border-box">
+    <input id="tr-montant" type="number" step="0.01" placeholder="0.00" value="${ex ? (ex.montant_ht||0) : ''}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:18px;box-sizing:border-box">
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline btn-sm" onclick="_fermerModalTreso()">Annuler</button>
-      <button class="btn btn-green btn-sm" onclick="_enregistrerPercu('${type}',${mois},${isRat?1:0})">Enregistrer</button>
+      <button class="btn btn-green btn-sm" onclick="_enregistrerPercu('${type}',${mois},${isRat?1:0},${gi})">Enregistrer</button>
     </div>
   </div>`
   document.body.appendChild(o)
 }
 
-async function _enregistrerPercu(type, mois, isRat){
+async function _enregistrerPercu(type, mois, isRat, gi){
   const montant = parseFloat((document.getElementById('tr-montant')||{}).value || '0') || 0
   const baseEl = document.querySelector('input[name="tr-base"]:checked')
   const base = baseEl ? baseEl.value : 'ht'
@@ -1322,12 +1385,16 @@ async function _enregistrerPercu(type, mois, isRat){
   let ht, ttc
   if (base === 'ttc') { ttc = montant; ht = Math.round((montant/1.20)*100)/100 }
   else { ht = montant; ttc = Math.round((montant*1.20)*100)/100 }
+  const ex = isRat ? null : _ligneTreso(type, mois, gi)
   try {
-    await apiPost('/grossiste/tresorerie', {
+    const r = await apiPost('/grossiste/tresorerie', {
       type: type, annee: _TRESO_ANNEE, mois: isRat ? 0 : mois,
+      labo: (type === 'generique' && _TRESO.gens[gi]) || null,
+      id: ex ? ex.id : null,
       is_rattrapage: !!isRat, libelle: lib, date_encaissement: date,
       montant_ttc: ttc, montant_ht: ht
     })
+    if (!r || !r.id) throw new Error((r && r.detail) || 'Erreur')
     _fermerModalTreso()
     toast('Enregistré', 'green')
     loadAccueil()
@@ -1747,6 +1814,7 @@ async function loadGrossiste() {
       const color = SOURCE_COLORS[g.source] || 'var(--sub)'
       const label = SOURCE_LABELS[g.source] || g.source
       const rang  = SOURCE_RANG[g.source] || ''
+      const sansContrat = g.contrat_actif === false  // LOT_CONTRAT
       const fList = (parSource[g.source] || [])
       const fRows = fList.length ? fList.map(f => {
         const isDup = f.is_duplicate === true
@@ -1777,12 +1845,20 @@ async function loadGrossiste() {
             <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">${rang}</div>
             <div style="font-size:15px;font-weight:700;color:${color}">${label}</div>
           </div>
-          <div style="text-align:right">
+          ${sansContrat ? `<div style="text-align:right">
+            <div style="font-size:11px;color:var(--sub)">Contrat</div>
+            <div style="font-size:15px;font-weight:600;color:var(--sub)">Sans contrat</div>
+          </div>` : `<div style="text-align:right">
             <div style="font-size:11px;color:var(--sub)">Taux contrat</div>
             <div style="font-size:18px;font-weight:600;color:${color}">${g.taux_remise_pct}%</div>
-          </div>
+          </div>`}
         </div>
-        ${detailBySource[g.source] ? renderDetailRemise(detailBySource[g.source]) : `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${sansContrat ? `<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+          <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total</div><div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div></div>
+          <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val" style="font-size:18px;color:var(--sub)">Non calculée</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--sub);margin-bottom:12px">Pas de contrat de remise arrière avec ${label} (Paramètres). Ses factures comptent pour vos génériqueurs.</div>`
+        : detailBySource[g.source] ? renderDetailRemise(detailBySource[g.source]) : `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
           <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total</div><div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div></div>
           <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA éligible</div><div class="kpi-val green" style="font-size:18px">${eur(g.ca_eligible)}</div></div>
           <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise estimée</div><div class="kpi-val green" style="font-size:18px">${eur(g.remise_calculee)}</div></div>
@@ -3360,6 +3436,30 @@ function _setParamMode(mode, source){
   if (det) det.classList.toggle('param-grise', mode!=='detail')
   window._PARAM_MODE = window._PARAM_MODE || {}; window._PARAM_MODE[source] = mode
 }
+/* LOT_CONTRAT : grossistes avec un contrat de remise arrière */
+function _aContrat(source) {
+  const c = CONFIGS_GROSSISTE[source]
+  return !c || c.contrat_actif !== false
+}
+async function _changerContrat(source, el) {
+  const actif = el.checked
+  const label = SOURCE_LABELS[source] || source
+  el.disabled = true
+  toast(actif ? `${label} : calcul de la remise grossiste...` : `${label} : retrait de la remise grossiste...`)
+  try {
+    const r = await apiPut(`/grossiste/contrat/${source}`, { contrat_actif: actif })
+    if (!r || r.source !== source) throw new Error((r && r.detail) || 'Erreur')
+    CONFIGS_GROSSISTE[source] = Object.assign({}, CONFIGS_GROSSISTE[source], { contrat_actif: actif })
+    const n = (r.recalcul && r.recalcul.nb_factures_recalculees) || 0
+    toast(`${label} : ${actif ? 'contrat activé' : 'sans contrat'} — ${n} facture(s) recalculée(s)`, 'green')
+    _renderParametres()
+  } catch(e) {
+    el.checked = !actif
+    el.disabled = false
+    toast(`Erreur : ${label} n'a pas été modifié`, 'red')
+  }
+}
+
 function _renderParametres() {
   const el = document.getElementById('parametres-content')
   const source = _PARAM_TAB
@@ -3367,10 +3467,21 @@ function _renderParametres() {
   const label = SOURCE_LABELS[source] || source
   const color = SOURCE_COLORS[source] || 'var(--sub)'
   const isSimple = (cfg.mode_calcul === 'simple')
+  const aContrat = _aContrat(source)
 
   el.innerHTML = `
-    <div class="card">
+    <div class="card${aContrat ? '' : ' sans-contrat'}">
       <div class="card-title">Contrats grossistes</div>
+      <div style="margin-bottom:16px;padding:12px 14px;background:#f8faf9;border:1px solid var(--border);border-radius:10px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Grossistes avec un contrat de remise arrière</div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap">
+          ${['cerp','alliance','ocp'].map(s => `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" ${_aContrat(s)?'checked':''} onchange="_changerContrat('${s}', this)" style="width:15px;height:15px;accent-color:var(--green)"> ${SOURCE_LABELS[s]}</label>`).join('')}
+        </div>
+        <div style="font-size:11.5px;color:var(--sub);margin-top:8px">
+          Déposez les factures de tous vos grossistes : elles comptent toutes pour vos génériqueurs.
+          La remise grossiste n'est calculée que pour les grossistes cochés.
+        </div>
+      </div>
       <div class="tabs">
         ${['cerp','alliance','ocp'].map(s => `
           <button class="tab-btn ${s===source?'active':''}" onclick="_PARAM_TAB='${s}';_renderParametres()" style="${s===source?'color:'+SOURCE_COLORS[s]:''}">
@@ -3384,6 +3495,7 @@ function _renderParametres() {
           <div style="font-size:12px;color:var(--sub)">Paramètres du contrat de remise arrière</div>
         </div>
       </div>
+      ${aContrat ? '' : `<div class="contrat-absent">Pas de contrat avec ${label} : ces paramètres ne sont pas utilisés et aucune remise grossiste n'est calculée sur ses factures. Cochez ${label} ci-dessus si vous avez un contrat.</div>`}
       <div class="seg-mode seg-mode-${source}">
         <button type="button" data-mode="simple" class="${isSimple?'on':''}" onclick="_setParamMode('simple','${source}')">Calcul simplifié</button>
         <button type="button" data-mode="detail" class="${!isSimple?'on':''}" onclick="_setParamMode('detail','${source}')">Calcul détaillé</button>
@@ -3454,6 +3566,13 @@ function _renderParametres() {
         <div id="migration-gen-result" style="margin-top:8px;font-size:11px;font-family:'DM Mono',monospace"></div>
       </div>
     </div>` : ''}
+    <div class="card" id="card-biosim-contrat">
+      <div class="card-title"><i class=ic-syringe></i> Mon biosimilaire n°1</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+        Choisissez votre laboratoire biosimilaire n°1 : son catalogue s'affiche, une ligne par molécule.
+      </div>
+      <div id="biosim-contrat"><div class="loading-center"><div class="spinner"></div> Chargement...</div></div>
+    </div>
     <div class="card">
       <div class="card-title">Mon compte</div>
       <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
@@ -3467,6 +3586,133 @@ function _renderParametres() {
   }
   // Charger la liste des overrides (toujours)
   chargerListeOverrides()
+  chargerContratBiosim()
+}
+
+/* LOT_BIOSIM_N1 : contrat avec le biosimilaire n°1 (onglet Paramètres > Biosimilaires).
+   Remise : taux unique pour tout le catalogue, sinon un taux par molécule (DCI).
+   Objectif de taux de pénétration : global ou par molécule. */
+let _BIOSIM_CT = null   // { labos, catalogue, contrat }
+
+function _pctVal(id) {
+  const el = document.getElementById(id)
+  if (!el || el.value === '') return null
+  return parseFloat(String(el.value).replace(',', '.'))
+}
+function _nomMolecule(dci) { return dci.charAt(0) + dci.slice(1).toLowerCase() }
+
+async function chargerContratBiosim() {
+  const el = document.getElementById('biosim-contrat')
+  if (!el) return
+  try {
+    const [labos, contrat] = await Promise.all([
+      apiGet('/grossiste/biosimilaires/labos'),
+      apiGet('/grossiste/biosimilaires/contrat'),
+    ])
+    const catalogue = contrat.labo ? await apiGet('/grossiste/biosimilaires/catalogue?labo=' + encodeURIComponent(contrat.labo)) : []
+    _BIOSIM_CT = { labos: Array.isArray(labos) ? labos : [], catalogue: Array.isArray(catalogue) ? catalogue : [], contrat }
+    _renderContratBiosim()
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur de chargement</div>'
+    console.error(e)
+  }
+}
+
+/* Garde ce qui est saisi à l'écran avant de redessiner (changement de n°1, cases). */
+function _lireContratBiosim() {
+  const c = _BIOSIM_CT.contrat
+  const sel = document.getElementById('bct-labo')
+  if (!sel) return c
+  c.labo = sel.value || null
+  c.taux_unique_actif = document.getElementById('bct-unique').checked
+  c.taux_unique_pct = _pctVal('bct-unique-pct')
+  c.objectif_mode = document.getElementById('bct-obj-global').checked ? 'global'
+                  : document.getElementById('bct-obj-mol').checked ? 'molecule' : null
+  c.objectif_global_pct = _pctVal('bct-obj-global-pct')
+  _BIOSIM_CT.catalogue.forEach((m, i) => {
+    const t = _pctVal('bct-taux-' + i), o = _pctVal('bct-obj-' + i)
+    if (t === null) delete c.taux_par_molecule[m.dci]; else c.taux_par_molecule[m.dci] = t
+    if (o === null) delete c.objectif_par_molecule[m.dci]; else c.objectif_par_molecule[m.dci] = o
+  })
+  return c
+}
+
+function _renderContratBiosim() {
+  const el = document.getElementById('biosim-contrat')
+  if (!el || !_BIOSIM_CT) return
+  const { labos, catalogue, contrat: c } = _BIOSIM_CT
+  const inp = 'width:90px;padding:7px 9px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;text-align:right'
+  const v = x => (x === null || x === undefined) ? '' : x
+  const options = '<option value="">— Choisir un laboratoire —</option>'
+    + labos.map(l => `<option value="${escapeHtml(l.labo)}" ${l.labo === c.labo ? 'selected' : ''}>${escapeHtml(l.nom)} (${l.nb_molecules} molécule${l.nb_molecules > 1 ? 's' : ''})</option>`).join('')
+  const parMol = c.objectif_mode === 'molecule'
+  const nomLabo = (labos.find(l => l.labo === c.labo) || {}).nom || ''
+  const lignes = catalogue.map((m, i) => `<tr>
+      <td style="padding:7px 10px"><b>${escapeHtml(_nomMolecule(m.dci))}</b>
+        <span style="color:var(--sub);font-size:12px">${m.marques.length ? ' · ' + escapeHtml(m.marques.join(', ')) : ''}</span></td>
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap"><input id="bct-taux-${i}" type="number" step="0.1" min="0" max="100" value="${v(c.taux_par_molecule[m.dci])}" ${c.taux_unique_actif ? 'disabled' : ''} style="${inp};${c.taux_unique_actif ? 'opacity:.4' : ''}"> %</td>
+      ${parMol ? `<td style="padding:7px 10px;text-align:right;white-space:nowrap"><input id="bct-obj-${i}" type="number" step="1" min="0" max="100" value="${v(c.objectif_par_molecule[m.dci])}" style="${inp}"> %</td>` : ''}
+    </tr>`).join('')
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <label for="bct-labo" style="font-size:13px;font-weight:600">Choix du N°1 :</label>
+      <select id="bct-labo" onchange="_changerLaboBiosim()" style="padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;min-width:260px">${options}</select>
+    </div>
+    ${!c.labo ? '<div style="font-size:13px;color:var(--sub);padding:8px 0 4px">Choisissez un laboratoire pour afficher son catalogue.</div>' : `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:#f8faf9;border:1px solid var(--border);border-radius:10px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
+        <input id="bct-unique" type="checkbox" ${c.taux_unique_actif ? 'checked' : ''} onchange="_lireContratBiosim();_renderContratBiosim()" style="width:15px;height:15px;accent-color:var(--green)">
+        Taux unique appliqué à tout le catalogue</label>
+      <input id="bct-unique-pct" type="number" step="0.1" min="0" max="100" value="${v(c.taux_unique_pct)}" ${c.taux_unique_actif ? '' : 'disabled'} style="${inp};${c.taux_unique_actif ? '' : 'opacity:.4'}"> %
+    </div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px">${c.taux_unique_actif ? 'Taux unique coché : les taux par molécule ne sont pas utilisés.' : 'Sinon, un taux par molécule du catalogue ' + escapeHtml(nomLabo) + ' :'}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="color:var(--sub);font-size:11px;text-transform:uppercase;letter-spacing:.4px">
+        <th style="text-align:left;padding:6px 10px">Molécule</th>
+        <th style="text-align:right;padding:6px 10px">Remise</th>
+        ${parMol ? '<th style="text-align:right;padding:6px 10px">Objectif de pénétration</th>' : ''}
+      </tr></thead>
+      <tbody>${lignes}</tbody>
+    </table></div>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:12px 14px;background:#f8faf9;border:1px solid var(--border);border-radius:10px;margin-top:16px">
+      <span style="font-size:13px;font-weight:600">Objectif de taux de pénétration :</span>
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+        <input id="bct-obj-global" type="checkbox" ${c.objectif_mode === 'global' ? 'checked' : ''} onchange="_choixObjectifBiosim('global', this)" style="width:15px;height:15px;accent-color:var(--green)"> global</label>
+      <input id="bct-obj-global-pct" type="number" step="1" min="0" max="100" value="${v(c.objectif_global_pct)}" ${c.objectif_mode === 'global' ? '' : 'disabled'} style="${inp};${c.objectif_mode === 'global' ? '' : 'opacity:.4'}"> %
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+        <input id="bct-obj-mol" type="checkbox" ${parMol ? 'checked' : ''} onchange="_choixObjectifBiosim('molecule', this)" style="width:15px;height:15px;accent-color:var(--green)"> par molécule</label>
+    </div>`}
+    <div style="margin-top:16px"><button class="btn btn-green" onclick="sauvegarderContratBiosim()">Sauvegarder</button></div>`
+}
+
+async function _changerLaboBiosim() {
+  const c = _lireContratBiosim()
+  _BIOSIM_CT.catalogue = c.labo ? await apiGet('/grossiste/biosimilaires/catalogue?labo=' + encodeURIComponent(c.labo)) : []
+  _renderContratBiosim()
+}
+
+function _choixObjectifBiosim(mode, el) {
+  // « global » et « par molécule » s'excluent ; les deux décochés = pas d'objectif.
+  _lireContratBiosim()
+  _BIOSIM_CT.contrat.objectif_mode = el.checked ? mode : null
+  _renderContratBiosim()
+}
+
+async function sauvegarderContratBiosim() {
+  const c = _lireContratBiosim()
+  const body = Object.assign({}, c)
+  try {
+    const r = await fetch(`${API}/grossiste/biosimilaires/contrat`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json()
+    if (!r.ok) { toast(d.detail || 'Erreur lors de la sauvegarde', 'red'); return }
+    _BIOSIM_CT.contrat = d
+    _renderContratBiosim()
+    toast('Biosimilaire n°1 enregistré', 'green')
+  } catch(e) { toast('Erreur réseau', 'red'); console.error(e) }
 }
 
 function checkBox(id, label, checked) {
@@ -5080,19 +5326,93 @@ function renderCompareGeneriqueur() {
     <div id="cmp-gen-result-card"></div>`
 }
 
+/* LOT_CMP_ANNEE : offre A reprise des chiffres réels d'une année (année en
+   cours par défaut). Sert à comparer l'offre de l'an dernier à celle qui vient. */
+let _CMP_GEN_REEL = { actif: false, annee: new Date().getFullYear(), chiffres: null, manuel: null }
+
+function renderReelGen() {
+  const r = _CMP_GEN_REEL
+  const anneeMax = new Date().getFullYear()
+  const annees = []
+  for (let a = anneeMax; a >= 2020; a--) annees.push(a)
+  const c = r.chiffres
+  const pctTxt = v => (v || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' %'
+  const resume = !r.actif ? '' : !c ? '<div style="font-size:12px;color:var(--sub);margin-top:8px">Chargement des chiffres…</div>'
+    : !c.ca_ht ? `<div style="font-size:12px;color:#92400E;margin-top:8px">Aucun achat chez ${escapeHtml(c.labo)} en ${c.annee} : rien à reprendre.</div>`
+    : `<div style="font-size:12px;margin-top:8px;line-height:1.7">
+        Réel ${c.annee} chez <b>${escapeHtml(c.labo)}</b> (${c.nb_mois} mois) : ${eur(c.ca_ht)} achetés<br>
+        Remise facture <b>${eur(c.remise_facture_e)}</b> (${pctTxt(c.taux_facture_pct)}) ·
+        contrat <b>${eur(c.remise_contrat_e)}</b> (${pctTxt(c.taux_contrat_pct)})${c.rdp_e ? ` · RDP <b>${eur(c.rdp_e)}</b> (${pctTxt(c.taux_rdp_pct)})` : ''}
+      </div>`
+  return `
+    <div style="padding:10px 12px;background:#f8faf9;border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer">
+          <input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleReelGen(this.checked)" style="width:15px;height:15px;accent-color:var(--green)">
+          Chiffres de l'année en cours</label>
+        ${r.actif ? `<select onchange="setAnneeReelGen(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          ${annees.map(a => `<option value="${a}" ${a === r.annee ? 'selected' : ''}>${a}</option>`).join('')}</select>` : ''}
+      </div>
+      ${resume}
+    </div>`
+}
+
+async function _chargerReelGen() {
+  const r = _CMP_GEN_REEL, A = _CMP_GEN_OFFRE_A
+  r.chiffres = null
+  renderComparateurPage()
+  try {
+    const c = await apiGet(`/comparateur/generiqueur/chiffres-reels?labo=${encodeURIComponent(A.labo)}&annee=${r.annee}`)
+    if (!r.actif) return
+    r.chiffres = c
+    // Taux effectifs obtenus : les règles particulières et la RDP y sont déjà.
+    Object.assign(A, {
+      taux_facture_pct: c.taux_facture_pct || 0, taux_contrat_pct: c.taux_contrat_pct || 0,
+      rdp_pct_fixe: c.taux_rdp_pct || 0, annee_reelle: r.annee,
+      regles_categorie: [], regles_molecule: [],
+    })
+  } catch(e) {
+    toast('Chiffres réels indisponibles', 'red')
+  }
+  renderComparateurPage()
+}
+
+function toggleReelGen(actif) {
+  const r = _CMP_GEN_REEL, A = _CMP_GEN_OFFRE_A
+  r.actif = actif
+  if (actif) {
+    r.manuel = { taux_facture_pct: A.taux_facture_pct, taux_contrat_pct: A.taux_contrat_pct,
+                 regles_categorie: A.regles_categorie, regles_molecule: A.regles_molecule }
+    _chargerReelGen()
+  } else {
+    Object.assign(A, r.manuel || {}, { rdp_pct_fixe: null, annee_reelle: null })
+    r.chiffres = null
+    renderComparateurPage()
+  }
+}
+
+function setAnneeReelGen(annee) {
+  _CMP_GEN_REEL.annee = parseInt(annee)
+  _chargerReelGen()
+}
+
 function renderOffreGeneriqueur(label, offre) {
   const isA = (label === 'A')
   const couleur = isA ? '#1D9E75' : '#D97706'
   const titreLabel = isA ? 'Offre A (actuelle)' : 'Offre B (challenger)'
+  const reel = isA && _CMP_GEN_REEL.actif
 
   // Liste des labos disponibles (sélection)
   const labosOptions = LABOS_GEN.map(l => `<option value="${l}" ${offre.labo===l?'selected':''}>${l}</option>`).join('')
 
   const isBiogaran = offre.labo === 'Biogaran'
+  const champ = `width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace${reel ? ';background:#f1f3f2;color:var(--sub)' : ''}`
 
   return `
     <div style="border:1px solid ${couleur};border-radius:10px;padding:14px;background:white">
       <div style="font-weight:700;color:${couleur};margin-bottom:10px">${titreLabel}</div>
+
+      ${isA ? renderReelGen() : ''}
 
       <div style="margin-bottom:10px">
         <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Laboratoire</label>
@@ -5103,15 +5423,21 @@ function renderOffreGeneriqueur(label, offre) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         <div>
-          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise facture %</label>
-          <input type="number" step="0.1" value="${offre.taux_facture_pct}" onchange="setChampOffreGen('${label}','taux_facture_pct',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace"/>
+          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise facture %${reel ? ' (réelle)' : ''}</label>
+          <input type="number" step="0.1" value="${offre.taux_facture_pct}" ${reel ? 'readonly' : ''} onchange="setChampOffreGen('${label}','taux_facture_pct',this.value)" style="${champ}"/>
         </div>
         <div>
-          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise contrat %</label>
-          <input type="number" step="0.1" value="${offre.taux_contrat_pct}" onchange="setChampOffreGen('${label}','taux_contrat_pct',this.value)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Mono',monospace"/>
+          <label style="font-size:11px;color:var(--sub);display:block;margin-bottom:4px">Remise contrat %${reel ? ' (réelle)' : ''}</label>
+          <input type="number" step="0.1" value="${offre.taux_contrat_pct}" ${reel ? 'readonly' : ''} onchange="setChampOffreGen('${label}','taux_contrat_pct',this.value)" style="${champ}"/>
         </div>
       </div>
 
+      ${reel ? `
+      <div style="font-size:11.5px;color:var(--sub);border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
+        Taux réellement obtenus en ${_CMP_GEN_REEL.annee} : les règles particulières et la RDP y sont déjà comprises.
+        Ils sont appliqués au potentiel générique de la période ci-dessus, comme l'offre B.
+      </div>
+    </div>` : `
       ${isBiogaran ? `
         <div style="padding:8px;background:#EFF6FF;border-radius:6px;margin-bottom:10px;border-left:3px solid #2563EB">
           <div style="font-size:12px;color:#1E40AF">
@@ -5145,7 +5471,7 @@ function renderOffreGeneriqueur(label, offre) {
           <button class="btn btn-outline btn-sm" onclick="addRegleMoleculeCmp('${label}')" style="font-size:10px;padding:2px 8px;margin-top:4px">+ Molécule</button>
         </div>
       </div>
-    </div>`
+    </div>`}`
 }
 
 function renderReglesCategorieCmp(label, regles) {
@@ -5249,6 +5575,7 @@ async function copierReglesParametrage(label) {
 function setLaboOffreGen(label, val) {
   const offre = (label === 'A') ? _CMP_GEN_OFFRE_A : _CMP_GEN_OFFRE_B
   offre.labo = val
+  if (label === 'A' && _CMP_GEN_REEL.actif) { _chargerReelGen(); return }  // LOT_CMP_ANNEE
   renderComparateurPage()
 }
 
@@ -5267,8 +5594,13 @@ async function lancerComparaisonGeneriqueur() {
     toast('Choisis une période', 'red')
     return
   }
-  if (_CMP_GEN_OFFRE_A.labo === _CMP_GEN_OFFRE_B.labo) {
+  // LOT_CMP_ANNEE : réel de l'an dernier contre nouvelle offre du même labo = permis
+  if (_CMP_GEN_OFFRE_A.labo === _CMP_GEN_OFFRE_B.labo && !_CMP_GEN_REEL.actif) {
     toast('Les deux offres doivent être sur des labos différents', 'orange')
+    return
+  }
+  if (_CMP_GEN_REEL.actif && !_CMP_GEN_REEL.chiffres) {
+    toast('Chiffres réels en cours de chargement', 'orange')
     return
   }
 
@@ -5358,7 +5690,7 @@ function afficherResultatComparaisonGen(data) {
           <thead>
             <tr style="background:#F8FAFC">
               <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--sub);text-transform:uppercase">Critère</th>
-              <th style="padding:8px 10px;text-align:right;color:#1D9E75">A : ${prmA.labo}</th>
+              <th style="padding:8px 10px;text-align:right;color:#1D9E75">A : ${prmA.labo}${prmA.annee_reelle ? ' (réel ' + prmA.annee_reelle + ')' : ''}</th>
               <th style="padding:8px 10px;text-align:right;color:#D97706">B : ${prmB.labo}</th>
               <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--sub);text-transform:uppercase">Écart</th>
             </tr>
@@ -5392,7 +5724,7 @@ function renderCarteGenResult(label, params, cov, calc, couleur) {
   const isA = label === 'A'
   return `
     <div style="border:1px solid ${couleur};border-radius:10px;padding:14px;background:white">
-      <div style="font-weight:700;color:${couleur};margin-bottom:8px">${isA?'A':'B'} : ${params.labo}</div>
+      <div style="font-weight:700;color:${couleur};margin-bottom:8px">${isA?'A':'B'} : ${params.labo}${params.annee_reelle ? ' — chiffres réels ' + params.annee_reelle : ''}</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
@@ -7781,6 +8113,7 @@ async function showLogDetail(logId) {
     { match: /mes g[ée]n[ée]riqueurs/i,      tab: 'generiqueurs' },
     { match: /modifications pinceau/i,       tab: 'generiqueurs' },
     { match: /r[ée]f[ée]rentiels g[ée]n[ée]riques/i, tab: 'generiqueurs' },
+    { match: /mon biosimilaire/i,            tab: 'biosimilaires' },  // LOT_BIOSIM_N1
     { match: /mon compte/i,                  tab: 'moncompte' },
   ];
   
@@ -7848,6 +8181,10 @@ async function showLogDetail(logId) {
         <span class="v318-tab-icon"><i class=ic-pill></i></span>
         <span>Génériqueurs</span>
       </button>
+      <button class="v318-tab" data-tab="biosimilaires">
+        <span class="v318-tab-icon"><i class=ic-syringe></i></span>
+        <span>Biosimilaires</span>
+      </button>
       <button class="v318-tab" data-tab="moncompte">
         <span class="v318-tab-icon"><i class=ic-user></i></span>
         <span>Mon compte</span>
@@ -7856,6 +8193,10 @@ async function showLogDetail(logId) {
     
     // Insérer en tout début du #parametres-content
     content.insertBefore(tabsBar, content.firstChild);
+    // Après un nouveau rendu de Paramètres, garder l'onglet où l'on était
+    tabsBar.querySelectorAll('.v318-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.tab === _currentTab)
+    );
     
     // Handlers
     tabsBar.querySelectorAll('.v318-tab').forEach(btn => {
@@ -7992,7 +8333,7 @@ async function showLogDetail(logId) {
      r\u00e9f\u00e9rentiel, une colonne par labo donnerait une matrice vide \u00e0 90 %.
      Rien n'est perdu \u2014 le d\u00e9tail par mol\u00e9cule les montre tous.
      ================================================================== */
-  var _BIOSIM = null, _BIOSIM_OUVERTES = {}, _BIOSIM_MAX_COL = 6;
+  var _BIOSIM = null, _BIOSIM_OUVERTES = {};
 
   function _biosimParams(){
     if (typeof urlParamsMoisOuPeriode === 'function') {
@@ -8028,14 +8369,6 @@ async function showLogDetail(logId) {
       + x.pct.toFixed(1) + ' %' + (x.est_reference ? ' \u00b7 r\u00e9f.' : '') + '</div></td>';
   }
 
-  function _barrePenetration(pct){
-    var coul = pct >= 80 ? 'var(--green)' : pct >= 50 ? '#E8A33D' : 'var(--red)';
-    return '<div style="display:flex;align-items:center;gap:7px;justify-content:flex-end">'
-      + '<div style="width:52px;height:6px;background:#eef2f0;border-radius:3px;overflow:hidden">'
-      + '<div style="width:' + Math.max(0, Math.min(100, pct)) + '%;height:6px;background:' + coul + '"></div></div>'
-      + '<span style="font-family:\'DM Mono\',monospace;font-weight:600;color:' + coul + ';min-width:44px;text-align:right">'
-      + pct.toFixed(1) + ' %</span></div>';
-  }
 
   function _detailDci(m, nbCol){
     var labos = m.labos.map(function(l){
@@ -8071,25 +8404,17 @@ async function showLogDetail(logId) {
     if (!el || !_BIOSIM) return;
     var d = _BIOSIM, t = d.totaux;
 
-    var colonnes = d.labos.slice(0, _BIOSIM_MAX_COL).map(function(l){ return l.labo; });
-    var reste = d.labos.slice(_BIOSIM_MAX_COL).map(function(l){ return l.labo; });
-    var avecAutres = reste.length > 0;
-    var nbCol = colonnes.length + (avecAutres ? 1 : 0) + 3;
+    // Tous les labos en colonnes, jamais regroupés en « Autres ».
+    var colonnes = d.labos.map(function(l){ return l.labo; });
+    var nbCol = colonnes.length + 3;
 
     var thLabos = colonnes.map(function(c){
       return '<th style="text-align:right;min-width:92px">' + esc(c) + '</th>';
-    }).join('') + (avecAutres
-      ? '<th style="text-align:right;min-width:92px" title="' + esc(reste.join(', ')) + '">Autres ('
-        + reste.length + ')</th>' : '');
+    }).join('');
 
     var lignes = d.molecules.map(function(m){
       var parLabo = {}; m.labos.forEach(function(l){ parLabo[l.labo] = l; });
       var cellules = colonnes.map(function(c){ return _cellule(parLabo[c], m.ca_total); }).join('');
-      if (avecAutres) {
-        var ca = 0, q = 0;
-        reste.forEach(function(c){ if (parLabo[c]) { ca += parLabo[c].ca; q += parLabo[c].qte; } });
-        cellules += _cellule(ca ? { ca: ca, pct: ca / m.ca_total * 100, qte: q } : null, m.ca_total);
-      }
       var ouvert = !!_BIOSIM_OUVERTES[m.dci];
       var ligne = '<tr style="cursor:pointer" onclick="toggleBiosimDci(\'' + m.dci.replace(/'/g, "\\'") + '\')">'
         + '<td style="font-weight:600;white-space:nowrap">'
@@ -8098,8 +8423,7 @@ async function showLogDetail(logId) {
         + m.nb_labos + ' labo(s) \u00b7 ' + m.qte + ' unit\u00e9(s)</div></td>'
         + cellules
         + '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-weight:700">' + eurx(m.ca_total) + '</td>'
-        + '<td style="text-align:right;font-family:\'DM Mono\',monospace;color:var(--sub)">' + eurx(m.ca_reference) + '</td>'
-        + '<td style="text-align:right">' + _barrePenetration(m.taux_penetration_pct) + '</td></tr>';
+        + '<td style="text-align:right;font-family:\'DM Mono\',monospace;color:var(--sub)">' + eurx(m.ca_reference) + '</td></tr>';
       return ligne + (ouvert ? _detailDci(m, nbCol) : '');
     }).join('');
 
@@ -8110,18 +8434,12 @@ async function showLogDetail(logId) {
         + (l ? eurx(l.ca) : '\u2014')
         + '<div style="font-size:10px;color:var(--sub);font-weight:400">' + (l ? l.pct.toFixed(1) + ' %' : '') + '</div></td>';
     }).join('');
-    if (avecAutres) {
-      var caR = 0; reste.forEach(function(c){ caR += parLaboGlobal[c] ? parLaboGlobal[c].ca : 0; });
-      totCellules += '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-weight:700">' + eurx(caR)
-        + '<div style="font-size:10px;color:var(--sub);font-weight:400">'
-        + (t.ca_total_ht ? (caR / t.ca_total_ht * 100).toFixed(1) + ' %' : '') + '</div></td>';
-    }
 
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">'
       + '<div><div style="font-size:19px;font-weight:700">Biosimilaires consomm\u00e9s</div>'
       + '<div style="font-size:12px;color:var(--sub)">' + esc(d.periode.libelle)
-      + ' \u00b7 part de march\u00e9 par laboratoire et taux de p\u00e9n\u00e9tration</div></div>'
+      + ' \u00b7 part de march\u00e9 par laboratoire</div></div>'
       + '<button class="btn btn-outline btn-sm" onclick="exportBiosimExcel()"><i class=ic-file></i> Export Excel</button></div>'
 
       + '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">'
@@ -8142,13 +8460,11 @@ async function showLogDetail(logId) {
       + '<th style="min-width:180px">Mol\u00e9cule (DCI)</th>' + thLabos
       + '<th style="text-align:right;min-width:100px">Total HT</th>'
       + '<th style="text-align:right;min-width:100px">Dont r\u00e9f\u00e9rence</th>'
-      + '<th style="text-align:right;min-width:120px">P\u00e9n\u00e9tration</th>'
       + '</tr></thead><tbody>' + lignes
       + '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--green)">'
       + '<td>TOTAL</td>' + totCellules
       + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(t.ca_total_ht) + '</td>'
-      + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(t.ca_reference) + '</td>'
-      + '<td style="text-align:right">' + _barrePenetration(t.taux_penetration_pct) + '</td></tr>'
+      + '<td style="text-align:right;font-family:\'DM Mono\',monospace">' + eurx(t.ca_reference) + '</td></tr>'
       + '</tbody></table></div></div>';
   }
 
