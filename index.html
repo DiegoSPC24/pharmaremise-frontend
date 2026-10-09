@@ -345,6 +345,11 @@
     html.sso-host .nav-cta,
     html.sso-host #modal-login,
     html.sso-host #modal-register { display: none !important; }
+    /* CLERK_SSO_SANS_VITRINE : l'ancienne vitrine (tarifs périmés) n'est jamais
+       montrée aux clients ; clerk-sso.js les envoie vers l'app ou le hub. */
+    html.sso-host body > :not(#sso-attente) { display: none !important; }
+    #sso-attente { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-family: 'DM Sans', sans-serif; color: #475467; font-size: 15px; }
+    #sso-attente a { color: #0F6E56; font-weight: 600; }
   </style>
   <script>
     /* CLERK_SSO_HIDE_LOGIN */
@@ -355,6 +360,14 @@
         try { window.openModal = function () {}; } catch (e) {}
         var sel = '[onclick*="openModal"], .nav-cta, #modal-login, #modal-register';
         document.querySelectorAll(sel).forEach(function (el) { el.style.display = "none"; });
+        if (document.body && !document.getElementById("sso-attente")) {
+          var d = document.createElement("div");
+          d.id = "sso-attente";
+          d.innerHTML = '<div>Ouverture de PharmaRemise…</div>' +
+            '<a href="/app.html">Ouvrir l’application</a>' +
+            '<a href="https://pharmagestion.fr">Aller sur PharmaGestion</a>';
+          document.body.appendChild(d);
+        }
       }
       if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", neutralise);

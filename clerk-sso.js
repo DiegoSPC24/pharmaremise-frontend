@@ -1,4 +1,4 @@
-/* PharmaRemise — SSO Clerk — v7 (fetch mis en attente de Clerk : plus de 401 au demarrage) */
+/* PharmaRemise — SSO Clerk — v8 (accueil connecte -> toujours l'app, plus jamais l'ancienne vitrine) */
 (function () {
   'use strict';
   var PK = 'pk_live_Y2xlcmsucGhhcm1hZ2VzdGlvbi5mciQ';
@@ -74,7 +74,11 @@
         var t = await C.session.getToken();
         if (t) { try { localStorage.setItem('pharmaremise_token', t); } catch (e) {} }
         _resolveReady(C);
-        if (isLanding && once('go_app')) location.replace('/app.html');
+        // Plus de once() ici : sur le host SSO, app.html ne renvoie jamais vers
+        // l'accueil (deconnexion -> hub), donc pas de boucle possible. Avec once(),
+        // le 2e passage par https://remise.pharmagestion.fr (lien du hub) restait
+        // sur l'ancienne vitrine et ses tarifs.
+        if (isLanding) location.replace('/app.html');
         return;
       }
 

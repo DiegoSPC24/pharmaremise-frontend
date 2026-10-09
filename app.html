@@ -719,6 +719,22 @@ function ecranLancementDemo() {
   }
 }
 
+/* Compte sans accès (formule absente, session expirée) : un écran clair au lieu
+   d'une application vide qui ne charge rien. */
+function ecranAcces(titre, texte, lienHub) {
+  const d = document.createElement('div')
+  d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#F4F7F6;display:flex;align-items:center;justify-content:center;padding:24px'
+  d.innerHTML =
+    '<div style="background:#fff;border-radius:16px;max-width:520px;width:100%;padding:36px;box-shadow:0 12px 40px rgba(0,0,0,.08)">' +
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green)">PharmaRemise</div>' +
+    '<h1 style="font-family:DM Serif Display,serif;font-size:28px;margin:6px 0 14px">' + titre + '</h1>' +
+    '<p style="color:var(--sub);line-height:1.6;font-size:14px">' + texte + '</p>' +
+    '<div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap">' +
+    (lienHub ? '<a class="btn btn-green" href="' + lienHub + '">Demander l’accès sur PharmaGestion</a>' : '<button class="btn btn-green" onclick="location.reload()">Réessayer</button>') +
+    '<button class="btn btn-outline" onclick="logout()">Changer de compte</button></div></div>'
+  document.body.appendChild(d)
+}
+
 async function initContexte() {
   try {
     const r = await fetch(`${API}/auth/contexte`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
@@ -727,6 +743,24 @@ async function initContexte() {
     const code = j && j.detail && j.detail.code
     if (r.status === 403 && code === 'DEMO_INACTIVE') { ecranLancementDemo(); return false }
     if (r.status === 403 && code === 'AUCUNE_PHARMACIE') { window.location.href = '/console'; return false }
+    if (r.status === 403 && code === 'FORMULE_ABSENTE') {
+      ecranAcces('Accès pas encore activé',
+        'Vous êtes connecté avec <b>' + escapeHtml(j.detail.email || '') + '</b>. ' +
+        'La formule PharmaRemise n’est pas encore activée sur ce compte PharmaGestion. ' +
+        'Demandez l’accès : l’application s’ouvrira dès qu’il sera validé.',
+        HUB_URL + '/pricing?missing=pharmaremise')
+      return false
+    }
+    if (r.status === 401) {
+      if (location.hostname !== 'remise.pharmagestion.fr') { localStorage.clear(); window.location.href = '/index.html'; return false }
+      const motif = typeof j.detail === 'string' ? j.detail : ''
+      ecranAcces('Connexion impossible',
+        motif === 'Compte désactivé'
+          ? 'Ce compte PharmaRemise est désactivé. Contactez PharmaGestion.'
+          : 'Votre session PharmaGestion n’a pas pu être vérifiée. Réessayez, ou reconnectez-vous.',
+        null)
+      return false
+    }
     if (r.ok && j.mode === 'intervention') bandeauIntervention(j)
     if (r.ok && j.mode === 'demo') bandeauDemo()
   } catch (e) { console.error('[contexte]', e) }
@@ -759,7 +793,19 @@ async function init() {
   } catch(e) { console.error(e); toast('Erreur de chargement', 'red') }
 }
 
-function logout() { localStorage.clear(); window.location.href = '/index.html' }
+async function logout() {
+  localStorage.clear()
+  // Host SSO : l'ancienne page d'accueil (et ses tarifs) n'existe plus pour les
+  // clients. On ferme la session PharmaGestion et on repart de la connexion du hub,
+  // qui renvoie ici avec le compte choisi.
+  if (location.hostname === 'remise.pharmagestion.fr') {
+    try { sessionStorage.clear() } catch (e) {}
+    try { if (window.Clerk) await window.Clerk.signOut() } catch (e) { console.error('[logout]', e) }
+    window.location.href = HUB_URL + '/sign-in?redirect_url=' + encodeURIComponent('https://remise.pharmagestion.fr/app.html')
+    return
+  }
+  window.location.href = '/index.html'
+}
 
 function goTo(screen, btn) {
   /* V372_NAV_SYNC : surlignage ET page derives du meme 'screen' -> plus de desync */
@@ -5916,7 +5962,7 @@ async function exportPDFGen() {
 // ── LOCKED ─────────────────────────────────────────────────────────────────
 function lockedHTML(module) {
   const labels = { grossiste:'Grossiste', generiqueur:'Génériqueur', rfa:'RFA' }
-  return `<div class="locked-module"><div class="locked-icon"><i class=ic-lock></i></div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href='/index.html#tarifs'">Voir les plans →</button></div>`
+  return `<div class="locked-module"><div class="locked-icon"><i class=ic-lock></i></div><div class="locked-title">Module ${labels[module]} non inclus</div><div class="locked-sub">Ce module n'est pas inclus dans votre plan actuel.</div><button class="btn btn-green" onclick="window.location.href=HUB_URL+'/pricing?missing=pharmaremise'">Demander l’accès →</button></div>`
 }
 
 init()
