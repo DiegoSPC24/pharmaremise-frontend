@@ -4620,6 +4620,11 @@ async function _uploadFactureAuto(file, div) {
     const { res, data } = await _depotEnvoyer(
       `${API}/grossiste/factures/analyser?mois=${CURRENT_MOIS}&annee=${CURRENT_ANNEE}`,
       () => { const fd = new FormData(); fd.append('file', file); return fd })
+    if (res && res.status === 202 && data && data.tache_id) {
+      // LOT_SCAN_MULTI : pas d'await, la place dans la file est rendue tout de suite.
+      _suivreScanMulti(file.name, data, div)
+      return
+    }
     if (res && res.ok && data) {
       const src = SOURCE_LABELS[data.source] || data.source
       div.innerHTML = `<span><i class=ic-check></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
@@ -4631,6 +4636,76 @@ async function _uploadFactureAuto(file, div) {
   } catch(e) {
     _afficherRefusFacture(div, file.name, 'Erreur d\'affichage : ' + e.message)
   }
+}
+
+/* LOT_SCAN_MULTI — un scan qui regroupe plusieurs factures (« FACTURE OCP 11 AU
+   19 AVRIL 2025 », 56 pages) est lu page par page par le serveur, en tâche de
+   fond : une dizaine de minutes. On suit l'avancement, puis on affiche le
+   résultat facture par facture. La place dans la file de dépôt est rendue tout
+   de suite : le serveur borne lui-même le nombre de pages lues à la fois. */
+async function _suivreScanMulti(nomFichier, tache, div) {
+  const etat = div.querySelector('.depot-etat')
+  const afficher = txt => { if (etat) etat.textContent = txt }
+  afficher(`Scan de ${tache.pages_total} pages : lecture page par page…`)
+  let echecs = 0
+  for (;;) {
+    await new Promise(r => setTimeout(r, 4000))
+    let res = null, data = null
+    try {
+      res = await fetch(`${API}/grossiste/factures/scan/${encodeURIComponent(tache.tache_id)}`,
+                        { headers:{ 'Authorization':'Bearer '+TOKEN } })
+      data = await res.json().catch(() => null)
+    } catch (e) { res = null }
+    if (res && res.status === 404) {
+      _afficherRefusFacture(div, nomFichier, _depotMessageEchec(res, data))
+      return
+    }
+    if (!res || !res.ok || !data) {
+      // Coupure passagère : on insiste quelques minutes avant d'abandonner le suivi.
+      if (++echecs >= 30) {
+        _afficherRefusFacture(div, nomFichier, 'Suivi de la lecture interrompu (connexion). La lecture continue sur le serveur : '
+          + 'les factures lues apparaîtront dans l’écran Grossiste ; si l’une manque, redéposez ce fichier.')
+        return
+      }
+      continue
+    }
+    echecs = 0
+    if (data.etat === 'lecture') {
+      afficher(`Scan de ${data.pages_total} pages : ${data.pages_lues}/${data.pages_total} lues…`)
+    } else if (data.etat === 'enregistrement') {
+      afficher(`Enregistrement des factures… (${(data.factures || []).length})`)
+    } else if (data.etat === 'erreur') {
+      _afficherRefusFacture(div, nomFichier, `Lecture du scan interrompue (${data.erreur}). Redéposez ce fichier ; `
+        + 'si l’erreur revient, envoyez-le au support PharmaRemise.')
+      return
+    } else if (data.etat === 'termine') {
+      _afficherResultatScanMulti(div, nomFichier, data)
+      return
+    }
+  }
+}
+
+function _afficherResultatScanMulti(div, nomFichier, data) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+  const factures = data.factures || []
+  const ok = factures.filter(f => f.statut === 'enregistree')
+  const ko = factures.filter(f => f.statut !== 'enregistree')
+  const ecartees = (data.pages_ecartees || []).filter(p => !p.info)
+  const pages = l => (l && l.length) ? ` (p. ${l.join(', ')} du PDF)` : ''
+  const lignes = [
+    ...ok.map(f => `<div style="font-size:12px;color:var(--green)">✔︎ n° ${esc(f.num_doc)} — ${esc(SOURCE_LABELS[f.source] || f.source)} ${esc(f.mois)}/${esc(f.annee)} — ${eur(f.total_ht)} HT — ${eur(f.remise_calculee)} remise — vérifié</div>`),
+    ...ko.map(f => `<div style="font-size:12px;color:#991B1B;margin-top:2px">✖ ${esc(f.motif)}${esc(pages(f.pages_pdf))}</div>`),
+    ...ecartees.map(p => `<div style="font-size:12px;color:#991B1B;margin-top:2px">✖ Page ${esc(p.page_pdf)} du PDF : ${esc(p.motif)}</div>`),
+  ]
+  const enErreur = ko.length || ecartees.length || !ok.length
+  div.className = enErreur ? 'alert' : 'alert alert-green'
+  div.style = 'margin-bottom:8px;display:flex;align-items:flex-start;gap:8px'
+    + (enErreur ? ';background:#FEF2F2;border:1px solid #FECACA;color:#991B1B' : '')
+  div.innerHTML = `<span><i class=${enErreur ? 'ic-x' : 'ic-check'}></i></span>
+    <div style="min-width:0">
+      <div style="font-weight:600">${esc(nomFichier)} — ${ok.length} facture(s) enregistrée(s)${ko.length ? `, ${ko.length} refusée(s)` : ''} sur ${esc(data.pages_total)} pages</div>
+      ${lignes.join('')}
+    </div>`
 }
 
 function _afficherRefusFacture(div, nomFichier, message) {
