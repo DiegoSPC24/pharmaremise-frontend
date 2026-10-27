@@ -770,8 +770,13 @@ async function initContexte() {
 async function init() {
   try {
     if (!(await initContexte())) return
-    PHARMACIE = await apiGet('/auth/me')
-    const abo = await apiGet('/abonnement/current')
+    /* LOT_PERF : trois appels indépendants, lancés ensemble au lieu de l'un après l'autre */
+    const [me, abo, configs] = await Promise.all([
+      apiGet('/auth/me'),
+      apiGet('/abonnement/current'),
+      apiGet('/grossiste/config').catch(() => null),
+    ])
+    PHARMACIE = me
     MODULES = abo.modules || []
     document.getElementById('user-name').textContent = PHARMACIE.nom
     document.getElementById('user-plan').textContent = abo.plan
@@ -781,11 +786,8 @@ async function init() {
     if (!MODULES.includes('generiqueur')) document.getElementById('nav-generiqueur').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
     if (!MODULES.includes('rfa')) document.getElementById('nav-rfa').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
     if (!MODULES.includes('generiqueur')) document.getElementById('nav-groupement').innerHTML += '<span class="lock"><i class=ic-lock></i></span>'
-    if (MODULES.includes('grossiste')) {
-      const configs = await apiGet('/grossiste/config')
-      if (Array.isArray(configs)) {
-        configs.forEach(c => { CONFIGS_GROSSISTE[c.source] = c })
-      }
+    if (MODULES.includes('grossiste') && Array.isArray(configs)) {
+      configs.forEach(c => { CONFIGS_GROSSISTE[c.source] = c })
     }
     loadAccueil()
     // Remplir le sélecteur d'années dynamique
@@ -1211,16 +1213,17 @@ async function loadAccueil() {
   const annee = _TRESO_ANNEE
   const mois = [1,2,3,4,5,6,7,8,9,10,11,12]
   try {
+    /* LOT_PERF : les 12 mois génériqueur en un seul appel, sans le détail ligne à ligne */
     const results = await Promise.all([
       apiGet(`/grossiste/remise-annuelle?annee=${annee}`).catch(()=>({par_mois:{}})),
       apiGet(`/grossiste/tresorerie?annee=${annee}`).catch(()=>[]),
       apiGet('/generiqueur/config').catch(()=>[]),
-      ...mois.map(m => apiGet(`/generiqueur/synthese?mois=${m}&annee=${annee}`).catch(()=>({})))
+      apiGet(`/generiqueur/synthese-annee?annee=${annee}`).catch(()=>[])
     ])
     const gAnnuel = results[0] || {par_mois:{}}
     const percus = Array.isArray(results[1]) ? results[1] : []
     const cfgsGen = Array.isArray(results[2]) ? results[2] : []
-    const genSynth = results.slice(3)
+    const genSynth = mois.map((m,i) => (Array.isArray(results[3]) && results[3][i]) || {})
 
     // Génériqueurs sous contrat, puis ceux qui n'apparaissent plus dans
     // Paramètres mais ont un montant cette année (année figée, saisie).
@@ -1823,7 +1826,7 @@ function renderDetailRemise(d){
     <div class="ds-item"><span class="ds-l">Produits chers</span><b>${eur(d.ca_produit_cher)}</b></div>
     <div class="ds-item"><span class="ds-l">Remise supplémentaire${tauxLbl}</span><b>${eur(d.remise_pct)}</b></div>
     <div class="ds-item"><span class="ds-l">Remise boîtes${forfaitLbl}</span><b>${eur(d.remise_forfait)}</b></div>
-    ${d.remise_sortie_hospi ? `<div class="ds-item"><span class="ds-l">Sortie hospitalière (\u00d7 ${d.nb_boites_hospi||0})</span><b>${eur(d.remise_sortie_hospi)}</b></div>` : ''}
+    ${(d.remise_sortie_hospi || d.ca_sortie_hospi) ? `<div class="ds-item"><span class="ds-l">Sortie hospitalière (\u00d7 ${d.nb_boites_hospi||0})</span><b>${eur(d.remise_sortie_hospi)}</b><div class="ds-break"><div style="font-size:11px;color:var(--sub);margin-top:2px">sur ${eur(d.ca_sortie_hospi)} de CA, hors éligible</div></div></div>` : ''}
   </div>`
 }
 
@@ -1836,9 +1839,11 @@ async function loadGrossiste() {
     const isPeriode = p.mode === 'periode'
     const urlSynth = isPeriode ? `/grossiste/synthese-periode?${p.params}` : `/grossiste/synthese?${p.params}`
     const urlFact = isPeriode ? `/grossiste/factures-periode?${p.params}` : `/grossiste/factures?${p.params}`
-    const [synth, factures] = await Promise.all([
+    // V351 : detail remise arriere (par grossiste + global), lancé avec les deux autres (LOT_PERF)
+    const [synth, factures, detail] = await Promise.all([
       apiGet(urlSynth),
       apiGet(urlFact),
+      isPeriode ? null : apiGet(`/grossiste/synthese-detail?${p.params}`).catch(() => null),
     ])
 
     // Grouper les factures par source
@@ -1848,9 +1853,6 @@ async function loadGrossiste() {
       parSource[f.source].push(f)
     })
 
-    // V351 : detail remise arriere (par grossiste + global)
-    let detail = null
-    if (!isPeriode) { try { detail = await apiGet(`/grossiste/synthese-detail?${p.params}`) } catch(e) { detail = null } }
     const detailBySource = {}
     if (detail && detail.par_grossiste) detail.par_grossiste.forEach(d => detailBySource[d.source] = d)
     const detailGlobal = detail ? detail.global : null
