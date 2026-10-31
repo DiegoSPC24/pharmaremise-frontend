@@ -1198,8 +1198,16 @@ const _MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','
 
 /* LOT_CONTRAT : un tableau par génériqueur (n°1, n°2…), dans l'ordre de
    Paramètres > Mes génériqueurs. Attendu = remise contrat + RDP : la remise
-   déjà déduite sur la facture du grossiste n'est pas de l'argent à percevoir. */
-let _TRESO = { gens: [], percu: { grossiste:{}, generique:{} } }
+   déjà déduite sur la facture du grossiste n'est pas de l'argent à percevoir.
+
+   ACCUEIL_SUIVI (retour du 28/10/2026) : tout ce qui est paramétré a son
+   tableau, dans cet ordre : grossistes (chacun verse son virement),
+   génériqueurs, biosimilaire n°1, RFA, remises de groupement. Chaque mois :
+   remise attendue, montant et date du virement reçu, écart. Les RFA et les
+   groupements partagent leur « € reçu » avec leur propre écran. */
+let _TRESO = { blocs: [] }
+
+const _FAMILLES_TRESO = { grossiste:'grossistes', generique:'génériqueurs', biosimilaire:'biosimilaire', rfa:'RFA', groupement:'groupements' }
 
 function _ordreGeneriqueurs(cfgs) {
   const prios = cfgs.filter(c => c.prioritaire).sort((a,b) => (a.ordre||999) - (b.ordre||999))
@@ -1207,59 +1215,125 @@ function _ordreGeneriqueurs(cfgs) {
   return [...prios, ...autres].map(c => c.labo)
 }
 
+/* Un tableau du suivi. saisie 'treso' : remises_percues (grossiste,
+   génériqueur, biosimilaire, avec rattrapages) ; 'recu' : « € reçu » d'une
+   fiche RFA / Groupement. */
+function _blocTreso(o) {
+  return Object.assign({ attendu:{}, percu:{}, rattrapage:[], sousTitre:'', saisie:'treso', key:null }, o)
+}
+
+function _dateCourte(iso) {
+  if (!iso) return ''
+  const p = String(iso).slice(0, 10).split('-')
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0].slice(2)}` : iso
+}
+
 async function loadAccueil() {
   const el = document.getElementById('accueil-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
   const annee = _TRESO_ANNEE
   const mois = [1,2,3,4,5,6,7,8,9,10,11,12]
+  const tab = x => Array.isArray(x) ? x : []
   try {
     /* LOT_PERF : les 12 mois génériqueur en un seul appel, sans le détail ligne à ligne */
-    const results = await Promise.all([
+    const [gAnnuel, percusRaw, cfgsGenRaw, genAnnee, biosim, rfaRaw, grpRaw] = await Promise.all([
       apiGet(`/grossiste/remise-annuelle?annee=${annee}`).catch(()=>({par_mois:{}})),
       apiGet(`/grossiste/tresorerie?annee=${annee}`).catch(()=>[]),
       apiGet('/generiqueur/config').catch(()=>[]),
-      apiGet(`/generiqueur/synthese-annee?annee=${annee}`).catch(()=>[])
+      apiGet(`/generiqueur/synthese-annee?annee=${annee}`).catch(()=>[]),
+      apiGet(`/grossiste/biosimilaires/remise-annuelle?annee=${annee}`).catch(()=>null),
+      MODULES.includes('rfa') ? apiGet('/rfa/fiches?avec_mois=1').catch(()=>[]) : [],
+      MODULES.includes('generiqueur') ? apiGet(`/groupement/fiches?annee=${annee}&avec_mois=1`).catch(()=>[]) : [],
     ])
-    const gAnnuel = results[0] || {par_mois:{}}
-    const percus = Array.isArray(results[1]) ? results[1] : []
-    const cfgsGen = Array.isArray(results[2]) ? results[2] : []
-    const genSynth = mois.map((m,i) => (Array.isArray(results[3]) && results[3][i]) || {})
+    const percus = tab(percusRaw)
+    const genSynth = mois.map((m,i) => tab(genAnnee)[i] || {})
+    const blocs = []
+    const rangerPercu = (bloc, r) => {
+      if (r.is_rattrapage) { bloc.rattrapage.push(r); return }
+      const deja = bloc.percu[r.mois]
+      bloc.percu[r.mois] = deja
+        ? Object.assign({}, deja, { montant_ht: (deja.montant_ht||0) + (r.montant_ht||0) })
+        : r
+    }
+
+    // Grossistes : un tableau par grossiste sous contrat qui a des factures
+    // (ou des virements saisis). Une saisie d'avant ce suivi, sans grossiste,
+    // est rangée sous le premier.
+    const g = gAnnuel || {}
+    const percusG = percus.filter(r => r.type === 'grossiste')
+    const sources = tab(g.grossistes)
+      .filter(x => (x.contrat_actif && x.a_des_factures) || percusG.some(r => r.labo === x.source))
+      .map(x => x.source)
+    const grosBlocs = sources.length
+      ? sources.map(s => _blocTreso({ famille:'grossiste', type:'grossiste', key:s,
+          titre:`Grossiste — ${SOURCE_LABELS[s] || s}`, attendu:(g.par_source || {})[s] || {} }))
+      : [_blocTreso({ famille:'grossiste', type:'grossiste', titre:'Grossistes', attendu:g.par_mois || {} })]
+    percusG.forEach(r => rangerPercu(grosBlocs.find(b => b.key && b.key === r.labo) || grosBlocs[0], r))
+    blocs.push(...grosBlocs)
 
     // Génériqueurs sous contrat, puis ceux qui n'apparaissent plus dans
     // Paramètres mais ont un montant cette année (année figée, saisie).
-    const gens = _ordreGeneriqueurs(cfgsGen)
-    genSynth.forEach(s => ((s && s.labos) || []).forEach(l => {
+    const gens = _ordreGeneriqueurs(tab(cfgsGenRaw))
+    genSynth.forEach(s => tab(s && s.labos).forEach(l => {
       if (l.configure && ((l.remise_contrat_e||0) + (l.rdp_e||0)) > 0 && !gens.includes(l.labo)) gens.push(l.labo)
     }))
     percus.forEach(r => { if (r.type === 'generique' && r.labo && !gens.includes(r.labo)) gens.push(r.labo) })
     if (!gens.length) gens.push('')  // aucun génériqueur : un seul tableau
+    const genBlocs = gens.map((labo, gi) => _blocTreso({ famille:'generique', type:'generique', key:labo || null,
+      titre: labo ? `Génériqueur n°${gi+1} — ${labo}` : 'Génériqueurs',
+      sousTitre: labo
+        ? 'Remise contrat + RDP. La remise déjà déduite sur vos factures n\'est pas comptée.'
+        : 'Aucun génériqueur configuré : ajoutez vos contrats dans Paramètres › Mes génériqueurs.' }))
+    mois.forEach((m,i) => tab(genSynth[i].labos).forEach(l => {
+      const b = genBlocs.find(x => x.key && x.key === l.labo)
+      if (b) b.attendu[m] = Math.round(((l.remise_contrat_e||0) + (l.rdp_e||0)) * 100) / 100
+    }))
+    // Saisie d'avant le suivi par génériqueur : rangée sous le n°1.
+    percus.filter(r => r.type === 'generique').forEach(r => rangerPercu(genBlocs.find(b => b.key && b.key === r.labo) || genBlocs[0], r))
+    blocs.push(...genBlocs)
 
-    const attendu = { grossiste:{}, generique:{} }
-    const percu = { grossiste:{}, generique:{} }
-    const rattrapage = { grossiste:[], generique:{} }
-    gens.forEach(k => { attendu.generique[k] = {}; percu.generique[k] = {}; rattrapage.generique[k] = [] })
-    mois.forEach((m,i)=>{
-      attendu.grossiste[m] = (gAnnuel.par_mois && gAnnuel.par_mois[m]) || 0
-      ;((genSynth[i] && genSynth[i].labos) || []).forEach(l => {
-        if (attendu.generique[l.labo]) attendu.generique[l.labo][m] = Math.round(((l.remise_contrat_e||0) + (l.rdp_e||0)) * 100) / 100
+    // Biosimilaire n°1 (Paramètres › Mon biosimilaire n°1)
+    const percusB = percus.filter(r => r.type === 'biosimilaire')
+    if ((biosim && biosim.configure) || percusB.length) {
+      const b = _blocTreso({ famille:'biosimilaire', type:'biosimilaire', key:(biosim && biosim.labo) || null,
+        titre:`Biosimilaire n°1 — ${(biosim && biosim.nom) || 'non choisi'}`,
+        sousTitre:'Taux de Paramètres › Mon biosimilaire n°1, appliqué au prix facturé HT de ses biosimilaires.',
+        attendu:(biosim && biosim.par_mois) || {} })
+      percusB.forEach(r => rangerPercu(b, r))
+      blocs.push(b)
+    }
+
+    // RFA : les mois de la fiche qui tombent dans l'année affichée
+    tab(rfaRaw).forEach(f => {
+      const ms = tab(f.mois).filter(x => x.annee === annee)
+      if (!ms.length) return
+      const c = f.conditions
+      const b = _blocTreso({ famille:'rfa', saisie:'recu', module:'rfa', key:f.id,
+        titre:`RFA ${f.type_fiche === 'groupement' ? 'groupement' : 'labo'} — ${f.nom}`,
+        sousTitre: c ? `${c.taux_pct} % du prix ${c.base === 'brut' ? 'brut' : 'net remisé'}, du ${_dateCourte(f.periode_debut)} au ${_dateCourte(f.periode_fin)}.` : '' })
+      ms.forEach(x => {
+        b.attendu[x.mois] = x.remise_attendue || 0
+        if (x.recu !== null && x.recu !== undefined) b.percu[x.mois] = { montant_ht:x.recu, date_encaissement:x.date_virement }
       })
+      blocs.push(b)
     })
-    percus.forEach(r=>{
-      if (r.type !== 'generique') {
-        if (r.is_rattrapage) rattrapage.grossiste.push(r)
-        else percu.grossiste[r.mois] = r
-        return
-      }
-      // Saisie d'avant le suivi par génériqueur : rangée sous le n°1.
-      const k = (r.labo && percu.generique[r.labo]) ? r.labo : gens[0]
-      if (r.is_rattrapage) { rattrapage.generique[k].push(r); return }
-      const deja = percu.generique[k][r.mois]
-      percu.generique[k][r.mois] = deja
-        ? Object.assign({}, deja, { montant_ht: (deja.montant_ht||0) + (r.montant_ht||0) })
-        : r
+
+    // Remises de groupement : nom du groupement + ses règles
+    tab(grpRaw).forEach(f => {
+      if (f.date_debut && parseInt(String(f.date_debut).slice(0, 4), 10) > annee) return
+      const regles = tab(f.regles).map(r => `${r.type === 'biosimilaire' ? 'biosimilaire ' : ''}${r.labo} ${r.taux_pct != null ? r.taux_pct + ' %' : ''}`.trim())
+      const b = _blocTreso({ famille:'groupement', saisie:'recu', module:'groupement', key:f.id,
+        titre:`Remise groupement — ${f.nom}`,
+        sousTitre: regles.length ? regles.join(' · ') : 'Aucune règle saisie.' })
+      tab(f.mois).forEach(x => {
+        b.attendu[x.mois] = x.remise_attendue || 0
+        if (x.recu !== null && x.recu !== undefined) b.percu[x.mois] = { montant_ht:x.recu, date_encaissement:x.date_virement }
+      })
+      blocs.push(b)
     })
-    _TRESO = { gens, percu }
-    el.innerHTML = _renderTreso(annee, attendu, percu, rattrapage, gens)
+
+    _TRESO = { blocs }
+    el.innerHTML = _renderTreso(annee, blocs)
   } catch(e) {
     el.innerHTML = '<div class="loading-center" style="color:var(--red)">Erreur de chargement</div>'
     console.error(e)
@@ -1270,31 +1344,24 @@ function _sommeAttendu(att){ let s=0; for(let m=1;m<=12;m++) s += (att[m]||0); r
 function _sommePercuMois(pc){ let s=0; for(let m=1;m<=12;m++) s += (pc[m] ? (pc[m].montant_ht||0) : 0); return s }
 function _sommeRattrapage(rl){ return (rl||[]).reduce((a,r)=>a+(r.montant_ht||0),0) }
 
-function _titreGeneriqueur(gi) {
-  const labo = _TRESO.gens[gi]
-  return labo ? `Génériqueur n°${gi+1} — ${labo}` : 'Génériqueurs'
-}
-
-function _renderTreso(annee, attendu, percu, rattrapage, gens){
-  const dehorsG = _sommeAttendu(attendu.grossiste) - _sommePercuMois(percu.grossiste) - _sommeRattrapage(rattrapage.grossiste)
-  let attGen = 0, percuGen = 0
-  gens.forEach(k => {
-    attGen += _sommeAttendu(attendu.generique[k])
-    percuGen += _sommePercuMois(percu.generique[k]) + _sommeRattrapage(rattrapage.generique[k])
-  })
-  const dehorsGen = attGen - percuGen
-  const dehorsTotal = dehorsG + dehorsGen
+function _renderTreso(annee, blocs){
   /* REFONTE_P3_EQUATION — derive des memes sommes : dehorsTotal === attTotal - percuTotal */
-  const attTotal = _sommeAttendu(attendu.grossiste) + attGen
-  const percuTotal = _sommePercuMois(percu.grossiste) + _sommeRattrapage(rattrapage.grossiste) + percuGen
-  const sousTitreGen = gens[0]
-    ? 'Remise contrat + RDP. La remise déjà déduite sur vos factures n\'est pas comptée.'
-    : 'Aucun génériqueur configuré : ajoutez vos contrats dans Paramètres › Mes génériqueurs.'
+  let attTotal = 0, percuTotal = 0
+  const dehorsParFamille = {}
+  blocs.forEach(b => {
+    const att = _sommeAttendu(b.attendu)
+    const pc = _sommePercuMois(b.percu) + _sommeRattrapage(b.rattrapage)
+    attTotal += att; percuTotal += pc
+    dehorsParFamille[b.famille] = (dehorsParFamille[b.famille] || 0) + att - pc
+  })
+  const dehorsTotal = attTotal - percuTotal
+  const kpis = Object.keys(_FAMILLES_TRESO).filter(f => f in dehorsParFamille)
+    .map(f => `<div class="kpi-card"><div class="kpi-lbl">dont ${_FAMILLES_TRESO[f]}</div><div class="kpi-val" style="font-size:20px">${eur(dehorsParFamille[f])}</div></div>`).join('')
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px">
     <div>
       <div style="font-size:20px;font-weight:700">Suivi des remises arrière</div>
-      <div style="font-size:13px;color:var(--sub)">Remise attendue (calculée) vs perçue (saisie) — tout en HT</div>
+      <div style="font-size:13px;color:var(--sub)">Remise attendue (calculée) vs virement reçu (saisi) — tout en HT</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="btn btn-outline btn-sm" onclick="_changerAnneeTreso(-1)">◂</button>
@@ -1310,65 +1377,61 @@ function _renderTreso(annee, attendu, percu, rattrapage, gens){
     </div>
     <div class="eq-op">−</div>
     <div class="eq-cell">
-      <div class="eq-label">Remises perçues</div>
+      <div class="eq-label">Virements reçus</div>
       <div class="eq-value">${eur(percuTotal)}</div>
-      <div class="eq-hint">Saisi depuis vos avoirs et rattrapages</div>
+      <div class="eq-hint">Saisis mois par mois ci-dessous</div>
     </div>
     <div class="eq-op">=</div>
     <div class="eq-cell eq-out">
       <div class="eq-label">Argent dehors</div>
       <div class="eq-value">${eur(dehorsTotal)}</div>
-      <div class="eq-hint">Attendu, pas encore perçu</div>
+      <div class="eq-hint">Attendu, pas encore reçu</div>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-top:14px">
-    <div class="kpi-card"><div class="kpi-lbl">dont grossistes</div><div class="kpi-val" style="font-size:20px">${eur(dehorsG)}</div></div>
-    <div class="kpi-card"><div class="kpi-lbl">dont génériqueurs</div><div class="kpi-val" style="font-size:20px">${eur(dehorsGen)}</div></div>
-  </div>
-  ${_tableTreso('grossiste', 'Grossistes', '', attendu.grossiste, percu.grossiste, rattrapage.grossiste, -1)}
-  ${gens.map((k, gi) => _tableTreso('generique', _titreGeneriqueur(gi), sousTitreGen,
-      attendu.generique[k], percu.generique[k], rattrapage.generique[k], gi)).join('')}
+  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:14px">${kpis}</div>
+  ${blocs.map((b, bi) => _tableTreso(b, bi)).join('')}
   `
 }
 
-function _tableTreso(type, titre, sousTitre, attendu, percu, rattrapage, gi){
+function _tableTreso(b, bi){
   /* V371_TRESO_HORIZONTAL : mois en colonnes */
   const ABBR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
   let totAtt = 0, totPercu = 0
-  let thMois = '', rAtt = '', rPercu = '', rDiff = ''
+  let thMois = '', rAtt = '', rPercu = '', rDate = '', rDiff = ''
   for(let m=1;m<=12;m++){
-    const att = attendu[m]||0
-    const pc = percu[m]
+    const att = b.attendu[m]||0
+    const pc = b.percu[m]
     const pcHt = pc ? (pc.montant_ht||0) : 0
     const diff = att - pcHt
     totAtt += att; totPercu += pcHt
     const diffColor = Math.abs(diff) < 0.01 ? 'var(--sub)' : (diff > 0 ? '#E8A33D' : 'var(--green)')
-    const dTitle = (pc && pc.date_encaissement) ? ('Encaissé le '+pc.date_encaissement+' — cliquer pour modifier') : 'Cliquer pour saisir'
     const cell = 'text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 8px'
+    const clic = `onclick="_saisirPercu(${bi},${m})" title="${pc ? 'Cliquer pour modifier' : 'Cliquer pour saisir le virement'}"`
     thMois += `<th style="text-align:right;min-width:80px;font-size:11px;padding:6px 8px;color:var(--sub)">${ABBR[m-1]}</th>`
     rAtt += `<td style="${cell}">${eur(att)}</td>`
-    rPercu += `<td onclick="_saisirPercu('${type}',${m},${gi})" title="${dTitle}" style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span class=chip-saisir>Saisir</span>'}</td>`
+    rPercu += `<td ${clic} style="${cell};color:var(--green);cursor:pointer;border-bottom:1px dotted #cfcfcf;background:${pc?'#F3FBF7':'transparent'}">${pc ? eur(pcHt) : '<span class=chip-saisir>Saisir</span>'}</td>`
+    rDate += `<td ${clic} style="${cell};cursor:pointer;color:${pc && pc.date_encaissement ? 'inherit' : 'var(--sub)'}">${pc && pc.date_encaissement ? _dateCourte(pc.date_encaissement) : '—'}</td>`
     rDiff += `<td style="${cell};color:${diffColor}">${eur(diff)}</td>`
   }
-  const totRat = _sommeRattrapage(rattrapage)
+  const totRat = _sommeRattrapage(b.rattrapage)
   const totDiff = totAtt - totPercu - totRat
   const stickH = 'position:sticky;left:0;background:#fff;z-index:2;padding:6px 10px;text-align:left'
   const stickG = 'position:sticky;left:0;background:#fff;z-index:1;font-weight:600;white-space:nowrap;padding:6px 10px;text-align:left'
   const totCell = 'text-align:right;font-family:\'DM Mono\',monospace;font-weight:700;padding:6px 10px;min-width:92px'
   let ratHtml = ''
-  if((rattrapage||[]).length){
+  if((b.rattrapage||[]).length){
     ratHtml = '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
       + '<span style="font-size:11px;color:var(--sub);font-weight:600">Rattrapages :</span>'
-      + rattrapage.map(r=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:14px;padding:3px 10px;font-size:12px">${r.libelle?r.libelle+' · ':''}${eur(r.montant_ht||0)}${r.date_encaissement?` <span style="color:var(--sub);font-size:10px">(${r.date_encaissement})</span>`:''}<button onclick="_supprRattrapage('${r.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0"><i class=ic-x></i></button></span>`).join('')
+      + b.rattrapage.map(r=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:14px;padding:3px 10px;font-size:12px">${r.libelle?escapeHtml(r.libelle)+' · ':''}${eur(r.montant_ht||0)}${r.date_encaissement?` <span style="color:var(--sub);font-size:10px">(${_dateCourte(r.date_encaissement)})</span>`:''}<button onclick="_supprRattrapage('${r.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0"><i class=ic-x></i></button></span>`).join('')
       + '</div>'
   }
   return `<div class="card" style="margin-top:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-size:16px;font-weight:700">${titre}</div>
-        ${sousTitre ? `<div style="font-size:11.5px;color:var(--sub);margin-top:2px">${sousTitre}</div>` : ''}
+        <div style="font-size:16px;font-weight:700">${escapeHtml(b.titre)}</div>
+        ${b.sousTitre ? `<div style="font-size:11.5px;color:var(--sub);margin-top:2px">${escapeHtml(b.sousTitre)}</div>` : ''}
       </div>
-      <button class="btn btn-outline btn-sm" onclick="_saisirRattrapage('${type}',${gi})">+ Rattrapage fin d'année</button>
+      ${b.saisie === 'treso' ? `<button class="btn btn-outline btn-sm" onclick="_saisirRattrapage(${bi})">+ Rattrapage fin d'année</button>` : ''}
     </div>
     <div style="overflow-x:auto">
       <table style="border-collapse:collapse;min-width:100%">
@@ -1377,8 +1440,9 @@ function _tableTreso(type, titre, sousTitre, attendu, percu, rattrapage, gi){
         </tr></thead>
         <tbody>
           <tr><td style="${stickG}">Remise attendue</td>${rAtt}<td style="${totCell}">${eur(totAtt)}</td></tr>
-          <tr><td style="${stickG}">Remise perçue (HT)</td>${rPercu}<td style="${totCell};color:var(--green)">${eur(totPercu+totRat)}</td></tr>
-          <tr style="border-top:2px solid var(--green)"><td style="${stickG}">Différence</td>${rDiff}<td style="${totCell};color:${totDiff>0?'#E8A33D':'var(--green)'}">${eur(totDiff)}</td></tr>
+          <tr><td style="${stickG}">Virement reçu (HT)</td>${rPercu}<td style="${totCell};color:var(--green)">${eur(totPercu+totRat)}</td></tr>
+          <tr><td style="${stickG};font-weight:500;color:var(--sub)">Date du virement</td>${rDate}<td style="${totCell}"></td></tr>
+          <tr style="border-top:2px solid var(--green)"><td style="${stickG}">Écart (attendu − reçu)</td>${rDiff}<td style="${totCell};color:${totDiff>0?'#E8A33D':'var(--green)'}">${eur(totDiff)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -1388,44 +1452,46 @@ function _tableTreso(type, titre, sousTitre, attendu, percu, rattrapage, gi){
 
 function _changerAnneeTreso(d){ _TRESO_ANNEE += d; loadAccueil() }
 function _fermerModalTreso(){ const o=document.getElementById('treso-modal'); if(o) o.remove() }
-function _saisirPercu(type, mois, gi){ _modalTreso(type, mois, false, gi) }
-function _saisirRattrapage(type, gi){ _modalTreso(type, 0, true, gi) }
+function _saisirPercu(bi, mois){ _modalTreso(bi, mois, false) }
+function _saisirRattrapage(bi){ _modalTreso(bi, 0, true) }
 
-function _ligneTreso(type, mois, gi){
-  if (type === 'generique') return ((_TRESO.percu.generique[_TRESO.gens[gi]]) || {})[mois] || null
-  return _TRESO.percu.grossiste[mois] || null
-}
-
-function _modalTreso(type, mois, isRat, gi){
+function _modalTreso(bi, mois, isRat){
   _fermerModalTreso()
-  const tt = (type==='generique') ? (_TRESO.gens[gi] ? _titreGeneriqueur(gi) : 'Génériqueur') : 'Grossiste'
-  const titre = isRat ? ('Rattrapage — '+tt) : ('Remise perçue — '+tt+' — '+_MOIS_NOMS[mois-1])
-  const ex = isRat ? null : _ligneTreso(type, mois, gi)
+  const b = _TRESO.blocs[bi]
+  if (!b) return
+  const titre = isRat ? ('Rattrapage — '+b.titre) : ('Virement reçu — '+b.titre+' — '+_MOIS_NOMS[mois-1])
+  const ex = isRat ? null : (b.percu[mois] || null)
+  const att = isRat ? 0 : (b.attendu[mois] || 0)
   const o = document.createElement('div')
   o.id = 'treso-modal'
   o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999'
   o.onclick = _fermerModalTreso
   o.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-width:92vw" onclick="event.stopPropagation()">
-    <div style="font-size:16px;font-weight:700;margin-bottom:16px">${titre}</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">${escapeHtml(titre)}</div>
+    ${isRat ? '' : `<div style="font-size:12px;color:var(--sub);margin-bottom:14px">Remise attendue ce mois : <b>${eur(att)}</b></div>`}
     ${isRat ? `<label style="font-size:12px;color:var(--sub)">Libellé (optionnel)</label><input id="tr-lib" type="text" placeholder="ex : RFA 2024" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">` : ''}
-    <label style="font-size:12px;color:var(--sub)">Date d'encaissement</label>
+    <label style="font-size:12px;color:var(--sub)">Date du virement</label>
     <input id="tr-date" type="date" value="${(ex && ex.date_encaissement) || ''}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;box-sizing:border-box">
-    <label style="font-size:12px;color:var(--sub)">Montant saisi en</label>
+    <label style="font-size:12px;color:var(--sub)">Montant du virement, saisi en</label>
     <div style="display:flex;gap:10px;margin:6px 0 10px">
       <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ht" checked> HT</label>
       <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="tr-base" value="ttc"> TTC (→ HT à 20%)</label>
     </div>
     <input id="tr-montant" type="number" step="0.01" placeholder="0.00" value="${ex ? (ex.montant_ht||0) : ''}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-bottom:18px;box-sizing:border-box">
     <div style="display:flex;gap:8px;justify-content:flex-end">
+      ${ex ? `<button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);margin-right:auto" onclick="_effacerPercu(${bi},${mois})">Effacer</button>` : ''}
       <button class="btn btn-outline btn-sm" onclick="_fermerModalTreso()">Annuler</button>
-      <button class="btn btn-green btn-sm" onclick="_enregistrerPercu('${type}',${mois},${isRat?1:0},${gi})">Enregistrer</button>
+      <button class="btn btn-green btn-sm" onclick="_enregistrerPercu(${bi},${mois},${isRat?1:0})">Enregistrer</button>
     </div>
   </div>`
   document.body.appendChild(o)
 }
 
-async function _enregistrerPercu(type, mois, isRat, gi){
-  const montant = parseFloat((document.getElementById('tr-montant')||{}).value || '0') || 0
+async function _enregistrerPercu(bi, mois, isRat){
+  const b = _TRESO.blocs[bi]
+  const brut = (document.getElementById('tr-montant')||{}).value
+  if (brut === '' || brut === undefined || isNaN(parseFloat(brut))) { toast('Indiquez le montant du virement', 'red'); return }
+  const montant = parseFloat(brut)
   const baseEl = document.querySelector('input[name="tr-base"]:checked')
   const base = baseEl ? baseEl.value : 'ht'
   const date = (document.getElementById('tr-date')||{}).value || null
@@ -1434,20 +1500,42 @@ async function _enregistrerPercu(type, mois, isRat, gi){
   let ht, ttc
   if (base === 'ttc') { ttc = montant; ht = Math.round((montant/1.20)*100)/100 }
   else { ht = montant; ttc = Math.round((montant*1.20)*100)/100 }
-  const ex = isRat ? null : _ligneTreso(type, mois, gi)
   try {
-    const r = await apiPost('/grossiste/tresorerie', {
-      type: type, annee: _TRESO_ANNEE, mois: isRat ? 0 : mois,
-      labo: (type === 'generique' && _TRESO.gens[gi]) || null,
-      id: ex ? ex.id : null,
-      is_rattrapage: !!isRat, libelle: lib, date_encaissement: date,
-      montant_ttc: ttc, montant_ht: ht
-    })
-    if (!r || !r.id) throw new Error((r && r.detail) || 'Erreur')
+    let r
+    if (b.saisie === 'recu') {
+      r = await apiPut(`/${b.module}/fiches/${encodeURIComponent(b.key)}/recus`, { annee:_TRESO_ANNEE, mois, montant:ht, date_virement:date })
+      if (!r || r.mois !== mois) throw new Error((r && r.detail) || 'Erreur')
+    } else {
+      const ex = isRat ? null : (b.percu[mois] || null)
+      r = await apiPost('/grossiste/tresorerie', {
+        type: b.type, annee: _TRESO_ANNEE, mois: isRat ? 0 : mois,
+        labo: b.key || null,
+        id: ex ? ex.id : null,
+        is_rattrapage: !!isRat, libelle: lib, date_encaissement: date,
+        montant_ttc: ttc, montant_ht: ht
+      })
+      if (!r || !r.id) throw new Error((r && r.detail) || 'Erreur')
+    }
     _fermerModalTreso()
     toast('Enregistré', 'green')
     loadAccueil()
-  } catch(e) { toast('Erreur lors de l\'enregistrement', 'red'); console.error(e) }
+  } catch(e) { toast('Erreur lors de l\'enregistrement' + (e.message && e.message !== 'Erreur' ? ' : ' + e.message : ''), 'red'); console.error(e) }
+}
+
+async function _effacerPercu(bi, mois){
+  const b = _TRESO.blocs[bi]
+  const ex = b && b.percu[mois]
+  if (!ex) return
+  try {
+    if (b.saisie === 'recu') {
+      await apiPut(`/${b.module}/fiches/${encodeURIComponent(b.key)}/recus`, { annee:_TRESO_ANNEE, mois, montant:null })
+    } else {
+      await fetch(`${API}/grossiste/tresorerie/${ex.id}`, { method:'DELETE', headers:{ Authorization:`Bearer ${TOKEN}` } })
+    }
+    _fermerModalTreso()
+    toast('Virement effacé', 'green')
+    loadAccueil()
+  } catch(e) { toast('Erreur', 'red'); console.error(e) }
 }
 
 async function _supprRattrapage(id){
@@ -1806,6 +1894,18 @@ function toggleSourceVisible(source, checked){
   });
 }
 
+/* DETAIL_V2 : calcul détaillé dont la feuille de Paramètres ne met aucune
+   catégorie au taux. L'écran affichait « 0 € éligible » et une remise faite
+   des seuls forfaits à la boîte, sans rien expliquer (CERP, 28/10/2026). */
+function _alerteCalculDetail(etat, label) {
+  if (!etat) return ''
+  const txt = etat === 'a_enregistrer'
+    ? `Calcul détaillé ${escapeHtml(label)} : la feuille de Paramètres n'est pas encore prise en compte. Ouvrez Paramètres › ${escapeHtml(label)}, renseignez le taux du contrat et les catégories, puis « Enregistrer + Recalculer ».`
+    : `Calcul détaillé ${escapeHtml(label)} : aucune catégorie n'est au taux dans Paramètres.`
+  return `<div style="margin:0 0 12px;padding:10px 12px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:8px;font-size:12.5px;color:#92400E">
+    ${txt} Le CA éligible est donc à 0 € et la remise affichée ne vient que des forfaits à la boîte (produits chers, sorties hospitalières).</div>`
+}
+
 /* V351_DETAIL_REMISE : detail des 7 chiffres de remise arriere */
 function renderDetailRemise(d){
   if(!d) return ''
@@ -1898,9 +1998,10 @@ async function loadGrossiste() {
             <div style="font-size:15px;font-weight:600;color:var(--sub)">Sans contrat</div>
           </div>` : `<div style="text-align:right">
             <div style="font-size:11px;color:var(--sub)">Taux contrat</div>
-            <div style="font-size:18px;font-weight:600;color:${color}">${g.taux_remise_pct}%</div>
+            <div style="font-size:18px;font-weight:600;color:${color}">${(g.mode_calcul === 'detail' && !(g.taux_remise_pct > 0)) ? '—' : g.taux_remise_pct + '%'}</div>
           </div>`}
         </div>
+        ${sansContrat ? '' : _alerteCalculDetail(g.detail_incomplet || (detailBySource[g.source] || {}).detail_incomplet, label)}
         ${sansContrat ? `<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
           <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">CA total</div><div class="kpi-val" style="font-size:18px">${eur(g.ca_total)}</div></div>
           <div class="kpi-card" style="padding:10px 14px"><div class="kpi-lbl">Remise grossiste</div><div class="kpi-val" style="font-size:18px;color:var(--sub)">Non calculée</div></div>
@@ -5077,8 +5178,7 @@ function renderOffreGrossiste(label, offre) {
     { key: 'tva_10', label: 'TVA 10%' },
     { key: 'tva_20', label: 'TVA 20%' },
     { key: 'biosimilaire', label: 'Biosimilaires' },
-    { key: 'frigo', label: 'Frigo' },
-    { key: 'stupefiant', label: 'Stupéfiants' },
+    // CMP_SANS_FRIGO : frigo et stupéfiants retirés, le calcul ne sait pas les reconnaître
   ]
 
   const exclusionsHtml = exclusions.map(e => {
@@ -5793,7 +5893,7 @@ function afficherResultatComparaisonGen(data) {
       <div style="padding:16px;background:#F0FDF4;border-radius:10px;border:2px solid #1D9E75;margin-bottom:16px;text-align:center">
         <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">Potentiel global générique</div>
         <div style="font-size:28px;font-weight:700;color:#1D9E75;font-family:'DM Mono',monospace;margin:4px 0">${eur(pot.total_ca_ht)}</div>
-        <div style="font-size:11px;color:var(--sub)">${pot.nb_molecules} molécules distinctes • ${formatPeriode(data.periode)}</div>
+        <div style="font-size:11px;color:var(--sub)">${pot.nb_molecules} produits distincts • ${formatPeriode(data.periode)}</div>
       </div>
 
       <!-- Verdict -->
@@ -5820,7 +5920,7 @@ function afficherResultatComparaisonGen(data) {
           </thead>
           <tbody>
             ${ligneCompGen('Couverture catalogue', covA.pct_couverture, covB.pct_couverture, 'pct', covA.ca_couvert, covB.ca_couvert)}
-            ${ligneCompGen('Molécules non couvertes', covA.nb_molecules_non_couvertes, covB.nb_molecules_non_couvertes, 'n', covA.ca_non_couvert, covB.ca_non_couvert, true)}
+            ${ligneCompGen('Produits non couverts', covA.nb_molecules_non_couvertes, covB.nb_molecules_non_couvertes, 'n', covA.ca_non_couvert, covB.ca_non_couvert, true)}
             ${ligneCompGen('Remise sur facture', rA.remise_facture_e, rB.remise_facture_e, 'e')}
             ${rA.rdp_e > 0 || rB.rdp_e > 0 ? ligneCompGen('RDP Biogaran', rA.rdp_e, rB.rdp_e, 'e') : ''}
             ${ligneCompGen('Remise contrat', rA.remise_contrat_e, rB.remise_contrat_e, 'e')}
@@ -5837,8 +5937,8 @@ function afficherResultatComparaisonGen(data) {
 
       <!-- Bouton voir molécules perdues -->
       <div style="display:flex;gap:8px;margin-top:16px;justify-content:center">
-        ${covA.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('A')"><i class=ic-clip></i> Molécules perdues chez ${prmA.labo} (${covA.nb_molecules_non_couvertes})</button>` : ''}
-        ${covB.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('B')"><i class=ic-clip></i> Molécules perdues chez ${prmB.labo} (${covB.nb_molecules_non_couvertes})</button>` : ''}
+        ${covA.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('A')"><i class=ic-clip></i> Produits perdus chez ${prmA.labo} (${covA.nb_molecules_non_couvertes})</button>` : ''}
+        ${covB.nb_molecules_non_couvertes > 0 ? `<button class="btn btn-outline btn-sm" onclick="voirMoleculesPerdues('B')"><i class=ic-clip></i> Produits perdus chez ${prmB.labo} (${covB.nb_molecules_non_couvertes})</button>` : ''}
       </div>
     </div>`
 }
@@ -5948,9 +6048,9 @@ function voirMoleculesPerdues(label) {
       <div style="background:white;border-radius:12px;padding:20px;max-width:850px;width:95%;max-height:85vh;overflow-y:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div>
-            <div style="font-size:16px;font-weight:700">Molécules perdues chez ${labo}</div>
+            <div style="font-size:16px;font-weight:700">Produits perdus chez ${labo}</div>
             <div style="font-size:11px;color:var(--sub);margin-top:2px">
-              Top 20 par CA • Clique sur <strong style="color:#92400E"><i class=ic-alert></i> Princeps</strong> si un produit n'est pas un vrai générique
+              Même substance, même dosage, même forme, même boîte : le labo ne l'a pas. Top 20 par CA • Clique sur <strong style="color:#92400E"><i class=ic-alert></i> Princeps</strong> si un produit n'est pas un vrai générique
             </div>
           </div>
           <button onclick="document.getElementById('popup-molecules-perdues').remove()" class="btn btn-outline btn-sm"><i class=ic-x></i></button>
@@ -5961,7 +6061,7 @@ function voirMoleculesPerdues(label) {
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#F8FAFC;font-size:10px;color:var(--sub);text-transform:uppercase">
-              <th style="padding:6px 10px;text-align:left">Molécule / CIP</th>
+              <th style="padding:6px 10px;text-align:left">Produit / CIP</th>
               <th style="padding:6px 10px;text-align:right">CA perdu</th>
               <th style="padding:6px 10px;text-align:center">Lignes</th>
               <th style="padding:6px 10px;text-align:left">Labos utilisés</th>
@@ -7506,6 +7606,7 @@ async function showLogDetail(logId) {
   const API = 'https://web-production-2202b.up.railway.app';
   const SRC = { cerp:'CERP', alliance:'Alliance', ocp:'OCP' };
   const DEF = {
+    taux_contrat_pct:0, /* DETAIL_V2 */
     base_calcul:'facture', generique_actif:false, sortie_hospi_actif:false,
     princeps_actif:false, princeps_rem_mode:'exclu', princeps_rem_taux:0,
     princeps_norem_mode:'exclu', princeps_norem_taux:0,
@@ -7614,6 +7715,14 @@ async function showLogDetail(logId) {
       </div>
 
       <div class="v390-sec">
+        <p class="v390-eyebrow">Taux du contrat</p>
+        <div class="v390-grid">
+          <div class="v390-f"><label>Taux de remise du contrat (%)</label><div class="v390-inp"><input type="number" class="v390-taux-contrat" value="0" step="0.1" min="0" max="100"><span class="u">%</span></div></div>
+        </div>
+        <p class="v390-lead" style="margin:8px 0 0">Le taux \u00ab lin\u00e9aire \u00bb de votre contrat. Il s'applique aux g\u00e9n\u00e9riques activ\u00e9s ci-dessous et pr\u00e9-remplit chaque \u00ab Taux appliqu\u00e9 \u00bb.</p>
+      </div>
+
+      <div class="v390-sec">
         <p class="v390-eyebrow">Seuils &amp; forfaits</p>
         <div class="v390-grid">
           <div class="v390-f"><label>Seuil produit cher (\u20ac)</label><div class="v390-inp"><input type="number" class="v390-seuil-cher" value="${sc}" step="50"><span class="u">\u20ac</span></div></div>
@@ -7631,19 +7740,21 @@ async function showLogDetail(logId) {
         ${catRow('princeps','Princeps',true)}
         ${catRow('tva20','TVA 20 %',true)}
         ${catRow('biosim','Biosimilaire',true)}
-        <p class="v390-lead" style="margin-top:10px">G\u00e9n\u00e9rique \u2192 au taux de remise standard. Sortie hospitali\u00e8re \u2192 au forfait/bo\u00eete ci-dessus.</p>
+        <p class="v390-lead" style="margin-top:10px">G\u00e9n\u00e9rique \u2192 au taux du contrat ci-dessus. Sortie hospitali\u00e8re \u2192 au forfait/bo\u00eete ci-dessus. Produit cher \u2192 toujours au forfait/bo\u00eete.</p>
       </div>
 
       <div class="v390-save-row">
         <button class="v390-save" type="button">Enregistrer + Recalculer</button>
         <span class="v390-status" style="font-size:13px"></span>
       </div>
+      <div class="v390-alerte" style="display:none;margin-top:12px;padding:10px 12px;background:#FFFBEB;border:1px solid #F0E2B8;border-radius:8px;font-size:12.5px;color:#92400E"></div>
     </div>`;
   }
 
   function applyDetail(block, d){
     d = Object.assign({}, DEF, d||{});
     block.querySelectorAll('.v390-seg button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-v')===d.base_calcul));
+    const tc = block.querySelector('.v390-taux-contrat'); if (tc) tc.value = d.taux_contrat_pct || 0;
     function setCat(key, on){
       const c=block.querySelector(`.v390-cat[data-cat="${key}"]`); if(!c) return;
       c.querySelector('.v390-toggle').checked=!!on;
@@ -7668,6 +7779,27 @@ async function showLogDetail(logId) {
     setScope('tva20','norem',d.tva20_norem_mode,d.tva20_norem_taux);
     setScope('biosim','rem',d.biosim_rem_mode,d.biosim_rem_taux);
     setScope('biosim','norem',d.biosim_norem_mode,d.biosim_norem_taux);
+    alerteFeuille(block);
+  }
+
+  /* DETAIL_V2 : une feuille sans aucune catégorie au taux ne compte que les
+     forfaits à la boîte. On le dit ici plutôt que de laisser l'écran
+     Grossiste afficher « 0 € éligible » à côté d'une remise. */
+  function alerteFeuille(block){
+    const el = block.querySelector('.v390-alerte'); if (!el) return;
+    const on = k => { const c=block.querySelector(`.v390-cat[data-cat="${k}"] .v390-toggle`); return c?c.checked:false; };
+    const tc = parseFloat((block.querySelector('.v390-taux-contrat')||{}).value) || 0;
+    let auTaux = on('generique') && tc > 0;
+    ['princeps','tva20','biosim'].forEach(k => ['rem','norem'].forEach(sc => {
+      const r = block.querySelector(`input[name="v390-${k}-${sc}"]:checked`);
+      const t = block.querySelector(`.v390-choice[data-cat="${k}"][data-scope="${sc}"] .v390-taux input`);
+      if (on(k) && r && r.value === 'taux' && t && (parseFloat(t.value)||0) > 0) auTaux = true;
+    }));
+    const msg = [];
+    if (!auTaux) msg.push('Aucune cat\u00e9gorie n\u2019est au taux : seuls les produits chers' + (on('hospi') ? ' et les sorties hospitali\u00e8res' : '') + ' (forfait \u00e0 la bo\u00eete) rapporteront une remise. Activez au moins une cat\u00e9gorie avec un taux.');
+    if (on('generique') && tc <= 0) msg.push('G\u00e9n\u00e9riques activ\u00e9s mais taux du contrat \u00e0 0 % : renseignez le taux du contrat.');
+    el.innerHTML = msg.join('<br>');
+    el.style.display = msg.length ? '' : 'none';
   }
 
   function attach(block, source){
@@ -7688,9 +7820,19 @@ async function showLogDetail(logId) {
         const isT=g.querySelector('input[value=taux]').checked;
         box.classList.toggle('off',!isT); inp.disabled=!isT;
       }
-      g.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',sync));
+      g.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{
+        // DETAIL_V2 : « Taux appliqué » vide -> taux du contrat par défaut
+        if (r.value==='taux' && r.checked && !(parseFloat(inp.value)>0)) {
+          const tc = parseFloat((block.querySelector('.v390-taux-contrat')||{}).value) || 0;
+          if (tc > 0) inp.value = tc;
+        }
+        sync(); alerteFeuille(block);
+      }));
+      inp.addEventListener('input', ()=>alerteFeuille(block));
       sync();
     });
+    block.querySelectorAll('.v390-toggle').forEach(t=>t.addEventListener('change',()=>alerteFeuille(block)));
+    const tcIn = block.querySelector('.v390-taux-contrat'); if (tcIn) tcIn.addEventListener('input',()=>alerteFeuille(block));
     const btn = block.querySelector('.v390-save');
     if (btn) btn.addEventListener('click',()=>save(block, source));
   }
@@ -7703,7 +7845,12 @@ async function showLogDetail(logId) {
     const catOn = k => { const c=block.querySelector(`.v390-cat[data-cat="${k}"] .v390-toggle`); return c?c.checked:false; };
     const mode = (k,sc) => { const r=block.querySelector(`input[name="v390-${k}-${sc}"]:checked`); return r?r.value:'exclu'; };
     const taux = (k,sc) => { const e=block.querySelector(`.v390-choice[data-cat="${k}"][data-scope="${sc}"] .v390-taux input`); return e?(parseFloat(e.value)||0):0; };
+    const tcEl = block.querySelector('.v390-taux-contrat');
+    const tcVal = tcEl ? (parseFloat(tcEl.value)||0) : 0;
+    if (tcVal < 0 || tcVal > 100) { status.textContent='\u2717 Taux du contrat entre 0 et 100 %'; status.style.color='#c0392b'; return; }
     const detail = {
+      version: 2,              /* DETAIL_V2 : cette feuille pilote le calcul */
+      taux_contrat_pct: tcVal,
       base_calcul: base,
       generique_actif: catOn('generique'),
       sortie_hospi_actif: catOn('hospi'),
@@ -7730,9 +7877,13 @@ async function showLogDetail(logId) {
     if (quand) { cfgPayload.date_effet = quand.date_effet; cfgPayload.recalculer = quand.recalculer; }
     try {
       const T = tk();
-      await fetch(`${API}/grossiste/config-detail/${source}`, {method:'POST',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(detail)});
-      await fetch(`${API}/grossiste/config-v3`, {method:'PUT',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(cfgPayload)});
-      status.textContent='\u2713 Enregistr\u00e9'; status.style.color='#1D9E75';
+      const rd = await fetch(`${API}/grossiste/config-detail/${source}`, {method:'POST',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(detail)});
+      if (!rd.ok) { const e = await rd.json().catch(()=>({})); throw new Error(e.detail || ('erreur ' + rd.status)); }
+      const rc = await fetch(`${API}/grossiste/config-v3`, {method:'PUT',headers:{'Authorization':'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(cfgPayload)});
+      if (!rc.ok) { const e = await rc.json().catch(()=>({})); throw new Error(e.detail || ('erreur ' + rc.status)); }
+      const res = await rc.json().catch(()=>({}));
+      const n = (res.recalcul && res.recalcul.nb_factures_recalculees) || 0;
+      status.textContent='\u2713 Enregistr\u00e9' + (n ? ` \u2014 ${n} facture(s) recalcul\u00e9e(s)` : ''); status.style.color='#1D9E75';
       window._v307ConfigCache=null;
     } catch(e){ status.textContent='\u2717 '+(e.message||'erreur'); status.style.color='#c0392b'; }
   }

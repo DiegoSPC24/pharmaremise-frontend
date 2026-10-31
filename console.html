@@ -983,8 +983,61 @@ async function renderRefGeneriques(){
             ${l.present?`<button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="viderGen('${esc(l.labo)}')">Vider</button>`:''}
           </td>
         </tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table>
+      <div id="corresp-box" style="margin-top:22px"></div>`;
+    renderCorrespondances();
   }catch(e){ b.innerHTML = `<div class="center">Erreur : ${esc(e.message)}</div>`; }
+}
+
+/* LOT_CORRESP : correspondances entre génériqueurs pour le comparateur.
+   Un produit = substance + dosage + forme + boîte. Les règles tournent seules
+   après chaque import ; l'IA (payante) se lance ici, une fois par an suffit. */
+let _CORRESP_SUIVI = null
+async function renderCorrespondances(){
+  const box = document.getElementById('corresp-box');
+  if (!box) return;
+  let e;
+  try{ e = await api('/admin/correspondances/etat'); }
+  catch(err){ box.innerHTML = `<div style="color:var(--sub);font-size:13px">Correspondances : ${esc(err.message)}</div>`; return; }
+  const t = e.tache_ia || {}, a = e.ia_a_faire || {}, tout = e.ia_tout_revoir || {};
+  const enCours = t.etat === 'en_cours';
+  const pct = (x, n) => n ? Math.round(x / n * 100) + ' %' : '—';
+  box.innerHTML = `
+    <div class="group-title">Correspondances entre génériqueurs (comparateur)</div>
+    <div class="group-sub">Le comparateur rapproche les labos <b>par produit</b> : même substance, même dosage, même forme, même boîte.
+      Les règles se recalculent seules après chaque import. L'IA (Claude) reprend ce qu'elles laissent sans équivalent Biogaran ; ses réponses sont gardées.</div>
+    <table><tbody>
+      <tr><td>Produits des catalogues</td><td class="num">${e.nb_produits}</td></tr>
+      <tr><td>Fiche complète (boîte comprise)</td><td class="num">${e.nb_complets} (${pct(e.nb_complets, e.nb_produits)})</td></tr>
+      <tr><td>Rapprochés d'un produit Biogaran par l'IA</td><td class="num">${e.nb_rapproches_ia} sur ${e.nb_vus_ia} vus</td></tr>
+      <tr><td>Reste à voir par l'IA</td><td class="num">${a.produits||0} produit(s), ${a.appels||0} appel(s), ≈ ${(a.cout_estime_dollars||0).toLocaleString('fr-FR')} $</td></tr>
+    </tbody></table>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="correspRecalculer()" ${enCours?'disabled':''}>Recalculer par règles</button>
+      <button class="btn btn-green btn-sm" onclick="correspIA(false)" ${enCours||!a.appels?'disabled':''}>Rapprocher par IA (${a.produits||0} produit(s))</button>
+      <button class="btn btn-outline btn-sm" onclick="correspIA(true)" ${enCours?'disabled':''}>Tout revoir par IA (≈ ${(tout.cout_estime_dollars||0).toLocaleString('fr-FR')} $)</button>
+      <span style="font-size:12px;color:var(--sub)">${enCours ? `IA en cours : ${t.appels_faits}/${t.appels_total} appel(s)…`
+        : (t.etat === 'termine' ? `Dernière passe IA : ${t.trouves} rapproché(s), ${t.aucun} sans équivalent${(t.erreurs||[]).length ? ', '+t.erreurs.length+' erreur(s)' : ''}` : '')}</span>
+    </div>`;
+  clearTimeout(_CORRESP_SUIVI);
+  if (enCours) _CORRESP_SUIVI = setTimeout(() => { if (document.getElementById('corresp-box')) renderCorrespondances(); }, 5000);
+}
+async function correspRecalculer(){
+  try{
+    const r = await api('/admin/correspondances/recalculer', { method:'POST' });
+    toast(`${r.nb_produits} produit(s), ${r.nb_complets} fiche(s) complète(s)`, 'green');
+    renderCorrespondances();
+  }catch(e){ toast('Erreur : '+e.message,'red'); }
+}
+async function correspIA(toutRevoir){
+  if (!confirm(toutRevoir
+      ? "Revoir TOUS les produits sans équivalent Biogaran par IA ?\n\nC'est payant (voir l'estimation). Les réponses précédentes seront remplacées."
+      : "Lancer le rapprochement par IA des produits pas encore vus ?\n\nC'est payant (voir l'estimation).")) return;
+  try{
+    await api('/admin/correspondances/ia' + (toutRevoir ? '?tout_revoir=true' : ''), { method:'POST' });
+    toast('Rapprochement IA lancé', 'green');
+    renderCorrespondances();
+  }catch(e){ toast('Erreur : '+e.message,'red'); }
 }
 
 function importGen(labo){
