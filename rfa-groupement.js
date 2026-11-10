@@ -79,7 +79,7 @@ function demanderDateEffet(opts) {
         <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Appliquer à partir de</label>
         <select class="de-mois" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:12px">${options}</select>
         <div class="de-passe" style="display:none">
-          <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;padding:10px;background:#F8F9FA;border-radius:8px">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;padding:10px;background:var(--surface-2);border-radius:8px">
             <input type="checkbox" class="de-recalc" checked style="width:16px;height:16px;margin-top:2px;accent-color:var(--green)"/>
             <span>Recalculer la période concernée <span class="de-periode" style="color:var(--sub)"></span></span>
           </label>
@@ -136,10 +136,10 @@ async function renderListeDepots(containerId, opts) {
         <tr style="border-top:1px solid var(--border)">
           <td style="padding:6px">${MOIS_COURTS[f.mois - 1]} ${f.annee}</td>
           <td style="padding:6px">${h(f.labo)}</td>
-          <td style="padding:6px;font-family:'DM Mono',monospace">${h(f.numero_facture || '—')}</td>
+          <td style="padding:6px;font-variant-numeric:tabular-nums">${h(f.numero_facture || '—')}</td>
           <td style="padding:6px;color:var(--sub)">${h(f.filename)}</td>
           <td style="padding:6px;text-align:right">${f.nb_lignes}</td>
-          <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
+          <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(f.total_ht)}</td>
           <td style="padding:6px;text-align:right">
             <button class="btn btn-outline btn-sm" title="Supprimer cette facture"
               onclick="supprimerDepot(${jsArg(f.id)}, ${jsArg(f.filename)}, ${jsArg(containerId)}, ${h(JSON.stringify(opts))})"><i class=ic-trash></i></button>
@@ -211,7 +211,7 @@ function kpi(label, valeur, classe, sous) {
 function inputRecu(module, ficheId, a, m, valeur) {
   return `<input type="number" step="0.01" placeholder="—" value="${valeur == null ? '' : valeur}"
     onchange="enregistrerRecu('${module}', '${ficheId}', ${a}, ${m}, this.value)"
-    style="width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;font-family:'DM Mono',monospace"/>`
+    style="width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums"/>`
 }
 async function enregistrerRecu(module, ficheId, annee, mois, valeur) {
   try {
@@ -224,7 +224,7 @@ async function enregistrerRecu(module, ficheId, annee, mois, valeur) {
 function ecartHTML(ecart) {
   if (ecart == null) return '<span style="color:var(--sub)">—</span>'
   const c = ecart < -0.005 ? 'var(--red)' : 'var(--green)'
-  return `<span style="color:${c};font-family:'DM Mono',monospace">${ecart > 0 ? '+' : ''}${eur(ecart)}</span>`
+  return `<span style="color:${c};font-variant-numeric:tabular-nums">${ecart > 0 ? '+' : ''}${eur(ecart)}</span>`
 }
 
 /* ============================================================================
@@ -293,23 +293,24 @@ function ficheRFAHTML(f) {
   const c = f.conditions || {}
   const t = f.totaux
   const ouvert = !!_RFA_OUVERT[f.id]
+  /* Le type se lit au texte ; la couleur d'identité (même que le liseré) est dans la pastille. */
   const badge = f.type_fiche === 'groupement'
-    ? '<span style="padding:3px 9px;background:#0891B2;color:#fff;border-radius:4px;font-size:11px;font-weight:600">Groupement</span>'
-    : '<span style="padding:3px 9px;background:var(--green);color:#fff;border-radius:4px;font-size:11px;font-weight:600">Labo</span>'
+    ? '<span class="badge badge-gray"><span class="src-dot" style="background:var(--src-groupement);margin-right:6px"></span>Groupement</span>'
+    : '<span class="badge badge-gray"><span class="src-dot" style="background:var(--src-direct);margin-right:6px"></span>Labo</span>'
   const moisRows = f.mois.map(m => `
     <tr style="border-top:1px solid var(--border)">
       <td style="padding:6px">${MOIS_NOMS[m.mois - 1]} ${m.annee}</td>
       <td style="padding:6px;text-align:right;color:var(--sub)">${m.nb_factures || ''}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(m.total_brut)}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(m.total_remise)}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(m.total_net)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(m.total_brut)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(m.total_remise)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(m.total_net)}</td>
       <td style="padding:6px;text-align:right;color:var(--sub)">${m.taux_pct != null ? `${pctFr(m.taux_pct)} ${BASE_COURT[m.base]}` : '—'}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);font-weight:600">${eur(m.remise_attendue)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums;color:var(--green);font-weight:600">${eur(m.remise_attendue)}</td>
       <td style="padding:6px;text-align:right">${inputRecu('rfa', f.id, m.annee, m.mois, m.recu)}</td>
       <td style="padding:6px;text-align:right">${ecartHTML(m.ecart)}</td>
     </tr>`).join('')
   return `
-    <div class="card" style="border-left:3px solid ${f.type_fiche === 'groupement' ? '#0891B2' : 'var(--green)'}">
+    <div class="card" style="border-left:3px solid ${f.type_fiche === 'groupement' ? 'var(--src-groupement)' : 'var(--src-direct)'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
         <div>
           <div style="display:flex;align-items:center;gap:8px">${badge}<span style="font-size:16px;font-weight:700">${h(f.nom)}</span></div>
@@ -333,12 +334,12 @@ function ficheRFAHTML(f) {
       </div>
       ${f.nb_factures_hors_periode ? `<div class="alert alert-amber" style="margin-top:10px;font-size:12px"><i class=ic-alert></i> ${f.nb_factures_hors_periode} facture(s) datée(s) hors de la période : elles ne comptent pas.</div>` : ''}
       <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="_RFA_OUVERT['${f.id}']=!_RFA_OUVERT['${f.id}'];renderRFA()">
-        ${ouvert ? '▲ Masquer' : '▼ Détail mensuel, € reçus et factures'}
+        ${ouvert ? '<i class=ic-chev-up></i>Masquer' : '<i class=ic-chev-down></i>Détail mensuel, € reçus et factures'}
       </button>
       <div style="display:${ouvert ? 'block' : 'none'};margin-top:12px">
         <div style="overflow-x:auto">
         <table style="width:100%;font-size:12px;border-collapse:collapse;min-width:760px">
-          <thead><tr style="background:#F8FAFC;color:var(--sub);font-size:10px;text-transform:uppercase">
+          <thead><tr style="background:var(--surface-2);color:var(--sub);font-size:10px;text-transform:uppercase">
             <th style="padding:6px;text-align:left">Mois</th><th style="padding:6px;text-align:right">Fact.</th>
             <th style="padding:6px;text-align:right">Prix catalogue</th><th style="padding:6px;text-align:right">Remise</th>
             <th style="padding:6px;text-align:right">Net remisé</th><th style="padding:6px;text-align:right">Condition</th>
@@ -347,11 +348,11 @@ function ficheRFAHTML(f) {
           <tbody>${moisRows}</tbody>
           <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
             <td style="padding:6px">Total</td><td></td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(t.total_brut)}</td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(t.total_remise)}</td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(t.total_net)}</td><td></td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(t.remise_attendue)}</td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(t.recu)}</td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(t.total_brut)}</td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(t.total_remise)}</td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(t.total_net)}</td><td></td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums;color:var(--green)">${eur(t.remise_attendue)}</td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(t.recu)}</td>
             <td style="padding:6px;text-align:right">${ecartHTML(t.recu - t.remise_attendue)}</td></tr></tfoot>
         </table>
         </div>
@@ -551,25 +552,25 @@ function libellesRegles(regles) {
 function ficheGroupementHTML(f) {
   const ouvert = !!_GRP_OUVERT[f.id]
   const libs = libellesRegles(f.regles)
-  const sourceBadge = (on, txt) => `<span style="padding:2px 8px;border-radius:999px;font-size:11px;background:${on ? 'var(--green-l)' : '#F3F4F6'};color:${on ? 'var(--green-d)' : 'var(--sub)'}">${on ? '✓' : '✗'} ${txt}</span>`
+  const sourceBadge = (on, txt) => `<span style="padding:2px 8px;border-radius:999px;font-size:11px;background:${on ? 'var(--green-l)' : 'var(--bg2)'};color:${on ? 'var(--green-d)' : 'var(--sub)'}">${on ? '✓' : '✗'} ${txt}</span>`
   const reglesRows = f.regles.map((r, i) => `
     <tr style="border-top:1px solid var(--border)">
       <td style="padding:6px;font-weight:600">${h(libs[i])}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(r.total_brut)}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(r.total_net)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(r.total_brut)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(r.total_net)}</td>
       <td style="padding:6px;text-align:right">${r.taux_pct != null ? `${pctFr(r.taux_pct)} <span style="color:var(--sub)">${BASE_COURT[r.base]}</span>` : '—'}</td>
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);font-weight:600">${eur(r.remise)}</td>
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums;color:var(--green);font-weight:600">${eur(r.remise)}</td>
     </tr>`).join('')
   const moisRows = f.mois.map(m => `
     <tr style="border-top:1px solid var(--border);${m.actif ? '' : 'color:var(--sub)'}">
       <td style="padding:6px">${MOIS_NOMS[m.mois - 1]}</td>
-      ${m.regles.map(r => `<td style="padding:6px;text-align:right;font-family:'DM Mono',monospace" title="${h(r.labo)} : brut ${eur(r.total_brut)} / net ${eur(r.total_net)}${r.taux_pct != null ? ` · ${pctFr(r.taux_pct)} ${BASE_COURT[r.base]}` : ' · hors accord ce mois'}">${r.taux_pct != null ? eur(r.remise) : '—'}</td>`).join('')}
-      <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);font-weight:600">${m.actif ? eur(m.remise_attendue) : 'avant début'}</td>
+      ${m.regles.map(r => `<td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums" title="${h(r.labo)} : brut ${eur(r.total_brut)} / net ${eur(r.total_net)}${r.taux_pct != null ? ` · ${pctFr(r.taux_pct)} ${BASE_COURT[r.base]}` : ' · hors accord ce mois'}">${r.taux_pct != null ? eur(r.remise) : '—'}</td>`).join('')}
+      <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums;color:var(--green);font-weight:600">${m.actif ? eur(m.remise_attendue) : 'avant début'}</td>
       <td style="padding:6px;text-align:right">${inputRecu('groupement', f.id, m.annee, m.mois, m.recu)}</td>
       <td style="padding:6px;text-align:right">${ecartHTML(m.ecart)}</td>
     </tr>`).join('')
   return `
-    <div class="card" style="border-left:3px solid #0891B2">
+    <div class="card" style="border-left:3px solid var(--src-groupement)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
         <div>
           <div style="font-size:16px;font-weight:700">${h(f.nom)}</div>
@@ -583,12 +584,12 @@ function ficheGroupementHTML(f) {
           <button class="btn btn-outline btn-sm" onclick="supprimerFicheGroupement('${f.id}')" title="Supprimer la fiche"><i class=ic-trash></i></button>
         </div>
       </div>
-      ${f.aucune_source ? `<div class="alert" style="margin-top:12px;background:#FEF2F2;color:#B91C1C;border-left:3px solid #DC2626;font-size:13px"><i class=ic-alert></i>
+      ${f.aucune_source ? `<div class="alert" style="margin-top:12px;background:var(--red-l);color:var(--red-d);border-left:3px solid var(--red);font-size:13px"><i class=ic-alert></i>
         <div><strong>Aucun chiffre à exploiter.</strong> Ni les chiffres grossiste ni une zone de dépôt ne sont pris en compte pour ce groupement : modifiez la fiche pour en activer au moins un.</div></div>` : ''}
       <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 6px">Règles de calcul — ${_GRP_ANNEE}</div>
       <div style="overflow-x:auto">
       <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:560px">
-        <thead><tr style="background:#F8FAFC;color:var(--sub);font-size:10px;text-transform:uppercase">
+        <thead><tr style="background:var(--surface-2);color:var(--sub);font-size:10px;text-transform:uppercase">
           <th style="padding:6px;text-align:left">Règle</th><th style="padding:6px;text-align:right">Total brut HT</th>
           <th style="padding:6px;text-align:right">Total net remisé HT</th><th style="padding:6px;text-align:right">% remise groupement</th>
           <th style="padding:6px;text-align:right">€ remise groupement</th></tr></thead>
@@ -601,12 +602,12 @@ function ficheGroupementHTML(f) {
         ${kpi('Reste à recevoir', eur(f.totaux.reste_a_recevoir), f.totaux.reste_a_recevoir > 0.005 ? 'blue' : '')}
       </div>
       <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="_GRP_OUVERT['${f.id}']=!_GRP_OUVERT['${f.id}'];renderGroupement()">
-        ${ouvert ? '▲ Masquer' : `▼ Détail mensuel et € reçus${f.zone_depot ? ', factures' : ''}`}
+        ${ouvert ? '<i class=ic-chev-up></i>Masquer' : `<i class=ic-chev-down></i>Détail mensuel et € reçus${f.zone_depot ? ', factures' : ''}`}
       </button>
       <div style="display:${ouvert ? 'block' : 'none'};margin-top:12px">
         <div style="overflow-x:auto">
         <table style="width:100%;font-size:12px;border-collapse:collapse;min-width:${420 + 110 * f.regles.length}px">
-          <thead><tr style="background:#F8FAFC;color:var(--sub);font-size:10px;text-transform:uppercase">
+          <thead><tr style="background:var(--surface-2);color:var(--sub);font-size:10px;text-transform:uppercase">
             <th style="padding:6px;text-align:left">Mois</th>
             ${libs.map(l => `<th style="padding:6px;text-align:right">${h(l)}</th>`).join('')}
             <th style="padding:6px;text-align:right">Remise attendue</th><th style="padding:6px;text-align:right">€ reçu</th>
@@ -614,9 +615,9 @@ function ficheGroupementHTML(f) {
           <tbody>${moisRows}</tbody>
           <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
             <td style="padding:6px">Total</td>
-            ${f.regles.map(r => `<td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(r.remise)}</td>`).join('')}
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${eur(f.totaux.remise_attendue)}</td>
-            <td style="padding:6px;text-align:right;font-family:'DM Mono',monospace">${eur(f.totaux.recu)}</td>
+            ${f.regles.map(r => `<td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(r.remise)}</td>`).join('')}
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums;color:var(--green)">${eur(f.totaux.remise_attendue)}</td>
+            <td style="padding:6px;text-align:right;font-variant-numeric:tabular-nums">${eur(f.totaux.recu)}</td>
             <td style="padding:6px;text-align:right">${ecartHTML(f.totaux.recu - f.totaux.remise_attendue)}</td></tr></tfoot>
         </table>
         </div>
@@ -664,13 +665,13 @@ function editeurReglesHTML(conditions) {
     : [{ labo: _GRP_OPTIONS.generiqueur_numero_1 || _GRP_OPTIONS.generiqueurs[0], taux_pct: '', base: 'net' }]
   const bio = (conditions && conditions.biosimilaire) || []
   return `
-    <div class="grp-bloc" style="padding:12px;background:#F8FAFC;border-radius:10px;margin-bottom:12px">
+    <div class="grp-bloc" style="padding:12px;background:var(--surface-2);border-radius:10px;margin-bottom:12px">
       <div style="font-size:13px;font-weight:700;margin-bottom:2px">Conditions génériques</div>
       <div style="font-size:11px;color:var(--sub);margin-bottom:8px">% de remise supplémentaire, le prix sur lequel il s'applique, et le(s) génériqueur(s) concerné(s). Le n°1 de vos Paramètres est proposé par défaut.</div>
       <div class="grp-lignes">${gen.map(r => ligneRegleHTML('generique', r)).join('')}</div>
       <button class="btn btn-outline btn-sm" onclick="ajouterRegle(this, 'generique')"><i class=ic-plus></i> Ajouter un génériqueur</button>
     </div>
-    <div class="grp-bloc" style="padding:12px;background:#F8FAFC;border-radius:10px;margin-bottom:12px">
+    <div class="grp-bloc" style="padding:12px;background:var(--surface-2);border-radius:10px;margin-bottom:12px">
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:700;cursor:pointer">
         <input type="checkbox" class="grp-bio-on" ${bio.length ? 'checked' : ''} onchange="this.closest('.grp-bloc').querySelector('.grp-bio-zone').style.display=this.checked?'':'none'" style="width:16px;height:16px;accent-color:var(--green)"/>
         Avez-vous des accords biosimilaires ?
@@ -709,7 +710,7 @@ function sourcesHTML(f) {
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <span>Création d'une zone de dépôt de factures spécifique au groupement</span><span>${oui('grp-depot', f.zone_depot)}</span>
       </div>
-      <div class="grp-double-non alert" style="display:none;margin-top:10px;background:#FEF2F2;color:#B91C1C;border-left:3px solid #DC2626;font-size:12px">
+      <div class="grp-double-non alert" style="display:none;margin-top:10px;background:var(--red-l);color:var(--red-d);border-left:3px solid var(--red);font-size:12px">
         <i class=ic-alert></i> Double « non » : il n'y aura aucun chiffre à exploiter pour ce groupement.
       </div>
     </div>`

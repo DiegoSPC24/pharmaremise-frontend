@@ -3,7 +3,7 @@
    Injectée en fin de <head> : elle passe APRÈS le style d'origine et gagne.
    Aucune ligne de JS n'est modifiée par cette phase.
    ============================================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap');
+/* Polices : chargées par <link> dans app.html (un @import bloquait l'affichage). */
 
 /* --- 1. Tokens : redéfinis, donc TOUTE l'app bascule d'un coup --- */
 :root{
@@ -291,3 +291,209 @@ i[class^="ic-"]::before{content:"";display:block;width:100%;height:100%;
 .depot-step-t{font-size:13.5px;font-weight:700}
 .depot-rassure{margin-top:14px;padding:14px 18px;background:var(--green-l);border:1px solid #CDEBE0;
   border-radius:var(--r-md);font-size:12.5px;color:#064E3B;line-height:1.7}
+
+/* ============ REFONTE_P8 : cohérence des couleurs, des polices et des contrôles ============
+   Règles qui tiennent toute l'appli :
+   - vert = argent récupéré, validé, action principale ;
+   - orange = argent en attente, à surveiller ;
+   - rouge = erreur, perte, suppression ;
+   - gris = exclu, neutre, sans objet ;
+   - chaque grossiste a UNE couleur partout (pastille et liseré), son nom reste en noir.
+   Une seule famille de police (Inter, titres en Manrope), chiffres alignés. */
+:root{
+  --green-b:#CDEBE0;
+  --amber-d:#92400E; --amber-b:#F2DFB6;
+  --red-d:#991B1B;   --red-b:#F6D4D4;
+  --blue-d:#1D4ED8;  --blue-b:#C9D8FB;
+  --purple-b:#E2D5F5;
+  --text-2:#344054;  --muted:#98A2B3;
+  --surface-2:#FBFAF7;
+  --border-2:#ECEAE3; --border-strong:#CFCCC2;
+  --ring:0 0 0 3px rgba(21,155,115,.18);
+  --overlay:rgba(16,24,40,.45);
+  --shadow-pop:0 20px 50px rgba(16,24,40,.18);
+  /* Identité des grossistes et des canaux d'achat : palette catégorielle
+     validée daltonisme (adjacent ΔE ≥ 9). Jamais pour du texte. */
+  --src-cerp:#1BAF7A; --src-alliance:#2A78D6; --src-ocp:#EB6834;
+  --src-direct:#E87BA4; --src-groupement:#6250D6; --src-autre:#98A2B3;
+}
+html{accent-color:var(--green)}
+body{color:var(--text)}
+
+/* --- Polices : plus de DM Mono / DM Serif imposés en ligne --- */
+[style*="DM Mono"],[style*="DM Sans"]{font-family:'Inter',system-ui,sans-serif!important;font-variant-numeric:tabular-nums}
+[style*="DM Serif"]{font-family:'Manrope',system-ui,sans-serif!important;font-weight:800!important;letter-spacing:-.01em}
+.admin-kpi-value{font-family:'Inter',system-ui,sans-serif;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.admin-modal-title,.locked-title{font-family:'Manrope',system-ui,sans-serif}
+textarea,input,select,button{font-family:inherit}
+
+/* --- KPI : une couleur n'a de sens que si elle dit quelque chose --- */
+.admin-kpi-card.blue .admin-kpi-value,.admin-kpi-card.amber .admin-kpi-value,
+.admin-kpi-card.purple .admin-kpi-value,.kpi-val.blue{color:var(--text)}
+.kpi-val.muted{color:var(--sub)}
+.admin-kpi-card.green .admin-kpi-value{color:var(--green-d)}
+.admin-kpi-card{border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+.admin-section{border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+
+/* --- Champs de saisie : même bordure, même focus partout --- */
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]),select,textarea){
+  color:var(--text);border-color:var(--border);border-radius:8px;background-color:#fff;
+  transition:border-color .15s,box-shadow .15s}
+:where(input,select,textarea):focus{outline:none;border-color:var(--green)!important;box-shadow:var(--ring)}
+:where(input,select,textarea):disabled{background-color:var(--surface-2);color:var(--muted);cursor:not-allowed}
+::placeholder{color:var(--muted);opacity:1}
+input[type=checkbox],input[type=radio]{width:15px;height:15px;cursor:pointer;vertical-align:-.15em}
+
+/* --- Focus clavier visible, discret à la souris --- */
+:where(button,a,[onclick],.nav-item,summary):focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:8px}
+.nav-item:focus-visible{outline-color:#fff;outline-offset:-2px}
+
+/* --- Boutons --- */
+.btn{transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.btn-outline{color:var(--text-2)}
+.btn-outline:hover{background:var(--surface-2);border-color:var(--border-strong);color:var(--text)}
+.btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn-green:disabled:hover{background:var(--green)}
+.btn i[class^="ic-"]:only-child{margin-right:0}
+.btn-ico{width:34px;padding:0!important;justify-content:center}
+.btn-danger{background:#fff;border:1px solid var(--red-b);color:var(--red)}
+.btn-danger:hover:not(:disabled){background:var(--red-l);border-color:var(--red)}
+
+/* --- Onglets : une seule apparence, la piste grise et l'onglet actif blanc --- */
+.seg{display:inline-flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--border-2);border-radius:12px;margin-bottom:16px}
+.seg>button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:0;border-radius:9px;background:none;
+  font:600 13px/1 'Inter',system-ui,sans-serif;color:var(--sub);cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.seg>button:hover{color:var(--text)}
+.seg>button.on{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.seg>button.on i[class^="ic-"]{color:var(--green)}
+.tabs{border:1px solid var(--border-2);border-radius:12px}
+.tab-btn{font-family:'Inter',system-ui,sans-serif;font-size:13px;height:34px;color:var(--sub)}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--text);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+
+/* --- Grossistes : la couleur d'identité vit dans la pastille --- */
+.src-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:.06em;flex:0 0 9px}
+.grossiste-card{border-left-color:var(--src-cerp)}
+.grossiste-card.g2{border-left-color:var(--src-alliance)}
+.grossiste-card.g3{border-left-color:var(--src-ocp)}
+
+/* --- Tableaux --- */
+th{color:var(--sub)}
+tr.row-eligible td{background:#F3FBF7}
+tr.row-eligible:hover td{background:var(--green-l)}
+tr.row-cher td{background:#FFFAEE}
+tr.row-cher:hover td{background:var(--amber-l)}
+tr.row-remise td{background:#F4F7FE}
+tr.row-remise:hover td{background:var(--blue-l)}
+.admin-table thead th{background:#F3F2ED;font-weight:700;letter-spacing:.04em}
+
+/* --- Fenêtres : même voile, même ombre --- */
+.modal-overlay,.admin-modal-overlay{background:var(--overlay)}
+.modal-box,.admin-modal{border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-pop)}
+
+/* --- Alertes : texte foncé lisible sur fond clair --- */
+.alert-amber{color:var(--amber-d);border-left-color:var(--warn)}
+.alert-red{color:var(--red-d)}
+.alert-green{color:var(--green-d)}
+
+/* --- Barres de défilement fines --- */
+*{scrollbar-width:thin;scrollbar-color:#D5D2C8 transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#D5D2C8;border-radius:10px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background-color:#B9B5A8}
+::-webkit-scrollbar-track{background:transparent}
+.sidebar ::-webkit-scrollbar-thumb{background-color:rgba(255,255,255,.15)}
+
+/* --- Dépôt : le numéro d'étape était invisible (variable inexistante) --- */
+.depot-num{background:var(--sidebar)}
+
+/* --- Sélecteur de mois de la barre du haut --- */
+.topbar-mois select:focus{box-shadow:none}
+.topbar-mois:focus-within{border-color:var(--green);box-shadow:var(--ring)}
+
+/* --- Icônes ajoutées : chevrons, retour, lecture, annuler (remplacent ▼ ▸ ← ↺ ▶) --- */
+.ic-chev-down::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E")}
+.ic-chev-up::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%2015-6-6-6%206%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m18%2015-6-6-6%206%22%2F%3E%3C%2Fsvg%3E")}
+.ic-chev-right::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m9%2018%206-6-6-6%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m9%2018%206-6-6-6%22%2F%3E%3C%2Fsvg%3E")}
+.ic-chev-left::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m15%2018-6-6%206-6%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m15%2018-6-6%206-6%22%2F%3E%3C%2Fsvg%3E")}
+.ic-arrow-left::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m12%2019-7-7%207-7%22%2F%3E%3Cpath%20d%3D%22M19%2012H5%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m12%2019-7-7%207-7%22%2F%3E%3Cpath%20d%3D%22M19%2012H5%22%2F%3E%3C%2Fsvg%3E")}
+.ic-play::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203%2020%2012%206%2021Z%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203%2020%2012%206%2021Z%22%2F%3E%3C%2Fsvg%3E")}
+.ic-undo::before{background-color:currentColor!important;-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012a9%209%200%201%200%209-9%209.75%209.75%200%200%200-6.74%202.74L3%208%22%2F%3E%3Cpath%20d%3D%22M3%203v5h5%22%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012a9%209%200%201%200%209-9%209.75%209.75%200%200%200-6.74%202.74L3%208%22%2F%3E%3Cpath%20d%3D%22M3%203v5h5%22%2F%3E%3C%2Fsvg%3E")}
+
+/* ============================================================
+   REFONTE_P9_ANIM : animations légères (voir animations.js)
+   Une seule courbe « sortie douce », durées de 150 à 500 ms.
+   Tout ce qui bouge dépend de .pr-anim, que animations.js ne pose
+   pas quand le poste demande moins d'animations.
+   ============================================================ */
+:root{--ease-out:cubic-bezier(.2,.7,.2,1);--skel:#ECEBE5;--skel-hi:#F9F8F5;--green-glow:#3CCB97}
+@keyframes pr-monte{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pr-fondu{from{opacity:0}to{opacity:1}}
+@keyframes pr-pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes pr-pousse{from{transform:scaleX(0)}to{transform:none}}
+@keyframes pr-reflet{from{background-position:100% 0}to{background-position:0 0}}
+
+/* Barre de chargement sous l'en-tête */
+#pr-rail{position:relative;height:0;flex:0 0 0;z-index:30}
+#pr-rail.pr-rail-haut{position:fixed;top:0;left:0;right:0}
+#pr-barre{position:absolute;left:0;right:0;top:-2px;height:2px;border-radius:0 2px 2px 0;pointer-events:none;
+  background:linear-gradient(90deg,var(--green-d),var(--green) 55%,var(--green-glow));
+  transform:scaleX(0);transform-origin:0 50%;opacity:0}
+#pr-rail.pr-rail-haut #pr-barre{top:0}
+#pr-barre.go{opacity:1;transform:scaleX(.9);transition:transform 9s cubic-bezier(.08,.75,.2,1),opacity .15s}
+#pr-barre.fin{opacity:0;transform:scaleX(1);transition:transform .2s ease-out,opacity .3s .18s}
+
+/* Changement d'écran */
+.pr-anim .screen.active{animation:pr-monte .28s var(--ease-out)}
+
+/* Chargement : rien pendant 120 ms (pas de clignotement), puis un squelette qui scintille */
+.spinner{border-color:var(--border-2);border-top-color:var(--green);animation:spin .75s cubic-bezier(.5,.15,.5,.85) infinite}
+.pr-anim .loading-center{animation:pr-fondu .3s .12s both}
+.loading-center.pr-squelette{flex-wrap:wrap;justify-content:flex-start;align-content:flex-start;gap:10px;padding:2px 0 0;font-size:12.5px;color:var(--muted)}
+.loading-center.pr-squelette .spinner{width:13px;height:13px}
+.pr-skel{flex:0 0 100%;display:grid;gap:16px;margin-top:4px}
+.pr-skel-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pr-skel-kpis i{display:flex;flex-direction:column;gap:14px;height:112px;padding:22px 20px;box-sizing:border-box;
+  background:var(--white);border:1px solid var(--border-2);border-radius:var(--r-lg)}
+.pr-skel-kpis i::before,.pr-skel-kpis i::after{content:"";display:block;border-radius:6px}
+.pr-skel-kpis i::before{width:42%;height:10px}
+.pr-skel-kpis i::after{width:58%;height:24px}
+.pr-skel-carte{display:grid;gap:14px;padding:24px 22px;background:var(--white);border:1px solid var(--border-2);border-radius:var(--r-lg)}
+.pr-skel-carte b{display:block;height:11px;border-radius:6px}
+.pr-skel-carte b:first-child{height:15px;margin-bottom:6px}
+.pr-skel-kpis i::before,.pr-skel-kpis i::after,.pr-skel-carte b{
+  background:linear-gradient(90deg,var(--skel) 0,var(--skel-hi) 45%,var(--skel) 90%) 0 0/300% 100%;
+  animation:pr-reflet 1.5s ease-in-out infinite}
+@media (max-width:700px){.pr-skel-kpis{grid-template-columns:1fr}.pr-skel-kpis i:nth-child(n+2){display:none}}
+
+/* Arrivée des données : les blocs montent l'un après l'autre */
+.pr-anim .pr-entre>*:not(.pr-cache){animation:pr-monte .42s var(--ease-out) both}
+.pr-anim .pr-entre>*:nth-child(2){animation-delay:.05s}
+.pr-anim .pr-entre>*:nth-child(3){animation-delay:.1s}
+.pr-anim .pr-entre>*:nth-child(4){animation-delay:.15s}
+.pr-anim .pr-entre>*:nth-child(5){animation-delay:.2s}
+.pr-anim .pr-entre>*:nth-child(n+6){animation-delay:.25s}
+.pr-anim .pr-pousse{transform-origin:0 50%;animation:pr-pousse .8s .1s var(--ease-out) both}
+
+/* Défilement : les cartes plus bas glissent en place quand on les atteint */
+.pr-anim .pr-cache{opacity:0;transform:translateY(16px)}
+.pr-anim .pr-vu{transition:opacity .5s var(--ease-out),transform .5s var(--ease-out)}
+.topbar{transition:box-shadow .2s}
+.pr-defile .topbar{box-shadow:0 10px 24px -18px rgba(16,24,40,.4)}
+
+/* Liste des factures dépliée, fenêtres */
+.pr-anim .grossiste-factures{animation:pr-monte .3s var(--ease-out)}
+.pr-anim .modal-overlay.open,.pr-anim .admin-modal-overlay.open,.pr-anim #v311-modal-overlay{animation:pr-fondu .18s ease-out}
+.pr-anim .modal-overlay.open>*,.pr-anim .admin-modal-overlay.open>*,.pr-anim #v311-modal-overlay>*{animation:pr-pop .26s var(--ease-out)}
+#toast{transition:transform .34s cubic-bezier(.2,.9,.3,1.2),opacity .2s}
+
+/* Petits retours au toucher */
+.btn{transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .1s}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.985)}
+.nav-item{transition:background .18s,color .18s}
+tbody td{transition:background-color .12s}
+.upload-icon{transition:transform .25s var(--ease-out)}
+.upload-zone:hover .upload-icon{transform:translateY(-3px)}
+
+@media print{.pr-cache{opacity:1!important;transform:none!important}#pr-rail{display:none}}
+@media (prefers-reduced-motion:reduce){.screen.active{animation:none}#toast,.btn,.upload-icon{transition:none}}
