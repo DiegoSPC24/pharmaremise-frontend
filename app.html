@@ -613,24 +613,46 @@
 <script>
 const API = 'https://web-production-2202b.up.railway.app'
 let TOKEN = localStorage.getItem('pharmaremise_token')
-let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = 3, CURRENT_ANNEE = 2026
+let MODULES = [], CURRENT_SCREEN = 'accueil', CURRENT_MOIS = new Date().getMonth() + 1, CURRENT_ANNEE = new Date().getFullYear()
 let PHARMACIE = null, CONFIGS_GROSSISTE = {}
 let _CURRENT_FACTURE_ID = null, _MODAL_CIP = null, _MODAL_NOM = ''
 
 /* CLERK_SSO_GUARD_APP */ if (!TOKEN) { if (!(location.hostname==='remise.pharmagestion.fr')) { window.location.href = '/index.html'; } }
 
+/* ERREUR_VISIBLE : une réponse en erreur n'est pas un résultat vide. Lue comme
+   un objet, elle s'affichait « 0,00 € » à l'Accueil et « Génériqueur ajouté » en vert. */
+async function _lireReponse(r) {
+  const data = await r.json().catch(() => null)
+  if (r.ok) return data
+  let msg = data && data.detail
+  if (Array.isArray(msg)) msg = msg.map(d => d.msg).join(' ; ')
+  const err = new Error(typeof msg === 'string' && msg ? msg : `Erreur serveur (HTTP ${r.status})`)
+  err.api = true
+  err.status = r.status
+  throw err
+}
+window.addEventListener('unhandledrejection', e => {
+  if (e.reason && e.reason.api) { toast(e.reason.message, 'red'); e.preventDefault() }
+})
+/* ECHAP : tout ce qui vient d'un fichier, d'un PDF ou d'un autre compte. */
+function echap(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+function jsAttr(v) {
+  return echap(JSON.stringify(String(v == null ? '' : v)).slice(1, -1).replace(/'/g, "\\'"))
+}
 async function apiGet(path) {
   const r = await fetch(`${API}${path}`, { headers:{ Authorization:`Bearer ${TOKEN}` }})
   /* CLERK_SSO_GUARD_401 */ if (r.status === 401) { if (location.hostname === 'remise.pharmagestion.fr') { console.error('[clerk-sso] 401 API — le compte Clerk ne correspond a aucune pharmacie ?'); } else { localStorage.clear(); window.location.href='/index.html'; } }
-  return r.json()
+  return _lireReponse(r)
 }
 async function apiPost(path, body) {
   const r = await fetch(`${API}${path}`, { method:'POST', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
-  return r.json()
+  return _lireReponse(r)
 }
 async function apiPut(path, body) {
   const r = await fetch(`${API}${path}`, { method:'PUT', headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) })
-  return r.json()
+  return _lireReponse(r)
 }
 
 function toast(msg, type='') {
@@ -1234,17 +1256,20 @@ async function loadAccueil() {
   const annee = _TRESO_ANNEE
   const mois = [1,2,3,4,5,6,7,8,9,10,11,12]
   const tab = x => Array.isArray(x) ? x : []
+  let incomplet = false
+  const sur = (promesse, defaut) => promesse.catch(() => { incomplet = true; return defaut })
   try {
     /* LOT_PERF : les 12 mois génériqueur en un seul appel, sans le détail ligne à ligne */
     const [gAnnuel, percusRaw, cfgsGenRaw, genAnnee, biosim, rfaRaw, grpRaw] = await Promise.all([
-      apiGet(`/grossiste/remise-annuelle?annee=${annee}`).catch(()=>({par_mois:{}})),
-      apiGet(`/grossiste/tresorerie?annee=${annee}`).catch(()=>[]),
-      apiGet('/generiqueur/config').catch(()=>[]),
-      apiGet(`/generiqueur/synthese-annee?annee=${annee}`).catch(()=>[]),
-      apiGet(`/grossiste/biosimilaires/remise-annuelle?annee=${annee}`).catch(()=>null),
-      MODULES.includes('rfa') ? apiGet('/rfa/fiches?avec_mois=1').catch(()=>[]) : [],
-      MODULES.includes('generiqueur') ? apiGet(`/groupement/fiches?annee=${annee}&avec_mois=1`).catch(()=>[]) : [],
+      sur(apiGet(`/grossiste/remise-annuelle?annee=${annee}`), {par_mois:{}}),
+      sur(apiGet(`/grossiste/tresorerie?annee=${annee}`), []),
+      sur(apiGet('/generiqueur/config'), []),
+      sur(apiGet(`/generiqueur/synthese-annee?annee=${annee}`), []),
+      sur(apiGet(`/grossiste/biosimilaires/remise-annuelle?annee=${annee}`), null),
+      MODULES.includes('rfa') ? sur(apiGet('/rfa/fiches?avec_mois=1'), []) : [],
+      MODULES.includes('generiqueur') ? sur(apiGet(`/groupement/fiches?annee=${annee}&avec_mois=1`), []) : [],
     ])
+    if (incomplet) setTimeout(() => toast('Accueil incomplet : des données n\'ont pas pu être chargées, ces montants sont faux. Rechargez la page.', 'red'), 300)
     const percus = tab(percusRaw)
     const genSynth = mois.map((m,i) => tab(genAnnee)[i] || {})
     const blocs = []
@@ -1934,6 +1959,7 @@ async function loadGrossiste() {
   if (!MODULES.includes('grossiste')) { document.getElementById('grossiste-content').innerHTML = lockedHTML('grossiste'); return }
   const el = document.getElementById('grossiste-content')
   el.innerHTML = '<div class="loading-center"><div class="spinner"></div> Chargement...</div>'
+  const _demande = (window._GROSSISTE_DEMANDE = (window._GROSSISTE_DEMANDE || 0) + 1)
   try {
     const p = urlParamsMoisOuPeriode()
     const isPeriode = p.mode === 'periode'
@@ -1945,6 +1971,7 @@ async function loadGrossiste() {
       apiGet(urlFact),
       isPeriode ? null : apiGet(`/grossiste/synthese-detail?${p.params}`).catch(() => null),
     ])
+    if (_demande !== window._GROSSISTE_DEMANDE) return  /* un autre mois a été demandé entre-temps */
 
     // Grouper les factures par source
     const parSource = {}
@@ -1977,7 +2004,7 @@ async function loadGrossiste() {
         return `
         <tr style="${rowStyle}">
           <td><input type="checkbox" class="f-check" data-id="${f.id}" onchange="updateDeleteBtn()" /></td>
-          <td>${f.filename}</td>
+          <td>${echap(f.filename)}</td>
           <td style="font-family:'DM Mono',monospace">${eur(f.total_ht)}</td>
           <td style="font-family:'DM Mono',monospace;color:var(--green)">${eur(f.remise_calculee)}</td>
           <td>${f.nb_lignes}</td>
@@ -2029,6 +2056,7 @@ async function loadGrossiste() {
         <div class="kpi-card"><div class="kpi-lbl">Remise totale estimée</div><div class="kpi-val green">${eur(synth.remise_totale)}</div></div>
         <div class="kpi-card"><div class="kpi-lbl">Factures analysées</div><div class="kpi-val">${synth.nb_factures}</div></div>
       </div>`}
+      ${(Array.isArray(factures) ? factures : []).some(f => f.is_duplicate) ? `<div class="alert" style="margin-bottom:12px;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;font-size:13px;font-weight:600">Attention : ${(factures.filter(f => f.is_duplicate)).length} facture(s) portent le même numéro qu'une autre. Elles sont comptées dans les totaux ci-dessus. Vérifiez-les dans la liste et supprimez celles en trop.</div>` : ''}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <button id="btn-supprimer-selection" class="btn btn-outline btn-sm" onclick="supprimerFacturesSelectionnees()" disabled style="color:var(--red);border-color:var(--red);opacity:0.4"><i class=ic-trash></i> Supprimer sélection (0)</button>
         <button class="btn btn-outline btn-sm" onclick="goTo('depot',document.getElementById('nav-grossiste'))">+ Ajouter une facture</button>
@@ -2170,13 +2198,13 @@ function _renderFacture(f) {
       : `<td style="text-align:center;color:var(--sub)">—</td>`
     const forceTag = l.statut_force ? ' <span style="font-size:9px;color:var(--amber)" title="Statut forcé"><i class=ic-pencil></i></span>' : ''
     const editBtn = l.cip13
-      ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${l.cip13}','${(l.nom||'').replace(/'/g,"\\'")}','${l.statut}',${!!l.statut_force})"><i class=ic-pencil></i></button>`
+      ? `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="ouvrirModal('${jsAttr(l.cip13)}','${jsAttr(l.nom)}','${jsAttr(l.statut)}',${!!l.statut_force})"><i class=ic-pencil></i></button>`
       : ''
     const net = (l.pfht != null && l.pfht !== '') ? l.pfht : l.ppht
     return `<tr class="${rowCls}">
       <td style="font-family:'DM Mono',monospace;font-size:10px">${l.cip13||'—'}</td>
-      <td style="font-weight:500">${l.nom||'—'}</td>
-      <td>${l.fournisseur||'—'}</td>
+      <td style="font-weight:500">${echap(l.nom||'—')}</td>
+      <td>${echap(l.fournisseur||'—')}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--sub)">${eur(l.ppht)}</td>
       ${remiseCell}
       <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:600" title="Prix net : c'est lui que les seuils comparent">${eur(net)}</td>
@@ -2238,7 +2266,7 @@ function _renderFacture(f) {
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="loadGrossiste()">← Retour</button>
-      <div style="font-weight:600;font-size:15px">${f.filename}</div>
+      <div style="font-weight:600;font-size:15px">${echap(f.filename)}</div>
       <span class="badge" style="background:${color}20;color:${color}">${label}</span>
     </div>
     <div class="kpi-grid">
@@ -2480,7 +2508,7 @@ function afficherResultatReleve(data) {
   const now = new Date()
   const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
   document.getElementById('releve-result-sub').innerHTML =
-    `${sourceLabel} — N° ${data.num_releve || '?'} — Période du ${data.periode_debut || '?'} au ${data.periode_fin || '?'}<br>` +
+    `${sourceLabel} — N° ${echap(data.num_releve || '?')} — Période du ${echap(data.periode_debut || '?')} au ${echap(data.periode_fin || '?')}<br>` +
     `<span style="color:var(--green)"><i class=ic-refresh></i> Rapprochement effectué à ${hm}</span>`
 
   // KPIs
@@ -2522,7 +2550,7 @@ function afficherResultatReleve(data) {
       : ''
 
     return `<tr style="${bg}">
-      <td style="font-family:'DM Mono',monospace;font-size:12px">${l.num_piece} ${typeIcon}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${echap(l.num_piece)} ${typeIcon}</td>
       <td>${l.date || ''}</td>
       <td style="font-family:'DM Mono',monospace;text-align:right">${eur(l.montant_ht || l.montant_ttc || 0)}</td>
       <td style="font-family:'DM Mono',monospace;text-align:right">${appMontant}</td>
@@ -2537,7 +2565,7 @@ function afficherResultatReleve(data) {
     const enTropRows = data.factures_en_trop.map(f => `
       <tr>
         <td style="font-family:'DM Mono',monospace;font-size:12px">${f.num_facture || '?'}</td>
-        <td>${f.filename}</td>
+        <td>${echap(f.filename)}</td>
         <td>${moisNoms[f.mois-1]} ${f.annee}</td>
         <td style="font-family:'DM Mono',monospace;text-align:right">${eur(f.total_ht || 0)}</td>
         <td><button class="btn btn-outline btn-sm" onclick="voirFactureDepuisReleve('${f.id}')">Voir</button></td>
@@ -2642,10 +2670,10 @@ function afficherListeReleves(releves) {
 
     for (const r of list) {
       html += `<tr>
-        <td style="font-family:'DM Mono',monospace;padding:8px">${r.num_releve || '?'}</td>
+        <td style="font-family:'DM Mono',monospace;padding:8px">${echap(r.num_releve || '?')}</td>
         <td>${r.periode_debut || '?'} → ${r.periode_fin || '?'}</td>
         <td style="font-family:'DM Mono',monospace;text-align:right">${eur(r.total_ttc || 0)}</td>
-        <td style="font-size:11px;color:var(--sub)">${r.filename || ''}</td>
+        <td style="font-size:11px;color:var(--sub)">${echap(r.filename)}</td>
         <td style="text-align:center;white-space:nowrap">
           <button class="btn btn-green btn-sm" onclick="ouvrirRapprochement('${r.id}')">Voir</button>
           <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="supprimerReleve('${r.id}')"><i class=ic-trash></i></button>
@@ -2928,12 +2956,12 @@ function afficherListeOverrides(overrides) {
     return `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;white-space:nowrap">${o.cip13}</td>
-        <td style="padding:8px 10px;font-size:12px">${o.nom || '<span style="color:var(--sub)">Nom inconnu</span>'}</td>
+        <td style="padding:8px 10px;font-size:12px">${o.nom ? echap(o.nom) : '<span style="color:var(--sub)">Nom inconnu</span>'}</td>
         <td style="padding:8px 10px;white-space:nowrap"><span style="padding:2px 8px;background:${s.bg};color:${s.color};border-radius:4px;font-size:11px;font-weight:600">${s.txt}</span></td>
         <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--sub)">${o.nb_lignes_affectees}</td>
         <td style="padding:8px 10px;font-size:11px;color:var(--sub);white-space:nowrap">${formatDate(dateAffichee)}</td>
         <td style="padding:8px 10px;text-align:right">
-          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px" onclick="supprimerOverride('${o.cip13}','${(o.nom || '').replace(/'/g,"\\'")}')"><i class=ic-trash></i></button>
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px" onclick="supprimerOverride('${jsAttr(o.cip13)}','${jsAttr(o.nom)}')"><i class=ic-trash></i></button>
         </td>
       </tr>`
   }).join('')
@@ -3563,7 +3591,7 @@ let _PARAM_TAB = 'cerp'
 async function loadParametres() {
   const el = document.getElementById('parametres-content')
   if (!MODULES.includes('grossiste')) {
-    el.innerHTML = `<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
+    el.innerHTML = `<div class="card"><div class="card-title">Mon compte</div><div style="font-size:14px;margin-bottom:8px"><strong>${echap(PHARMACIE.nom)}</strong></div><div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div></div>`
     return
   }
   _renderParametres()
@@ -3652,7 +3680,7 @@ function _renderParametres() {
       <div id="bloc-simplifie-${source}" class="${!isSimple?'param-grise':''}">
         <div class="three-col">
           <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Taux remise (%)</label>
-            <input type="number" id="p-taux" value="${cfg.taux_remise_pct||4}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
+            <input type="number" id="p-taux" value="${(cfg.mode_calcul==='simple' && cfg.mode_simple_taux_pct!=null) ? cfg.mode_simple_taux_pct : (cfg.taux_remise_pct||4)}" step="0.1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
           <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil produit cher (€)</label>
             <input type="number" id="p-seuil" value="${cfg.seuil_cher||465}" step="1" style="width:100%;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif"/></div>
           <div><label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">Seuil sortie hospitalière (€)</label>
@@ -3724,7 +3752,7 @@ function _renderParametres() {
     </div>
     <div class="card">
       <div class="card-title">Mon compte</div>
-      <div style="font-size:14px;margin-bottom:8px"><strong>${PHARMACIE.nom}</strong></div>
+      <div style="font-size:14px;margin-bottom:8px"><strong>${echap(PHARMACIE.nom)}</strong></div>
       <div style="font-size:13px;color:var(--sub)">${PHARMACIE.email}</div>
     </div>`
 
@@ -3912,17 +3940,11 @@ async function confirmerSauvegarde() {
     exclure_stupefiants: !!_cfgCur.exclure_stupefiants,
     exclure_tva55: false, exclure_tva10: false, seuil_biosim: 465,
   }
-  // V392 : persister seuils/forfaits sortie hospi + mode simplifie via config-v3
-  try {
-    const _sh = document.getElementById('p-seuil-hospi'); const _fh = document.getElementById('p-forfait-hospi')
-    const _put = Object.assign({}, _cfgCur, {
-      source, mode_calcul:'simple',
-      taux_remise_pct: body.taux_remise_pct, seuil_cher: body.seuil_cher, forfait_cher: body.forfait_cher,
-      seuil_sortie_hospi: _sh ? (parseFloat(_sh.value)||1500) : (_cfgCur.seuil_sortie_hospi||1500),
-      forfait_sortie_hospi: _fh ? (parseFloat(_fh.value)||50) : (_cfgCur.forfait_sortie_hospi||50)
-    })
-    await fetch(`${API}/grossiste/config-v3`, { method:'PUT', headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'}, body: JSON.stringify(_put) })
-  } catch(e) {}
+  // CONFIG_ATOMIQUE : tout part dans le même appel, avec la date et la case choisies.
+  const _sh = document.getElementById('p-seuil-hospi'); const _fh = document.getElementById('p-forfait-hospi')
+  body.mode_calcul = 'simple'
+  body.seuil_sortie_hospi = _sh ? (parseFloat(_sh.value)||1500) : (_cfgCur.seuil_sortie_hospi||1500)
+  body.forfait_sortie_hospi = _fh ? (isNaN(parseFloat(_fh.value)) ? 50 : parseFloat(_fh.value)) : (_cfgCur.forfait_sortie_hospi ?? 50)
 
   fermerModaleSauvegarde()
   toast('Sauvegarde en cours...')
@@ -3937,7 +3959,8 @@ async function confirmerSauvegarde() {
     const data = await r.json()
 
     // Mettre à jour la config actuelle côté client
-    CONFIGS_GROSSISTE[source] = { ...CONFIGS_GROSSISTE[source], ...body }
+    CONFIGS_GROSSISTE[source] = { ...CONFIGS_GROSSISTE[source], ...body, mode_simple_taux_pct: body.taux_remise_pct }
+    window._v307ConfigCache = null
 
     const nb = data.recalcul?.nb_factures_recalculees || 0
     if (recalculer && nb > 0) {
@@ -4548,7 +4571,7 @@ function renderDetailsLignes(lignes, labo) {
     return `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--sub)">${l.cip13}</td>
-        <td style="padding:4px 6px;font-size:11px">${l.famille || l.nom}${regleIcon}</td>
+        <td style="padding:4px 6px;font-size:11px">${echap(l.famille || l.nom)}${regleIcon}</td>
         <td style="padding:4px 6px"><span style="font-size:9px;padding:1px 5px;background:${srcColor};color:white;border-radius:3px">${srcLabel}</span></td>
         <td style="padding:4px 6px;text-align:center;font-size:11px">${l.qte}</td>
         <td style="padding:4px 6px;text-align:right;font-family:'DM Mono',monospace;font-size:11px">${eur(l.pfht)}</td>
@@ -4712,7 +4735,7 @@ async function uploadFactureAuto(file) {
   const div = document.createElement('div')
   div.className = 'alert alert-green'
   div.style = 'margin-bottom:8px;display:flex;align-items:center;gap:8px'
-  div.innerHTML = `<span><i class=ic-clock></i></span><span>${file.name}</span><span class="depot-etat" style="margin-left:auto;font-size:12px">En attente…</span>`
+  div.innerHTML = `<span><i class=ic-clock></i></span><span>${echap(file.name)}</span><span class="depot-etat" style="margin-left:auto;font-size:12px">En attente…</span>`
   queue.appendChild(div)
   await _depotPlanifier(() => _uploadFactureAuto(file, div))
 }
@@ -4730,8 +4753,16 @@ async function _uploadFactureAuto(file, div) {
     }
     if (res && res.ok && data) {
       const src = SOURCE_LABELS[data.source] || data.source
-      div.innerHTML = `<span><i class=ic-check></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
+      div.innerHTML = `<span><i class=ic-check></i></span><span>${echap(file.name)}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${src} — ${eur(data.total_ht)} HT — ${eur(data.remise_calculee)} remise</span>`
       try { var _r=(data.stats&&data.stats.reconciliation)||{}; if(_r.ok===false){ var _b=document.createElement('span'); _b.style='margin-left:8px;font-size:12px;color:#c0392b;font-weight:600'; _b.title=(_r.flags||[]).join(' | '); _b.textContent='écart '+eur(_r.ecart||0); div.appendChild(_b); } else if(_r.ok===true){ var _b2=document.createElement('span'); _b2.style='margin-left:8px;font-size:12px;color:var(--green)'; _b2.title='Réconciliation OK'; _b2.textContent='✔︎ vérifié'; div.appendChild(_b2); } } catch(_e){} /* V321_RECON_BADGE */
+      try { /* DATE_NON_LUE, DOUBLON_NUM : ce que le dépôt a décidé doit se voir */
+        const _s = data.stats || {}
+        const _note = (txt, couleur) => { const b = document.createElement('span'); b.style = `margin-left:8px;font-size:12px;font-weight:600;color:${couleur}`; b.textContent = txt; div.appendChild(b) }
+        if (_s.date_non_lue) _note(`Date non lue : rangée en ${String(data.mois).padStart(2,'0')}/${data.annee}, à vérifier`, '#c0392b')
+        if (_s.doublon_remplace) _note(`Déjà déposée (${String(_s.doublon_remplace.mois).padStart(2,'0')}/${_s.doublon_remplace.annee}) : remplacée`, '#b7791f')
+        if (_s.meme_numero_autre_total) _note(`Même n° que ${_s.meme_numero_autre_total.filename}, autre montant : à vérifier`, '#c0392b')
+        if (_s.annee_figee) _note(`Année ${_s.annee_figee} figée : non comptée au grossiste`, '#b7791f')
+      } catch(_e){}
     } else {
       // LOT_FACTURE_NON_LUE : le refus explique quoi faire, il doit se lire en entier.
       _afficherRefusFacture(div, file.name, _depotMessageEchec(res, data))
@@ -4796,7 +4827,7 @@ function _afficherResultatScanMulti(div, nomFichier, data) {
   const ecartees = (data.pages_ecartees || []).filter(p => !p.info)
   const pages = l => (l && l.length) ? ` (p. ${l.join(', ')} du PDF)` : ''
   const lignes = [
-    ...ok.map(f => `<div style="font-size:12px;color:var(--green)">✔︎ n° ${esc(f.num_doc)} — ${esc(SOURCE_LABELS[f.source] || f.source)} ${esc(f.mois)}/${esc(f.annee)} — ${eur(f.total_ht)} HT — ${eur(f.remise_calculee)} remise — vérifié</div>`),
+    ...ok.map(f => `<div style="font-size:12px;color:var(--green)">✔︎ n° ${esc(f.num_doc)} — ${esc(SOURCE_LABELS[f.source] || f.source)} ${esc(f.mois)}/${esc(f.annee)} — ${eur(f.total_ht)} HT — ${eur(f.remise_calculee)} remise — vérifié${(f.alertes && f.alertes.date_non_lue) ? ' — date non lue, à vérifier' : ''}${(f.alertes && f.alertes.doublon_remplace) ? ' — déjà déposée : remplacée' : ''}</div>`),
     ...ko.map(f => `<div style="font-size:12px;color:#991B1B;margin-top:2px">✖ ${esc(f.motif)}${esc(pages(f.pages_pdf))}</div>`),
     ...ecartees.map(p => `<div style="font-size:12px;color:#991B1B;margin-top:2px">✖ Page ${esc(p.page_pdf)} du PDF : ${esc(p.motif)}</div>`),
   ]
@@ -4855,13 +4886,14 @@ async function _uploadDepot(file, opts, div) {
     div.innerHTML = `<span><i class=ic-eye></i></span><span>${escapeHtml(file.name)}</span><span style="margin-left:auto;font-size:12px;color:var(--green)">${escapeHtml(data.fournisseur)} — ${data.nb_lignes} lignes (${stats.nb_generiques||0} gén., ${stats.nb_biosimilaires||0} biosim.)</span>`
     openLaboPreview(data, div, opts)
   } catch(e) {
-    div.innerHTML = `<span><i class=ic-x></i></span><span>${file.name}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${e.message}</span>`
+    div.innerHTML = `<span><i class=ic-x></i></span><span>${echap(file.name)}</span><span style="margin-left:auto;font-size:12px;color:red">Erreur réseau : ${echap(e.message)}</span>`
   }
 }
 
 function openLaboPreview(data, bandeau, opts) {
   opts = opts || { source: 'labo_direct' }
   let modal = document.getElementById('modal-labo-preview')
+  if (modal && modal.classList.contains('open')) { (window._APERCUS = window._APERCUS || []).push([data, bandeau, opts]); return }
   if (!modal) {
     modal = document.createElement('div')
     modal.id = 'modal-labo-preview'
@@ -5000,6 +5032,8 @@ function openLaboPreview(data, bandeau, opts) {
 function closeLaboPreview() {
   const m = document.getElementById('modal-labo-preview')
   if (m) m.classList.remove('open')
+  const suivant = (window._APERCUS || []).shift()
+  if (suivant) setTimeout(() => openLaboPreview(...suivant), 0)
 }
 
 async function confirmLaboPreview(data, bandeau, opts) {
@@ -6543,7 +6577,7 @@ function renderClassifRow(it, catKey) {
       <div class="classif-cip">${it.cip13}</div>
       <div class="classif-nom">${escapeHtml(it.nom || '—')}${forced ? `<span class="classif-forced-tag">✓ corrigé (était ${labelCategory(it.statut_original)})</span>` : ''}</div>
       <div class="classif-status"><span class="badge gray">${labelCategory(catKey)}</span></div>
-      <button class="classif-edit-btn" title="Modifier" onclick="openClassifModal('${it.cip13}', '${escapeAttr(it.nom || '')}', '${catKey}', '${it.statut_original || catKey}', ${forced})"><i class=ic-pencil></i></button>
+      <button class="classif-edit-btn" title="Modifier" onclick="openClassifModal('${jsAttr(it.cip13)}', '${escapeAttr(it.nom || '')}', '${catKey}', '${it.statut_original || catKey}', ${forced})"><i class=ic-pencil></i></button>
     </div>
   `;
 }
@@ -6690,7 +6724,7 @@ function escapeHtml(s) {
   }[c]));
 }
 function escapeAttr(s) {
-  return escapeHtml(s).replace(/'/g, "\\'");
+  return jsAttr(s);
 }
 
 function fmtEur(n) {
@@ -7848,6 +7882,7 @@ async function showLogDetail(logId) {
     const tcEl = block.querySelector('.v390-taux-contrat');
     const tcVal = tcEl ? (parseFloat(tcEl.value)||0) : 0;
     if (tcVal < 0 || tcVal > 100) { status.textContent='\u2717 Taux du contrat entre 0 et 100 %'; status.style.color='#c0392b'; return; }
+    if (block.dataset.detailKo) { status.textContent='\u2717 Feuille non chargée : rechargez la page avant d\'enregistrer'; status.style.color='#c0392b'; return; }
     const detail = {
       version: 2,              /* DETAIL_V2 : cette feuille pilote le calcul */
       taux_contrat_pct: tcVal,
@@ -7885,6 +7920,7 @@ async function showLogDetail(logId) {
       const n = (res.recalcul && res.recalcul.nb_factures_recalculees) || 0;
       status.textContent='\u2713 Enregistr\u00e9' + (n ? ` \u2014 ${n} facture(s) recalcul\u00e9e(s)` : ''); status.style.color='#1D9E75';
       window._v307ConfigCache=null;
+      apiGet('/grossiste/config').then(l => { (l||[]).forEach(c => { CONFIGS_GROSSISTE[c.source] = c }) }).catch(()=>{});
     } catch(e){ status.textContent='\u2717 '+(e.message||'erreur'); status.style.color='#c0392b'; }
   }
 
@@ -7912,7 +7948,7 @@ async function showLogDetail(logId) {
       const block = wrap.firstElementChild;
       card.appendChild(block);
       attach(block, source);
-      apiGet(`/grossiste/config-detail/${source}`).then(d => applyDetail(block, d)).catch(()=>{});
+      apiGet(`/grossiste/config-detail/${source}`).then(d => applyDetail(block, d)).catch(()=>{ block.dataset.detailKo = '1'; toast('Calcul détaillé ' + source.toUpperCase() + ' non chargé : rechargez la page avant de l\'enregistrer', 'red'); });
       if (window._setParamMode) { const _m=(window._PARAM_MODE&&window._PARAM_MODE[source])||((cfg&&cfg.mode_calcul==='simple')?'simple':'detail'); _setParamMode(_m, source); }
     });
   }
@@ -8185,7 +8221,7 @@ async function showLogDetail(logId) {
       } else {
         tbody.innerHTML = produits.map(p => `
           <tr>
-            <td style="font-weight:500;">${(p.nom || '').slice(0, 50)}</td>
+            <td style="font-weight:500;">${echap((p.nom || '').slice(0, 50))}</td>
             <td style="font-family:monospace; color:#666; font-size:11px;">${p.cip13 || '—'}</td>
             <td style="text-align:center; font-size:11px;">${(p.source || '').toUpperCase()}</td>
             <td style="text-align:right;">${p.qte || 0}</td>
